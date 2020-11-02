@@ -105,7 +105,7 @@ pub fn deduct_tax<S: Storage, A: Api, Q: Querier>(
 #[serde(rename_all = "snake_case")]
 pub enum OverseerContractQueryMsg {
     /// Query aValue to overseer contract
-    DistributionParams { asset_token: HumanAddr },
+    DistributionParams { collateral_token: HumanAddr },
 }
 
 // We define a custom struct for each query response
@@ -118,13 +118,13 @@ pub struct DistributionParamsResponse {
 pub fn load_distribution_params<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     contract_addr: &HumanAddr,
-    asset_token: &HumanAddr,
+    collateral_token: &HumanAddr,
 ) -> StdResult<DistributionParamsResponse> {
     let distribution_params: DistributionParamsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(contract_addr),
             msg: to_binary(&OverseerContractQueryMsg::DistributionParams {
-                asset_token: asset_token.clone(),
+                collateral_token: collateral_token.clone(),
             })?,
         }))?;
 

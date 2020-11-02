@@ -23,7 +23,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 ) -> InitResult {
     let config = Config {
         overseer_contract: deps.api.canonical_address(&msg.overseer_contract)?,
-        asset_token: deps.api.canonical_address(&msg.asset_token)?,
+        collateral_token: deps.api.canonical_address(&msg.collateral_token)?,
         market_contract: deps.api.canonical_address(&msg.market_contract)?,
         reward_contract: deps.api.canonical_address(&msg.reward_contract)?,
         reward_denom: msg.reward_denom,
@@ -66,7 +66,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
             Cw20HookMsg::DepositCollateral {} => {
                 // only asset contract can execute this message
                 let config: Config = read_config(&deps.storage)?;
-                if deps.api.canonical_address(&contract_addr)? != config.asset_token {
+                if deps.api.canonical_address(&contract_addr)? != config.collateral_token {
                     return Err(StdError::unauthorized());
                 }
 
@@ -96,7 +96,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<ConfigResponse> {
     let config: Config = read_config(&deps.storage)?;
     Ok(ConfigResponse {
-        asset_token: deps.api.human_address(&config.asset_token)?,
+        collateral_token: deps.api.human_address(&config.collateral_token)?,
         overseer_contract: deps.api.human_address(&config.overseer_contract)?,
         market_contract: deps.api.human_address(&config.market_contract)?,
         reward_contract: deps.api.human_address(&config.reward_contract)?,

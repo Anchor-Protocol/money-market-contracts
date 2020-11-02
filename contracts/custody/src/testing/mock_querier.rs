@@ -110,8 +110,8 @@ pub(crate) fn distribution_params_to_map(
     caps: &[(&HumanAddr, &(Decimal, Decimal))],
 ) -> HashMap<HumanAddr, (Decimal, Decimal)> {
     let mut distribution_params_map: HashMap<HumanAddr, (Decimal, Decimal)> = HashMap::new();
-    for (asset_token, distribution_params) in caps.iter() {
-        distribution_params_map.insert((*asset_token).clone(), **distribution_params);
+    for (collateral_token, distribution_params) in caps.iter() {
+        distribution_params_map.insert((*collateral_token).clone(), **distribution_params);
     }
     distribution_params_map
 }
@@ -164,11 +164,11 @@ impl WasmMockQuerier {
                 contract_addr: _,
                 msg,
             }) => match from_binary(&msg).unwrap() {
-                OverseerContractQueryMsg::DistributionParams { asset_token } => {
+                OverseerContractQueryMsg::DistributionParams { collateral_token } => {
                     match self
                         .distribution_params_querier
                         .distribution_params
-                        .get(&asset_token)
+                        .get(&collateral_token)
                     {
                         Some(v) => Ok(to_binary(&DistributionParamsResponse {
                             a_value: v.0.clone(),
@@ -177,7 +177,7 @@ impl WasmMockQuerier {
                         None => Err(SystemError::InvalidRequest {
                             error: format!(
                                 "No distribution_params exists for the asset {}",
-                                asset_token
+                                collateral_token
                             ),
                             request: msg.as_slice().into(),
                         }),

@@ -18,7 +18,7 @@ fn proper_initialization() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
-        asset_token: HumanAddr::from("bluna"),
+        collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
@@ -32,7 +32,7 @@ fn proper_initialization() {
 
     let query_res = query(&deps, QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&query_res).unwrap();
-    assert_eq!(HumanAddr::from("bluna"), config_res.asset_token);
+    assert_eq!(HumanAddr::from("bluna"), config_res.collateral_token);
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
     assert_eq!(HumanAddr::from("market"), config_res.market_contract);
     assert_eq!(HumanAddr::from("reward"), config_res.reward_contract);
@@ -44,7 +44,7 @@ fn deposit_collateral() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
-        asset_token: HumanAddr::from("bluna"),
+        collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
@@ -136,7 +136,7 @@ fn withdraw_collateral() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
-        asset_token: HumanAddr::from("bluna"),
+        collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
@@ -237,7 +237,7 @@ fn lock_collateral() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
-        asset_token: HumanAddr::from("bluna"),
+        collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
@@ -394,7 +394,7 @@ fn distribute_rewards() {
     );
 
     let msg = InitMsg {
-        asset_token: HumanAddr::from("bluna"),
+        collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
@@ -462,7 +462,7 @@ fn distribute_hook() {
     );
 
     let msg = InitMsg {
-        asset_token: HumanAddr::from("bluna"),
+        collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
@@ -538,7 +538,7 @@ fn swap_to_reward_denom() {
     );
 
     let msg = InitMsg {
-        asset_token: HumanAddr::from("bluna"),
+        collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),

@@ -65,7 +65,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     }
 
     let overseer_contract = deps.api.human_address(&config.overseer_contract)?;
-    let asset_token = deps.api.human_address(&config.asset_token)?;
+    let collateral_token = deps.api.human_address(&config.collateral_token)?;
 
     // reward_amount = (prev_balance + reward_amount) - prev_balance
     let cur_balance: Uint128 =
@@ -73,10 +73,10 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     let reward_amount = (cur_balance - prev_balance).unwrap();
     // load distribution params from the overseer contract
     let distribution_params: DistributionParamsResponse =
-        load_distribution_params(&deps, &overseer_contract, &asset_token)?;
+        load_distribution_params(&deps, &overseer_contract, &collateral_token)?;
 
     // load total bAsset balance
-    let total_balance = load_token_balance(&deps, &asset_token, &contract_addr)?;
+    let total_balance = load_token_balance(&deps, &collateral_token, &contract_addr)?;
 
     let depositor_subsidy = reward_amount * distribution_params.a_value;
     let borrower_plus_buffer_rewards = (reward_amount - depositor_subsidy).unwrap();
