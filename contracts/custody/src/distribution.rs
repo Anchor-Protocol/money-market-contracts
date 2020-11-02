@@ -41,7 +41,7 @@ pub fn distribute_rewards<S: Storage, A: Api, Q: Querier>(
                 msg: to_binary(&HandleMsg::SwapToRewardDenom {})?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: contract_addr,
+                contract_addr,
                 send: vec![],
                 msg: to_binary(&HandleMsg::DistributeHook { prev_balance })?,
             }),
@@ -65,6 +65,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     }
 
     let overseer_contract = deps.api.human_address(&config.overseer_contract)?;
+    let asset_token = deps.api.human_address(&config.asset_token)?;
 
     // reward_amount = (prev_balance + reward_amount) - prev_balance
     let cur_balance: Uint128 =
@@ -72,14 +73,10 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     let reward_amount = (cur_balance - prev_balance).unwrap();
     // load distribution params from the overseer contract
     let distribution_params: DistributionParamsResponse =
-        load_distribution_params(&deps, &overseer_contract, &contract_addr)?;
+        load_distribution_params(&deps, &overseer_contract, &asset_token)?;
 
     // load total bAsset balance
-    let total_balance = load_token_balance(
-        &deps,
-        &deps.api.human_address(&config.asset_token)?,
-        &contract_addr,
-    )?;
+    let total_balance = load_token_balance(&deps, &asset_token, &contract_addr)?;
 
     let depositor_subsidy = reward_amount * distribution_params.a_value;
     let borrower_plus_buffer_rewards = (reward_amount - depositor_subsidy).unwrap();

@@ -1,15 +1,17 @@
 use cosmwasm_std::{
-    from_binary, log, to_binary, CosmosMsg, Decimal, HumanAddr, StdError, Uint128, WasmMsg,
+    from_binary, log, to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
+    WasmMsg,
 };
 
 use crate::contract::{handle, init, query};
-use crate::msg::{
-    BorrowerResponse, BorrowersResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg,
-};
-use crate::state::{increase_global_index, store_borrower_info};
+use crate::external::handle::RewardContractHandleMsg;
+use crate::msg::{BorrowerResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
+use crate::state::increase_global_index;
+use crate::testing::mock_querier::mock_dependencies;
 
-use cosmwasm_std::testing::{mock_dependencies, mock_env, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cw20::Cw20ReceiveMsg;
+use terra_cosmwasm::create_swap_msg;
 
 #[test]
 fn proper_initialization() {
@@ -378,5 +380,202 @@ fn lock_collateral() {
             reward_index: Decimal::from_ratio(1000000u128, 1u128),
             pending_reward: Uint128::zero(),
         }
+    );
+}
+
+#[test]
+fn distribute_rewards() {
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(1000000u128),
+        }],
+    );
+
+    let msg = InitMsg {
+        asset_token: HumanAddr::from("bluna"),
+        overseer_contract: HumanAddr::from("overseer"),
+        market_contract: HumanAddr::from("market"),
+        reward_contract: HumanAddr::from("reward"),
+        reward_denom: "uusd".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::DistributeRewards {};
+    let res = handle(&mut deps, env, msg).unwrap();
+    // Do not print logs at this step
+    assert_eq!(res.log, vec![]);
+    assert_eq!(
+        res.messages,
+        vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("reward"),
+                send: vec![],
+                msg: to_binary(&RewardContractHandleMsg::WithdrawReward {}).unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                send: vec![],
+                msg: to_binary(&HandleMsg::SwapToRewardDenom {}).unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                send: vec![],
+                msg: to_binary(&HandleMsg::DistributeHook {
+                    prev_balance: Uint128(1000000u128)
+                })
+                .unwrap(),
+            }),
+        ]
+    );
+}
+
+#[test]
+fn distribute_hook() {
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(1000000u128),
+        }],
+    );
+
+    deps.querier.with_distribution_params(&[(
+        &HumanAddr::from("bluna"),
+        &(Decimal::percent(20), Decimal::percent(30)),
+    )]);
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("bluna"),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128::from(1000u128),
+        )],
+    )]);
+
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+
+    let msg = InitMsg {
+        asset_token: HumanAddr::from("bluna"),
+        overseer_contract: HumanAddr::from("overseer"),
+        market_contract: HumanAddr::from("market"),
+        reward_contract: HumanAddr::from("reward"),
+        reward_denom: "uusd".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // Claimed rewards is 1000000uusd
+    let msg = HandleMsg::DistributeHook {
+        prev_balance: Uint128::zero(),
+    };
+    let res = handle(&mut deps, env, msg.clone());
+    match res {
+        Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let env = mock_env(MOCK_CONTRACT_ADDR, &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "distribute_rewards"),
+            log("borrower_rewards", "560000"),
+            log("buffer_rewards", "240000"),
+            log("depositer_subsidy", "200000"),
+        ]
+    );
+
+    assert_eq!(
+        res.messages,
+        vec![
+            CosmosMsg::Bank(BankMsg::Send {
+                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                to_address: HumanAddr::from("market"),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(198019u128),
+                }]
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                to_address: HumanAddr::from("overseer"),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(237623u128)
+                }],
+            }),
+        ],
+    )
+}
+
+#[test]
+fn swap_to_reward_denom() {
+    let mut deps = mock_dependencies(
+        20,
+        &[
+            Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128(1000000u128),
+            },
+            Coin {
+                denom: "ukrw".to_string(),
+                amount: Uint128(20000000000u128),
+            },
+            Coin {
+                denom: "usdr".to_string(),
+                amount: Uint128(2000000u128),
+            },
+        ],
+    );
+
+    let msg = InitMsg {
+        asset_token: HumanAddr::from("bluna"),
+        overseer_contract: HumanAddr::from("overseer"),
+        market_contract: HumanAddr::from("market"),
+        reward_contract: HumanAddr::from("reward"),
+        reward_denom: "uusd".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::SwapToRewardDenom {};
+    let res = handle(&mut deps, env, msg.clone());
+    match res {
+        Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let env = mock_env(MOCK_CONTRACT_ADDR, &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![
+            create_swap_msg(
+                HumanAddr::from(MOCK_CONTRACT_ADDR),
+                Coin {
+                    denom: "ukrw".to_string(),
+                    amount: Uint128::from(20000000000u128),
+                },
+                "uusd".to_string()
+            ),
+            create_swap_msg(
+                HumanAddr::from(MOCK_CONTRACT_ADDR),
+                Coin {
+                    denom: "usdr".to_string(),
+                    amount: Uint128::from(2000000u128),
+                },
+                "uusd".to_string()
+            ),
+        ]
     );
 }

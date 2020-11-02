@@ -5,5 +5,5 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum RewardContractHandleMsg {
     /// Request bAsset reward withdrawal
-    WithdrawReward{},
+    WithdrawReward {},
 }

@@ -60,7 +60,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
     env: Env,
     cw20_msg: Cw20ReceiveMsg,
 ) -> HandleResult<TerraMsgWrapper> {
-    let contract_addr = env.message.sender.clone();
+    let contract_addr = env.message.sender;
     if let Some(msg) = cw20_msg.msg {
         match from_binary(&msg)? {
             Cw20HookMsg::DepositCollateral {} => {

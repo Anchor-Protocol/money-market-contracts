@@ -1,9 +1,9 @@
+pub mod collateral;
 pub mod contract;
+pub mod distribution;
+pub mod external;
 pub mod msg;
 pub mod state;
-pub mod distribution;
-pub mod collateral;
-pub mod external;
 
 #[cfg(test)]
 mod testing;
