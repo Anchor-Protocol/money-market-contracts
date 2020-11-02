@@ -104,7 +104,15 @@ pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
 
     borrower_info.spendable = (borrower_info.spendable - amount).unwrap();
     store_borrower_info(&mut deps.storage, &borrower_raw, &borrower_info)?;
-    Ok(HandleResponse::default())
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![
+            log("action", "lock_collateral"),
+            log("borrower", borrower),
+            log("amount", amount),
+        ],
+        data: None,
+    })
 }
 
 /// Increase spendable collateral to unlock
@@ -133,7 +141,16 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
 
     borrower_info.spendable += amount;
     store_borrower_info(&mut deps.storage, &borrower_raw, &borrower_info)?;
-    Ok(HandleResponse::default())
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![
+            log("action", "unlock_collateral"),
+            log("borrower", borrower),
+            log("amount", amount),
+        ],
+        data: None,
+    })
 }
 
 /// Executed whenever before balance updated,
