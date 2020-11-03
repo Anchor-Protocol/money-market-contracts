@@ -103,16 +103,18 @@ pub fn deduct_tax<S: Storage, A: Api, Q: Querier>(
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum OverseerContractQueryMsg {
+pub enum QueryMsg {
     /// Query aValue to overseer contract
     DistributionParams { collateral_token: HumanAddr },
+    /// Query epoch state to market contract
+    EpochState {},
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct DistributionParamsResponse {
-    pub a_value: Decimal,
-    pub buffer_tax_rate: Decimal,
+    pub deposit_rate: Decimal,
+    pub target_deposit_rate: Decimal,
 }
 
 pub fn load_distribution_params<S: Storage, A: Api, Q: Querier>(
@@ -123,26 +125,46 @@ pub fn load_distribution_params<S: Storage, A: Api, Q: Querier>(
     let distribution_params: DistributionParamsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(contract_addr),
-            msg: to_binary(&OverseerContractQueryMsg::DistributionParams {
+            msg: to_binary(&QueryMsg::DistributionParams {
                 collateral_token: collateral_token.clone(),
             })?,
         }))?;
 
-    if distribution_params.a_value > Decimal::one() {
+    if distribution_params.deposit_rate > Decimal::one() {
         return Err(StdError::generic_err(format!(
-            "Invalid a_value {:?}",
-            distribution_params.a_value
+            "Invalid deposit_rate {:?}",
+            distribution_params.deposit_rate
         )));
     }
 
-    if distribution_params.buffer_tax_rate > Decimal::one() {
+    if distribution_params.target_deposit_rate > Decimal::one() {
         return Err(StdError::generic_err(format!(
-            "Invalid buffer_tax_rate {:?}",
-            distribution_params.buffer_tax_rate
+            "Invalid target_deposit_rate {:?}",
+            distribution_params.target_deposit_rate
         )));
     }
 
     Ok(distribution_params)
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct EpochStateResponse {
+    pub exchange_rate: Decimal,
+    pub a_token_supply: Uint128,
+}
+
+pub fn load_epoch_state<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    contract_addr: &HumanAddr,
+) -> StdResult<EpochStateResponse> {
+    let epoch_state: EpochStateResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: HumanAddr::from(contract_addr),
+            msg: to_binary(&QueryMsg::EpochState {})?,
+        }))?;
+
+    Ok(epoch_state)
 }
 
 #[inline]

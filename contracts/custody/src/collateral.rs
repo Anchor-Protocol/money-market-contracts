@@ -1,11 +1,11 @@
 use crate::msg::{BorrowerResponse, BorrowersResponse};
 use crate::state::{
-    read_borrower_info, read_borrowers, read_config, read_global_index, remove_borrower_info,
-    store_borrower_info, BorrowerInfo, Config,
+    read_borrower_info, read_borrowers, read_config, remove_borrower_info, store_borrower_info,
+    BorrowerInfo, Config,
 };
 use cosmwasm_std::{
-    log, Api, CanonicalAddr, Decimal, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    Querier, StdError, StdResult, Storage, Uint128,
+    log, Api, CanonicalAddr, Env, Extern, HandleResponse, HandleResult, HumanAddr, Querier,
+    StdError, StdResult, Storage, Uint128,
 };
 use terra_cosmwasm::TerraMsgWrapper;
 
@@ -20,7 +20,6 @@ pub fn deposit_collateral<S: Storage, A: Api, Q: Querier>(
     let mut borrower_info: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
 
     // withdraw rewards to pending rewards
-    before_balance_change(&deps, &mut borrower_info)?;
     borrower_info.balance += amount;
     borrower_info.spendable += amount;
 
@@ -58,11 +57,10 @@ pub fn withdraw_collateral<S: Storage, A: Api, Q: Querier>(
     }
 
     // withdraw rewards to pending rewards
-    before_balance_change(&deps, &mut borrower_info)?;
     borrower_info.balance = (borrower_info.balance - amount).unwrap();
     borrower_info.spendable = (borrower_info.spendable - amount).unwrap();
 
-    if borrower_info.balance == Uint128::zero() && borrower_info.pending_reward == Uint128::zero() {
+    if borrower_info.balance == Uint128::zero() {
         remove_borrower_info(&mut deps.storage, &borrower_raw);
     } else {
         store_borrower_info(&mut deps.storage, &borrower_raw, &borrower_info)?;
@@ -153,22 +151,6 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-/// Executed whenever before balance updated,
-/// withdraw reward to pending rewards
-/// and update reward_index to global_index
-fn before_balance_change<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    borrower_info: &mut BorrowerInfo,
-) -> StdResult<()> {
-    let global_index: Decimal = read_global_index(&deps.storage);
-    let pending_reward = (borrower_info.balance * global_index
-        - borrower_info.balance * borrower_info.reward_index)?;
-
-    borrower_info.reward_index = global_index;
-    borrower_info.pending_reward += pending_reward;
-    Ok(())
-}
-
 pub fn query_borrower<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     borrower: HumanAddr,
@@ -179,8 +161,6 @@ pub fn query_borrower<S: Storage, A: Api, Q: Querier>(
         borrower,
         balance: borrower_info.balance,
         spendable: borrower_info.spendable,
-        reward_index: borrower_info.reward_index,
-        pending_reward: borrower_info.pending_reward,
     })
 }
 

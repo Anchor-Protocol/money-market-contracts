@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
 
-use moneymarket::{DistributionParamsResponse, OverseerContractQueryMsg};
+use moneymarket::{DistributionParamsResponse, QueryMsg};
 
 use cw20::TokenInfoResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
@@ -164,25 +164,24 @@ impl WasmMockQuerier {
                 contract_addr: _,
                 msg,
             }) => match from_binary(&msg).unwrap() {
-                OverseerContractQueryMsg::DistributionParams { collateral_token } => {
-                    match self
-                        .distribution_params_querier
-                        .distribution_params
-                        .get(&collateral_token)
-                    {
-                        Some(v) => Ok(to_binary(&DistributionParamsResponse {
-                            a_value: v.0.clone(),
-                            buffer_tax_rate: v.1.clone(),
-                        })),
-                        None => Err(SystemError::InvalidRequest {
-                            error: format!(
-                                "No distribution_params exists for the asset {}",
-                                collateral_token
-                            ),
-                            request: msg.as_slice().into(),
-                        }),
-                    }
-                }
+                QueryMsg::DistributionParams { collateral_token } => match self
+                    .distribution_params_querier
+                    .distribution_params
+                    .get(&collateral_token)
+                {
+                    Some(v) => Ok(to_binary(&DistributionParamsResponse {
+                        deposit_rate: v.0.clone(),
+                        target_deposit_rate: v.1.clone(),
+                    })),
+                    None => Err(SystemError::InvalidRequest {
+                        error: format!(
+                            "No distribution_params exists for the asset {}",
+                            collateral_token
+                        ),
+                        request: msg.as_slice().into(),
+                    }),
+                },
+                _ => panic!("DO NOT ENTER HERE"),
             },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();

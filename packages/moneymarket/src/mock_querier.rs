@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
 
-use crate::querier::{DistributionParamsResponse, OverseerContractQueryMsg};
+use crate::querier::{DistributionParamsResponse, EpochStateResponse, QueryMsg};
 use cw20::TokenInfoResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
@@ -35,6 +35,7 @@ pub struct WasmMockQuerier {
     token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
     distribution_params_querier: DistributionParamsQuerier,
+    epoch_state_querier: EpochStateQuerier,
     canonical_length: usize,
 }
 
@@ -115,6 +116,20 @@ pub(crate) fn distribution_params_to_map(
     distribution_params_map
 }
 
+#[derive(Clone, Default)]
+pub struct EpochStateQuerier {
+    // this lets us iterate over all pairs that match the first string
+    epoch_state: (Uint128, Decimal),
+}
+
+impl EpochStateQuerier {
+    pub fn new(epoch_state: &(Uint128, Decimal)) -> Self {
+        EpochStateQuerier {
+            epoch_state: *epoch_state,
+        }
+    }
+}
+
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
@@ -162,27 +177,29 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: _,
                 msg,
-            }) => {
-                match from_binary(&msg).unwrap() {
-                    OverseerContractQueryMsg::DistributionParams { collateral_token } => match self
-                        .distribution_params_querier
-                        .distribution_params
-                        .get(&collateral_token)
-                    {
-                        Some(v) => Ok(to_binary(&DistributionParamsResponse {
-                            a_value: v.0.clone(),
-                            buffer_tax_rate: v.1.clone(),
-                        })),
-                        None => Err(SystemError::InvalidRequest {
-                            error: format!(
-                                "No distribution_params exists for the asset {}",
-                                collateral_token
-                            ),
-                            request: msg.as_slice().into(),
-                        }),
-                    },
-                }
-            }
+            }) => match from_binary(&msg).unwrap() {
+                QueryMsg::DistributionParams { collateral_token } => match self
+                    .distribution_params_querier
+                    .distribution_params
+                    .get(&collateral_token)
+                {
+                    Some(v) => Ok(to_binary(&DistributionParamsResponse {
+                        deposit_rate: v.0.clone(),
+                        target_deposit_rate: v.1.clone(),
+                    })),
+                    None => Err(SystemError::InvalidRequest {
+                        error: format!(
+                            "No distribution_params exists for the asset {}",
+                            collateral_token
+                        ),
+                        request: msg.as_slice().into(),
+                    }),
+                },
+                QueryMsg::EpochState {} => Ok(to_binary(&EpochStateResponse {
+                    a_token_supply: self.epoch_state_querier.epoch_state.0,
+                    exchange_rate: self.epoch_state_querier.epoch_state.1,
+                })),
+            },
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
 
@@ -262,6 +279,7 @@ impl WasmMockQuerier {
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
             distribution_params_querier: DistributionParamsQuerier::default(),
+            epoch_state_querier: EpochStateQuerier::default(),
             canonical_length,
         }
     }
@@ -282,5 +300,9 @@ impl WasmMockQuerier {
         distribution_params: &[(&HumanAddr, &(Decimal, Decimal))],
     ) {
         self.distribution_params_querier = DistributionParamsQuerier::new(distribution_params);
+    }
+
+    pub fn with_epoch_state(&mut self, epoch_state: &(Uint128, Decimal)) {
+        self.epoch_state_querier = EpochStateQuerier::new(epoch_state);
     }
 }

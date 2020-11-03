@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr, Uint128};
+use cosmwasm_std::{HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -41,12 +41,13 @@ pub enum HandleMsg {
         amount: Uint128,
     },
     /// Claim bAsset rewards and distribute claimed rewards
-    /// with reward_index update
+    /// to market and overseer contracts
     DistributeRewards {},
-    DistributeHook {
-        prev_balance: Uint128,
-    },
-    /// Swap all coins to reward_denom
+
+    /// (internal) Send withdrawn rewards to market & overseer
+    DistributeHook {},
+
+    /// (internal) Swap all coins to reward_denom
     SwapToRewardDenom {},
 
     ////////////////////
@@ -56,10 +57,7 @@ pub enum HandleMsg {
     /// Withdraw spendable collateral token.
     /// If the amount is not given,
     /// return all spendable collateral
-    WithdrawCollateral {
-        amount: Option<Uint128>,
-    },
-    ClaimReward {},
+    WithdrawCollateral { amount: Option<Uint128> },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -98,8 +96,6 @@ pub struct BorrowerResponse {
     pub borrower: HumanAddr,
     pub balance: Uint128,
     pub spendable: Uint128,
-    pub reward_index: Decimal,
-    pub pending_reward: Uint128,
 }
 
 // We define a custom struct for each query response

@@ -7,9 +7,7 @@ use crate::collateral::{
     deposit_collateral, lock_collateral, query_borrower, query_borrowers, unlock_collateral,
     withdraw_collateral,
 };
-use crate::distribution::{
-    claim_reward, distribute_hook, distribute_rewards, swap_to_reward_denom,
-};
+use crate::distribution::{distribute_hook, distribute_rewards, swap_to_reward_denom};
 use crate::msg::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{read_config, store_config, Config};
 
@@ -48,10 +46,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             unlock_collateral(deps, env, borrower, amount)
         }
         HandleMsg::DistributeRewards {} => distribute_rewards(deps, env),
-        HandleMsg::DistributeHook { prev_balance } => distribute_hook(deps, env, prev_balance),
+        HandleMsg::DistributeHook {} => distribute_hook(deps, env),
         HandleMsg::SwapToRewardDenom {} => swap_to_reward_denom(deps, env),
         HandleMsg::WithdrawCollateral { amount } => withdraw_collateral(deps, env, amount),
-        HandleMsg::ClaimReward {} => claim_reward(deps, env),
     }
 }
 

@@ -1,16 +1,13 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{
-    Api, CanonicalAddr, Decimal, Extern, Order, Querier, StdResult, Storage, Uint128,
-};
+use cosmwasm_std::{Api, CanonicalAddr, Extern, Order, Querier, StdResult, Storage, Uint128};
 
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
 
 use crate::msg::BorrowerResponse;
 
 const KEY_CONFIG: &[u8] = b"config";
-const KEY_GLOBAL_INDEX: &[u8] = b"global_index";
 const PREFIX_BORROWER: &[u8] = b"borrower";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -26,8 +23,6 @@ pub struct Config {
 pub struct BorrowerInfo {
     pub balance: Uint128,
     pub spendable: Uint128,
-    pub reward_index: Decimal,
-    pub pending_reward: Uint128,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, data: &Config) -> StdResult<()> {
@@ -36,18 +31,6 @@ pub fn store_config<S: Storage>(storage: &mut S, data: &Config) -> StdResult<()>
 
 pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
     ReadonlySingleton::new(storage, KEY_CONFIG).load()
-}
-
-pub fn increase_global_index<S: Storage>(storage: &mut S, amount: Decimal) -> StdResult<()> {
-    let global_index = read_global_index(storage);
-    Singleton::new(storage, KEY_GLOBAL_INDEX).save(&(global_index + amount))
-}
-
-pub fn read_global_index<S: Storage>(storage: &S) -> Decimal {
-    match ReadonlySingleton::new(storage, KEY_GLOBAL_INDEX).load() {
-        Ok(v) => v,
-        _ => Decimal::zero(),
-    }
 }
 
 pub fn store_borrower_info<S: Storage>(
@@ -74,8 +57,6 @@ pub fn read_borrower_info<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> 
         _ => BorrowerInfo {
             balance: Uint128::zero(),
             spendable: Uint128::zero(),
-            reward_index: Decimal::zero(),
-            pending_reward: Uint128::zero(),
         },
     }
 }
@@ -104,8 +85,6 @@ pub fn read_borrowers<S: Storage, A: Api, Q: Querier>(
                 borrower: deps.api.human_address(&borrower)?,
                 balance: v.balance,
                 spendable: v.spendable,
-                reward_index: v.reward_index,
-                pending_reward: v.pending_reward,
             })
         })
         .collect()

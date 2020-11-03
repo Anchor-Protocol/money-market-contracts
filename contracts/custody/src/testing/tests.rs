@@ -6,7 +6,6 @@ use cosmwasm_std::{
 use crate::contract::{handle, init, query};
 use crate::external::handle::RewardContractHandleMsg;
 use crate::msg::{BorrowerResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
-use crate::state::increase_global_index;
 use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
@@ -94,13 +93,10 @@ fn deposit_collateral() {
             borrower: HumanAddr::from("addr0000"),
             balance: Uint128::from(100u128),
             spendable: Uint128::from(100u128),
-            reward_index: Decimal::zero(),
-            pending_reward: Uint128::zero(),
         }
     );
 
-    // Check before_balance change
-    increase_global_index(&mut deps.storage, Decimal::from_ratio(1000000u128, 1u128)).unwrap();
+    // Deposit more
     let _res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
         res.log,
@@ -125,8 +121,6 @@ fn deposit_collateral() {
             borrower: HumanAddr::from("addr0000"),
             balance: Uint128::from(200u128),
             spendable: Uint128::from(200u128),
-            reward_index: Decimal::from_ratio(1000000u128, 1u128),
-            pending_reward: Uint128::from(100000000u128),
         }
     );
 }
@@ -145,9 +139,6 @@ fn withdraw_collateral() {
 
     let env = mock_env("addr0000", &[]);
     let _res = init(&mut deps, env, msg).unwrap();
-
-    // Check reward index update
-    increase_global_index(&mut deps.storage, Decimal::from_ratio(1000000u128, 1u128)).unwrap();
 
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
@@ -206,8 +197,6 @@ fn withdraw_collateral() {
             borrower: HumanAddr::from("addr0000"),
             balance: Uint128::from(50u128),
             spendable: Uint128::from(50u128),
-            reward_index: Decimal::from_ratio(1000000u128, 1u128),
-            pending_reward: Uint128::zero(),
         }
     );
 
@@ -226,8 +215,6 @@ fn withdraw_collateral() {
             borrower: HumanAddr::from("addr0000"),
             balance: Uint128::zero(),
             spendable: Uint128::zero(),
-            reward_index: Decimal::zero(),
-            pending_reward: Uint128::zero(),
         }
     );
 }
@@ -246,9 +233,6 @@ fn lock_collateral() {
 
     let env = mock_env("addr0000", &[]);
     let _res = init(&mut deps, env, msg).unwrap();
-
-    // Check reward index update
-    increase_global_index(&mut deps.storage, Decimal::from_ratio(1000000u128, 1u128)).unwrap();
 
     let msg = HandleMsg::Receive(Cw20ReceiveMsg {
         sender: HumanAddr::from("addr0000"),
@@ -328,8 +312,6 @@ fn lock_collateral() {
             borrower: HumanAddr::from("addr0000"),
             balance: Uint128::from(50u128),
             spendable: Uint128::from(0u128),
-            reward_index: Decimal::from_ratio(1000000u128, 1u128),
-            pending_reward: Uint128::zero(),
         }
     );
 
@@ -377,8 +359,6 @@ fn lock_collateral() {
             borrower: HumanAddr::from("addr0000"),
             balance: Uint128::from(20u128),
             spendable: Uint128::from(0u128),
-            reward_index: Decimal::from_ratio(1000000u128, 1u128),
-            pending_reward: Uint128::zero(),
         }
     );
 }
@@ -424,10 +404,7 @@ fn distribute_rewards() {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
                 send: vec![],
-                msg: to_binary(&HandleMsg::DistributeHook {
-                    prev_balance: Uint128(1000000u128)
-                })
-                .unwrap(),
+                msg: to_binary(&HandleMsg::DistributeHook {}).unwrap(),
             }),
         ]
     );
@@ -445,7 +422,7 @@ fn distribute_hook() {
 
     deps.querier.with_distribution_params(&[(
         &HumanAddr::from("bluna"),
-        &(Decimal::percent(20), Decimal::percent(30)),
+        &(Decimal::percent(30), Decimal::percent(20)),
     )]);
 
     deps.querier.with_token_balances(&[(
@@ -473,9 +450,7 @@ fn distribute_hook() {
     let _res = init(&mut deps, env.clone(), msg).unwrap();
 
     // Claimed rewards is 1000000uusd
-    let msg = HandleMsg::DistributeHook {
-        prev_balance: Uint128::zero(),
-    };
+    let msg = HandleMsg::DistributeHook {};
     let res = handle(&mut deps, env, msg.clone());
     match res {
         Err(StdError::Unauthorized { .. }) => {}
@@ -488,9 +463,8 @@ fn distribute_hook() {
         res.log,
         vec![
             log("action", "distribute_rewards"),
-            log("borrower_rewards", "560000"),
-            log("buffer_rewards", "240000"),
-            log("depositer_subsidy", "200000"),
+            log("buffer_rewards", "100000"),
+            log("depositer_subsidy", "900000"),
         ]
     );
 
@@ -499,19 +473,19 @@ fn distribute_hook() {
         vec![
             CosmosMsg::Bank(BankMsg::Send {
                 from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                to_address: HumanAddr::from("market"),
-                amount: vec![Coin {
-                    denom: "uusd".to_string(),
-                    amount: Uint128::from(198019u128),
-                }]
-            }),
-            CosmosMsg::Bank(BankMsg::Send {
-                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
                 to_address: HumanAddr::from("overseer"),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128::from(237623u128)
+                    amount: Uint128::from(99009u128)
                 }],
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                to_address: HumanAddr::from("market"),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(891089u128),
+                }]
             }),
         ],
     )

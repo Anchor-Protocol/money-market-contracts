@@ -1,7 +1,8 @@
 use crate::mock_querier::mock_dependencies;
 use crate::querier::{
     compute_tax, deduct_tax, load_all_balances, load_balance, load_distribution_params,
-    load_supply, load_token_balance, DistributionParamsResponse,
+    load_epoch_state, load_supply, load_token_balance, DistributionParamsResponse,
+    EpochStateResponse,
 };
 use cosmwasm_std::testing::MOCK_CONTRACT_ADDR;
 use cosmwasm_std::{Coin, Decimal, HumanAddr, Uint128};
@@ -84,7 +85,7 @@ fn a_value_querier() {
 
     deps.querier.with_distribution_params(&[(
         &HumanAddr::from("asset0000"),
-        &(Decimal::percent(70), Decimal::percent(1)),
+        &(Decimal::percent(1), Decimal::percent(2)),
     )]);
 
     assert_eq!(
@@ -95,8 +96,8 @@ fn a_value_querier() {
         )
         .unwrap(),
         DistributionParamsResponse {
-            a_value: Decimal::percent(70),
-            buffer_tax_rate: Decimal::percent(1),
+            deposit_rate: Decimal::percent(1),
+            target_deposit_rate: Decimal::percent(2),
         }
     );
 }
@@ -167,6 +168,23 @@ fn test_deduct_tax() {
         Coin {
             denom: "uusd".to_string(),
             amount: Uint128(49504950u128)
+        }
+    );
+}
+
+#[test]
+fn test_epoch_state_query() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    deps.querier
+        .with_epoch_state(&(Uint128::from(100u128), Decimal::percent(53)));
+
+    let epoch_state = load_epoch_state(&deps, &HumanAddr::from("market")).unwrap();
+    assert_eq!(
+        epoch_state,
+        EpochStateResponse {
+            a_token_supply: Uint128::from(100u128),
+            exchange_rate: Decimal::percent(53),
         }
     );
 }
