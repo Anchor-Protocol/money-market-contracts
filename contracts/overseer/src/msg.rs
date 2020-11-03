@@ -12,9 +12,9 @@ pub struct InitMsg {
     pub oracle_contract: HumanAddr,
     /// Market contract address to receive missing interest buffer
     pub market_contract: HumanAddr,
-    /// The base denomination used when fetching oracle price
-    /// and reward distribution
-    pub reward_denom: String,
+    /// The base denomination used when fetching oracle price,
+    /// reward distribution, and borrow
+    pub base_denom: String,
     /// Distribute interest buffer, if deposit_rate < distribution_threshold
     pub distribution_threshold: Decimal,
     /// Target deposit rate.
@@ -62,6 +62,9 @@ pub enum HandleMsg {
     },
     UnlockCollateral {
         collaterals: Vec<(HumanAddr, Uint128)>, // <(Collateral Token, Amount)>
+    },
+    Borrow {
+        amount: Uint128, // the amount of stable 
     },
 
     /////////////////////////////

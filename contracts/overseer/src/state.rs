@@ -18,7 +18,7 @@ pub struct Config {
     pub owner_addr: CanonicalAddr,
     pub oracle_contract: CanonicalAddr,
     pub market_contract: CanonicalAddr,
-    pub reward_denom: String,
+    pub base_denom: String,
     pub distribution_threshold: Decimal,
     pub target_deposit_rate: Decimal,
     pub buffer_distribution_rate: Decimal,
@@ -45,6 +45,43 @@ pub struct Loan {
 }
 
 impl Loan {
+    pub fn sub_collateral(
+        self: &mut Self,
+        collaterals: Vec<(CanonicalAddr, Uint128)>,
+    ) -> StdResult<()> {
+        self.collaterals
+            .sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
+
+        let mut collaterals = collaterals.clone();
+        collaterals.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
+
+        let mut i = 0;
+        let mut j = 0;
+        while i < self.collaterals.len() || j < collaterals.len() {
+            if self.collaterals[i].0 == collaterals[j].0 {
+                i += 1;
+                j += 1;
+
+                self.collaterals[i].1 = (self.collaterals[i].1 - collaterals[j].1)?;
+            } else if self.collaterals[i]
+                .0
+                .as_slice()
+                .cmp(&collaterals[j].0.as_slice())
+                == std::cmp::Ordering::Greater
+            {
+                j += 1;
+            } else {
+                i += 1;
+            }
+        }
+
+        if j != collaterals.len() {
+            return Err(StdError::generic_err("Subtraction underflow"));
+        }
+
+        Ok(())
+    }
+
     pub fn add_collateral(self: &mut Self, collaterals: Vec<(CanonicalAddr, Uint128)>) {
         self.collaterals
             .sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));

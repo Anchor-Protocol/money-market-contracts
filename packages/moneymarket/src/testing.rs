@@ -1,8 +1,8 @@
 use crate::mock_querier::mock_dependencies;
 use crate::querier::{
     compute_tax, deduct_tax, load_all_balances, load_balance, load_distribution_params,
-    load_epoch_state, load_supply, load_token_balance, DistributionParamsResponse,
-    EpochStateResponse,
+    load_epoch_state, load_oracle_price, load_supply, load_token_balance,
+    DistributionParamsResponse, EpochStateResponse, OraclePriceResponse,
 };
 use cosmwasm_std::testing::MOCK_CONTRACT_ADDR;
 use cosmwasm_std::{Coin, Decimal, HumanAddr, Uint128};
@@ -176,8 +176,10 @@ fn test_deduct_tax() {
 fn test_epoch_state_query() {
     let mut deps = mock_dependencies(20, &[]);
 
-    deps.querier
-        .with_epoch_state(&(Uint128::from(100u128), Decimal::percent(53)));
+    deps.querier.with_epoch_state(&[(
+        &HumanAddr::from("market"),
+        &(Uint128::from(100u128), Decimal::percent(53)),
+    )]);
 
     let epoch_state = load_epoch_state(&deps, &HumanAddr::from("market")).unwrap();
     assert_eq!(
@@ -187,4 +189,39 @@ fn test_epoch_state_query() {
             exchange_rate: Decimal::percent(53),
         }
     );
+}
+
+#[test]
+fn test_oracle_price_query() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    deps.querier.with_oracle_price(&[(
+        &("uusd".to_string(), "terra123123".to_string()),
+        &(Decimal::from_ratio(131u128, 2u128), 123, 321),
+    )]);
+
+    let oracle_price = load_oracle_price(
+        &deps,
+        &HumanAddr::from("oracle"),
+        "uusd".to_string(),
+        "terra123123".to_string(),
+    )
+    .unwrap();
+
+    assert_eq!(
+        oracle_price,
+        OraclePriceResponse {
+            rate: Decimal::from_ratio(131u128, 2u128),
+            last_updated_base: 123,
+            last_updated_quote: 321,
+        }
+    );
+
+    load_oracle_price(
+        &deps,
+        &HumanAddr::from("oracle"),
+        "ukrw".to_string(),
+        "terra123123".to_string(),
+    )
+    .unwrap_err();
 }

@@ -1,12 +1,14 @@
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Decimal,
-    Env, Extern, HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, Querier,
-    StdError, StdResult, Storage, Uint128, WasmMsg,
+    log, to_binary, Api, BankMsg, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
+    HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError, Storage, Uint128,
+    WasmMsg,
 };
 
-use crate::collateral::{liquidiate_collateral, lock_collateral, unlock_collateral};
+use crate::collateral::{
+    handle_borrow, handle_liquidiate_collateral, handle_lock_collateral, handle_unlock_collateral,
+};
 use crate::math::{decimal_division, decimal_subtraction};
-use crate::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg, WhitelistResponseItem};
+use crate::msg::{HandleMsg, InitMsg, WhitelistResponseItem};
 use crate::state::{
     read_config, read_epoch_state, read_whitelist, read_whitelist_item, store_config,
     store_epoch_state, store_whitelist_item, Config, EpochState, WhitelistItem,
@@ -34,7 +36,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             buffer_distribution_rate: msg.buffer_distribution_rate,
             oracle_contract: deps.api.canonical_address(&msg.oracle_contract)?,
             market_contract: deps.api.canonical_address(&msg.market_contract)?,
-            reward_denom: msg.reward_denom,
+            base_denom: msg.base_denom,
         },
     )?;
 
@@ -75,10 +77,15 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             custody_contract,
             ltv,
         } => register_whitelist(deps, env, collateral_token, custody_contract, ltv),
-        HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
-        HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
-        HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
-        HandleMsg::LiquidiateCollateral { borrower } => liquidiate_collateral(deps, env, borrower),
+        HandleMsg::ExecuteEpochOperations {} => handle_execute_epoch_operations(deps, env),
+        HandleMsg::LockCollateral { collaterals } => handle_lock_collateral(deps, env, collaterals),
+        HandleMsg::UnlockCollateral { collaterals } => {
+            handle_unlock_collateral(deps, env, collaterals)
+        }
+        HandleMsg::LiquidiateCollateral { borrower } => {
+            handle_liquidiate_collateral(deps, env, borrower)
+        }
+        HandleMsg::Borrow { amount } => handle_borrow(deps, env, amount),
     }
 }
 
@@ -161,7 +168,7 @@ pub fn register_whitelist<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
+pub fn handle_execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> HandleResult {
@@ -199,11 +206,8 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
 
         // missing_deposits = prev_deposits * missing_deposit_rate(_per_block) * blocks
         let missing_deposits = Uint128(prev_deposits.u128() * blocks.u128()) * missing_deposit_rate;
-        let interest_buffer = load_balance(
-            &deps,
-            &env.contract.address,
-            config.reward_denom.to_string(),
-        )?;
+        let interest_buffer =
+            load_balance(&deps, &env.contract.address, config.base_denom.to_string())?;
         let distribution_buffer = interest_buffer * config.buffer_distribution_rate;
 
         // When there was not enough deposits happens,
@@ -217,7 +221,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
             amount: vec![deduct_tax(
                 &deps,
                 Coin {
-                    denom: config.reward_denom,
+                    denom: config.base_denom,
                     amount: distributed_interest,
                 },
             )?],

@@ -71,15 +71,6 @@ pub fn load_token_balance<S: Storage, A: Api, Q: Querier>(
     from_binary(&res)
 }
 
-pub fn load_oracle_price<S: Storage, A: Api, Q: Querier>(
-    _deps: &Extern<S, A, Q>,
-    _base: String,
-    _quote: String,
-) -> StdResult<Decimal> {
-    // TODO - Implement oracle contract
-    Ok(Decimal::from_ratio(1300u128, 1u128))
-}
-
 static DECIMAL_FRACTION: Uint128 = Uint128(1_000_000_000_000_000_000u128);
 
 pub fn compute_tax<S: Storage, A: Api, Q: Querier>(
@@ -117,6 +108,8 @@ pub enum QueryMsg {
     DistributionParams { collateral_token: HumanAddr },
     /// Query epoch state to market contract
     EpochState {},
+    /// Query oracle price to oracle contract
+    OraclePrice { base: String, quote: String },
 }
 
 // We define a custom struct for each query response
@@ -174,6 +167,29 @@ pub fn load_epoch_state<S: Storage, A: Api, Q: Querier>(
         }))?;
 
     Ok(epoch_state)
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct OraclePriceResponse {
+    pub rate: Decimal,
+    pub last_updated_base: u64,
+    pub last_updated_quote: u64,
+}
+
+pub fn load_oracle_price<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    contract_addr: &HumanAddr,
+    base: String,
+    quote: String,
+) -> StdResult<OraclePriceResponse> {
+    let oracle_price: OraclePriceResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: HumanAddr::from(contract_addr),
+            msg: to_binary(&QueryMsg::OraclePrice { base, quote })?,
+        }))?;
+
+    Ok(oracle_price)
 }
 
 #[inline]
