@@ -71,6 +71,15 @@ pub fn load_token_balance<S: Storage, A: Api, Q: Querier>(
     from_binary(&res)
 }
 
+pub fn load_oracle_price<S: Storage, A: Api, Q: Querier>(
+    _deps: &Extern<S, A, Q>,
+    _base: String,
+    _quote: String,
+) -> StdResult<Decimal> {
+    // TODO - Implement oracle contract
+    Ok(Decimal::from_ratio(1300u128, 1u128))
+}
+
 static DECIMAL_FRACTION: Uint128 = Uint128(1_000_000_000_000_000_000u128);
 
 pub fn compute_tax<S: Storage, A: Api, Q: Querier>(
