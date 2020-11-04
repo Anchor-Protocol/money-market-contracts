@@ -60,7 +60,6 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     }
 
     let overseer_contract = deps.api.human_address(&config.overseer_contract)?;
-    let collateral_token = deps.api.human_address(&config.collateral_token)?;
 
     // reward_amount = (prev_balance + reward_amount) - prev_balance
     let reward_amount: Uint128 =
@@ -68,7 +67,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
 
     // load distribution params from the overseer contract
     let distribution_params: DistributionParamsResponse =
-        load_distribution_params(&deps, &overseer_contract, &collateral_token)?;
+        load_distribution_params(&deps, &overseer_contract)?;
 
     // Compute interest buffer rewards.
     // Interest buffer is given only when deposit rates

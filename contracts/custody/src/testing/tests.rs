@@ -421,7 +421,7 @@ fn distribute_hook() {
     );
 
     deps.querier.with_distribution_params(&[(
-        &HumanAddr::from("bluna"),
+        &HumanAddr::from("overseer"),
         &(Decimal::percent(30), Decimal::percent(20)),
     )]);
 
