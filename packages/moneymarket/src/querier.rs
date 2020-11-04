@@ -39,11 +39,11 @@ pub fn load_all_balances<S: Storage, A: Api, Q: Querier>(
 
 pub fn load_supply<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
+    token_addr: &HumanAddr,
 ) -> StdResult<Uint128> {
     // load price form the oracle
     let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: HumanAddr::from(contract_addr),
+        contract_addr: HumanAddr::from(token_addr),
         key: Binary::from(to_length_prefixed(b"token_info")),
     }))?;
 
@@ -53,14 +53,14 @@ pub fn load_supply<S: Storage, A: Api, Q: Querier>(
 
 pub fn load_token_balance<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
+    token_addr: &HumanAddr,
     account_addr: &HumanAddr,
 ) -> StdResult<Uint128> {
     // load balance form the token contract
     let res: Binary = deps
         .querier
         .query(&QueryRequest::Wasm(WasmQuery::Raw {
-            contract_addr: HumanAddr::from(contract_addr),
+            contract_addr: HumanAddr::from(token_addr),
             key: Binary::from(concat(
                 &to_length_prefixed(b"balance").to_vec(),
                 (deps.api.canonical_address(&account_addr)?).as_slice(),
@@ -104,10 +104,12 @@ pub fn deduct_tax<S: Storage, A: Api, Q: Querier>(
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    /// Query aValue to overseer contract
-    DistributionParams { collateral_token: HumanAddr },
+    /// Query distribution params to overseer contract
+    DistributionParams {},
     /// Query epoch state to market contract
     EpochState {},
+    /// Query borrow amount to market contract
+    BorrowAmount { borrower: HumanAddr },
     /// Query oracle price to oracle contract
     OraclePrice { base: String, quote: String },
 }
@@ -121,15 +123,12 @@ pub struct DistributionParamsResponse {
 
 pub fn load_distribution_params<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
-    collateral_token: &HumanAddr,
+    overseer_addr: &HumanAddr,
 ) -> StdResult<DistributionParamsResponse> {
     let distribution_params: DistributionParamsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: HumanAddr::from(contract_addr),
-            msg: to_binary(&QueryMsg::DistributionParams {
-                collateral_token: collateral_token.clone(),
-            })?,
+            contract_addr: HumanAddr::from(overseer_addr),
+            msg: to_binary(&QueryMsg::DistributionParams {})?,
         }))?;
 
     if distribution_params.deposit_rate > Decimal::one() {
@@ -158,15 +157,39 @@ pub struct EpochStateResponse {
 
 pub fn load_epoch_state<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
+    market_addr: &HumanAddr,
 ) -> StdResult<EpochStateResponse> {
     let epoch_state: EpochStateResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: HumanAddr::from(contract_addr),
+            contract_addr: HumanAddr::from(market_addr),
             msg: to_binary(&QueryMsg::EpochState {})?,
         }))?;
 
     Ok(epoch_state)
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct BorrowAmountResponse {
+    pub borrower: HumanAddr,
+    pub amount: Uint128,
+}
+
+/// Query borrow amount from the market contract
+pub fn load_borrow_amount<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    market_addr: &HumanAddr,
+    borrower: &HumanAddr,
+) -> StdResult<BorrowAmountResponse> {
+    let borrower_amount: BorrowAmountResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: HumanAddr::from(market_addr),
+            msg: to_binary(&QueryMsg::BorrowAmount {
+                borrower: HumanAddr::from(borrower),
+            })?,
+        }))?;
+
+    Ok(borrower_amount)
 }
 
 // We define a custom struct for each query response
@@ -179,13 +202,13 @@ pub struct OraclePriceResponse {
 
 pub fn load_oracle_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
+    oracle_addr: &HumanAddr,
     base: String,
     quote: String,
 ) -> StdResult<OraclePriceResponse> {
     let oracle_price: OraclePriceResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: HumanAddr::from(contract_addr),
+            contract_addr: HumanAddr::from(oracle_addr),
             msg: to_binary(&QueryMsg::OraclePrice { base, quote })?,
         }))?;
 

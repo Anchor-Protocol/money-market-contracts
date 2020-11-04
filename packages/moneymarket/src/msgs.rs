@@ -38,8 +38,4 @@ pub enum CustodyHandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum MarketHandleMsg {
     SendKeeperPremium {},
-    ExecuteLoan {
-        borrower: HumanAddr,
-        amount: Uint128,
-    },
 }

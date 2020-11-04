@@ -40,14 +40,13 @@ pub enum HandleMsg {
         buffer_distribution_rate: Option<Decimal>,
     },
 
-    /// Make specified amount of tokens unspendable
+    /// Create new custody contract for the given collateral token
     Whitelist {
-        collateral_token: HumanAddr,
-        custody_contract: HumanAddr,
+        collateral_token: HumanAddr, // bAsset token contract
+        custody_contract: HumanAddr, // bAsset custody contract
         ltv: Decimal,
     },
 
-    // LiquidateCollateral not yet implemented
     /// Claims all staking rewards from the bAsset contracts
     /// and also do a epoch basis updates
     /// 1. Distribute interest buffers to depositors
@@ -63,9 +62,6 @@ pub enum HandleMsg {
     UnlockCollateral {
         collaterals: Vec<(HumanAddr, Uint128)>, // <(Collateral Token, Amount)>
     },
-    Borrow {
-        amount: Uint128, // the amount of stable 
-    },
 
     /////////////////////////////
     /// Permissionless operations
@@ -77,20 +73,21 @@ pub enum HandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    RegisterAnchorToken {
-        anchor_token: HumanAddr,
-    },
     Whitelist {
         collateral_token: Option<HumanAddr>,
         start_after: Option<HumanAddr>,
         limit: Option<u32>,
     },
-    Loan {
+    Collaterals {
         borrower: HumanAddr,
     },
-    Loans {
+    AllCollaterals {
         start_after: Option<HumanAddr>,
         limit: Option<u32>,
+    },
+    DistributionParams {},
+    BorrowLimit {
+        borrower: HumanAddr,
     },
 }
 
@@ -99,15 +96,16 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub owner_addr: HumanAddr,
     pub oracle_contract: HumanAddr,
-    pub oracle_base_denom: String,
-    pub deposit_rate_threshold: Decimal,
+    pub market_contract: HumanAddr,
+    pub base_denom: String,
+    pub distribution_threshold: Decimal,
+    pub target_deposit_rate: Decimal,
     pub buffer_distribution_rate: Decimal,
-    pub buffer_tax_rate: Decimal,
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct WhitelistResponseItem {
+pub struct WhitelistResponseElem {
     pub ltv: Decimal,
     pub custody_contract: HumanAddr,
     pub collateral_token: HumanAddr,
@@ -116,18 +114,31 @@ pub struct WhitelistResponseItem {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct WhitelistResponse {
-    pub items: Vec<WhitelistResponseItem>,
+    pub elems: Vec<WhitelistResponseElem>,
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LoanResponse {
+pub struct CollateralsResponse {
     pub borrower: HumanAddr,
     pub collaterals: Vec<(HumanAddr, Uint128)>, // <(Collateral Token, Amount)>
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LoansResponse {
-    pub loans: Vec<LoanResponse>,
+pub struct AllCollateralsResponse {
+    pub all_collaterals: Vec<CollateralsResponse>,
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct DistributionParamsResponse {
+    pub deposit_rate: Decimal,
+    pub target_deposit_rate: Decimal,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct BorrowLimitResponse {
+    pub borrower: HumanAddr,
+    pub borrow_limit: Uint128,
 }

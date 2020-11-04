@@ -7,7 +7,8 @@ use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
 
 use crate::querier::{
-    DistributionParamsResponse, EpochStateResponse, OraclePriceResponse, QueryMsg,
+    BorrowAmountResponse, DistributionParamsResponse, EpochStateResponse, OraclePriceResponse,
+    QueryMsg,
 };
 use cw20::TokenInfoResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
@@ -39,6 +40,7 @@ pub struct WasmMockQuerier {
     distribution_params_querier: DistributionParamsQuerier,
     epoch_state_querier: EpochStateQuerier,
     oracle_price_querier: OraclePriceQuerier,
+    borrow_amount_querier: BorrowAmountQuerier,
     canonical_length: usize,
 }
 
@@ -168,6 +170,30 @@ pub(crate) fn epoch_state_to_map(
     epoch_state_map
 }
 
+#[derive(Clone, Default)]
+pub struct BorrowAmountQuerier {
+    // this lets us iterate over all pairs that match the first string
+    borrower_amount: HashMap<HumanAddr, Uint128>,
+}
+
+impl BorrowAmountQuerier {
+    pub fn new(borrower_amount: &[(&HumanAddr, &Uint128)]) -> Self {
+        BorrowAmountQuerier {
+            borrower_amount: borrower_amount_to_map(borrower_amount),
+        }
+    }
+}
+
+pub(crate) fn borrower_amount_to_map(
+    borrower_amount: &[(&HumanAddr, &Uint128)],
+) -> HashMap<HumanAddr, Uint128> {
+    let mut borrower_amount_map: HashMap<HumanAddr, Uint128> = HashMap::new();
+    for (market_contract, borrower_amount) in borrower_amount.iter() {
+        borrower_amount_map.insert((*market_contract).clone(), **borrower_amount);
+    }
+    borrower_amount_map
+}
+
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
@@ -214,20 +240,17 @@ impl WasmMockQuerier {
             }
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
                 match from_binary(&msg).unwrap() {
-                    QueryMsg::DistributionParams { collateral_token } => match self
+                    QueryMsg::DistributionParams {} => match self
                         .distribution_params_querier
                         .distribution_params
-                        .get(&collateral_token)
+                        .get(&contract_addr)
                     {
                         Some(v) => Ok(to_binary(&DistributionParamsResponse {
                             deposit_rate: v.0.clone(),
                             target_deposit_rate: v.1.clone(),
                         })),
                         None => Err(SystemError::InvalidRequest {
-                            error: format!(
-                                "No distribution_params exists for the asset {}",
-                                collateral_token
-                            ),
+                            error: format!("No distribution_params exists in {}", contract_addr),
                             request: msg.as_slice().into(),
                         }),
                     },
@@ -239,6 +262,18 @@ impl WasmMockQuerier {
                             })),
                             None => Err(SystemError::InvalidRequest {
                                 error: "No epoch state exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
+                        }
+                    }
+                    QueryMsg::BorrowAmount { borrower } => {
+                        match self.borrow_amount_querier.borrower_amount.get(&borrower) {
+                            Some(v) => Ok(to_binary(&BorrowAmountResponse {
+                                borrower,
+                                amount: *v,
+                            })),
+                            None => Err(SystemError::InvalidRequest {
+                                error: "No borrow amount exists".to_string(),
                                 request: msg.as_slice().into(),
                             }),
                         }
@@ -339,6 +374,7 @@ impl WasmMockQuerier {
             distribution_params_querier: DistributionParamsQuerier::default(),
             epoch_state_querier: EpochStateQuerier::default(),
             oracle_price_querier: OraclePriceQuerier::default(),
+            borrow_amount_querier: BorrowAmountQuerier::default(),
             canonical_length,
         }
     }
@@ -370,5 +406,9 @@ impl WasmMockQuerier {
         oracle_price: &[(&(String, String), &(Decimal, u64, u64))],
     ) {
         self.oracle_price_querier = OraclePriceQuerier::new(oracle_price);
+    }
+
+    pub fn with_borrow_amount(&mut self, borrow_amount: &[(&HumanAddr, &Uint128)]) {
+        self.borrow_amount_querier = BorrowAmountQuerier::new(borrow_amount);
     }
 }

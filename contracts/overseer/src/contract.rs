@@ -5,13 +5,13 @@ use cosmwasm_std::{
 };
 
 use crate::collateral::{
-    handle_borrow, handle_liquidiate_collateral, handle_lock_collateral, handle_unlock_collateral,
+    handle_liquidiate_collateral, handle_lock_collateral, handle_unlock_collateral,
 };
 use crate::math::{decimal_division, decimal_subtraction};
-use crate::msg::{HandleMsg, InitMsg, WhitelistResponseItem};
+use crate::msg::{HandleMsg, InitMsg, WhitelistResponseElem};
 use crate::state::{
-    read_config, read_epoch_state, read_whitelist, read_whitelist_item, store_config,
-    store_epoch_state, store_whitelist_item, Config, EpochState, WhitelistItem,
+    read_config, read_epoch_state, read_whitelist, read_whitelist_elem, store_config,
+    store_epoch_state, store_whitelist_elem, Config, EpochState, WhitelistElem,
 };
 
 use moneymarket::{
@@ -85,7 +85,6 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::LiquidiateCollateral { borrower } => {
             handle_liquidiate_collateral(deps, env, borrower)
         }
-        HandleMsg::Borrow { amount } => handle_borrow(deps, env, amount),
     }
 }
 
@@ -141,16 +140,16 @@ pub fn register_whitelist<S: Storage, A: Api, Q: Querier>(
     }
 
     let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
-    if read_whitelist_item(&deps.storage, &collateral_token_raw).is_ok() {
+    if read_whitelist_elem(&deps.storage, &collateral_token_raw).is_ok() {
         return Err(StdError::generic_err(
             "The collateral token was already registered",
         ));
     }
 
-    store_whitelist_item(
+    store_whitelist_elem(
         &mut deps.storage,
         &collateral_token_raw,
-        &WhitelistItem {
+        &WhitelistElem {
             custody_contract: deps.api.canonical_address(&custody_contract)?,
             ltv,
         },
@@ -236,10 +235,10 @@ pub fn handle_execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     }));
 
     // Execute DistributeRewards
-    let whitelist: Vec<WhitelistResponseItem> = read_whitelist(&deps, None, None)?;
-    for item in whitelist.iter() {
+    let whitelist: Vec<WhitelistResponseElem> = read_whitelist(&deps, None, None)?;
+    for elem in whitelist.iter() {
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: item.custody_contract.clone(),
+            contract_addr: elem.custody_contract.clone(),
             send: vec![],
             msg: to_binary(&CustodyHandleMsg::DistributeRewards {})?,
         }));

@@ -1,8 +1,8 @@
 use crate::mock_querier::mock_dependencies;
 use crate::querier::{
-    compute_tax, deduct_tax, load_all_balances, load_balance, load_distribution_params,
-    load_epoch_state, load_oracle_price, load_supply, load_token_balance,
-    DistributionParamsResponse, EpochStateResponse, OraclePriceResponse,
+    compute_tax, deduct_tax, load_all_balances, load_balance, load_borrow_amount,
+    load_distribution_params, load_epoch_state, load_oracle_price, load_supply, load_token_balance,
+    BorrowAmountResponse, DistributionParamsResponse, EpochStateResponse, OraclePriceResponse,
 };
 use cosmwasm_std::testing::MOCK_CONTRACT_ADDR;
 use cosmwasm_std::{Coin, Decimal, HumanAddr, Uint128};
@@ -84,17 +84,12 @@ fn a_value_querier() {
     let mut deps = mock_dependencies(20, &[]);
 
     deps.querier.with_distribution_params(&[(
-        &HumanAddr::from("asset0000"),
+        &HumanAddr::from("overseer"),
         &(Decimal::percent(1), Decimal::percent(2)),
     )]);
 
     assert_eq!(
-        load_distribution_params(
-            &deps,
-            &HumanAddr::from("overseer"),
-            &HumanAddr::from("asset0000")
-        )
-        .unwrap(),
+        load_distribution_params(&deps, &HumanAddr::from("overseer"),).unwrap(),
         DistributionParamsResponse {
             deposit_rate: Decimal::percent(1),
             target_deposit_rate: Decimal::percent(2),
@@ -187,6 +182,29 @@ fn test_epoch_state_query() {
         EpochStateResponse {
             a_token_supply: Uint128::from(100u128),
             exchange_rate: Decimal::percent(53),
+        }
+    );
+}
+
+#[test]
+fn test_borrow_amount_query() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    deps.querier
+        .with_borrow_amount(&[(&HumanAddr::from("addr0000"), &Uint128::from(100u128))]);
+
+    let borrow_amount = load_borrow_amount(
+        &deps,
+        &HumanAddr::from("market"),
+        &HumanAddr::from("addr0000"),
+    )
+    .unwrap();
+
+    assert_eq!(
+        borrow_amount,
+        BorrowAmountResponse {
+            borrower: HumanAddr::from("addr0000"),
+            amount: Uint128::from(100u128),
         }
     );
 }
