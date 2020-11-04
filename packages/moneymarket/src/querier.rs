@@ -109,9 +109,13 @@ pub enum QueryMsg {
     /// Query epoch state to market contract
     EpochState {},
     /// Query borrow amount to market contract
-    BorrowAmount { borrower: HumanAddr },
+    LoanAmount { borrower: HumanAddr },
     /// Query oracle price to oracle contract
     OraclePrice { base: String, quote: String },
+    /// Query borrow rate to interest model contract
+    BorrowRate {},
+    /// Query borrow limit to overseer contract
+    BorrowLimit { borrower: HumanAddr },
 }
 
 // We define a custom struct for each query response
@@ -170,21 +174,21 @@ pub fn load_epoch_state<S: Storage, A: Api, Q: Querier>(
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct BorrowAmountResponse {
+pub struct LoanAmountResponse {
     pub borrower: HumanAddr,
-    pub amount: Uint128,
+    pub loan_amount: Uint128,
 }
 
 /// Query borrow amount from the market contract
-pub fn load_borrow_amount<S: Storage, A: Api, Q: Querier>(
+pub fn load_loan_amount<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     market_addr: &HumanAddr,
     borrower: &HumanAddr,
-) -> StdResult<BorrowAmountResponse> {
-    let borrower_amount: BorrowAmountResponse =
+) -> StdResult<LoanAmountResponse> {
+    let borrower_amount: LoanAmountResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(market_addr),
-            msg: to_binary(&QueryMsg::BorrowAmount {
+            msg: to_binary(&QueryMsg::LoanAmount {
                 borrower: HumanAddr::from(borrower),
             })?,
         }))?;
@@ -213,6 +217,46 @@ pub fn load_oracle_price<S: Storage, A: Api, Q: Querier>(
         }))?;
 
     Ok(oracle_price)
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct BorrowRateResponse {
+    pub rate: Decimal,
+}
+
+pub fn load_borrow_rate<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    interest_model: &HumanAddr,
+) -> StdResult<BorrowRateResponse> {
+    let borrow_rate: BorrowRateResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: HumanAddr::from(interest_model),
+            msg: to_binary(&QueryMsg::BorrowRate {})?,
+        }))?;
+
+    Ok(borrow_rate)
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct BorrowLimitResponse {
+    pub borrower: HumanAddr,
+    pub borrow_limit: Uint128,
+}
+
+pub fn load_borrow_limit<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    overseer_addr: &HumanAddr,
+    borrower: &HumanAddr,
+) -> StdResult<BorrowLimitResponse> {
+    let borrow_limit: BorrowLimitResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: HumanAddr::from(overseer_addr),
+            msg: to_binary(&QueryMsg::BorrowLimit {
+                borrower: HumanAddr::from(borrower),
+            })?,
+        }))?;
+
+    Ok(borrow_limit)
 }
 
 #[inline]

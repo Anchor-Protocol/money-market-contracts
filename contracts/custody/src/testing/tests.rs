@@ -385,6 +385,14 @@ fn distribute_rewards() {
     let _res = init(&mut deps, env.clone(), msg).unwrap();
 
     let msg = HandleMsg::DistributeRewards {};
+    let res = handle(&mut deps, env, msg.clone());
+    match res {
+        Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let msg = HandleMsg::DistributeRewards {};
+    let env = mock_env("overseer", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
     // Do not print logs at this step
     assert_eq!(res.log, vec![]);

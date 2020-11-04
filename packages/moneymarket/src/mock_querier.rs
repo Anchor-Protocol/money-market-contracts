@@ -7,8 +7,8 @@ use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
 
 use crate::querier::{
-    BorrowAmountResponse, DistributionParamsResponse, EpochStateResponse, OraclePriceResponse,
-    QueryMsg,
+    BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse, EpochStateResponse,
+    LoanAmountResponse, OraclePriceResponse, QueryMsg,
 };
 use cw20::TokenInfoResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
@@ -40,7 +40,9 @@ pub struct WasmMockQuerier {
     distribution_params_querier: DistributionParamsQuerier,
     epoch_state_querier: EpochStateQuerier,
     oracle_price_querier: OraclePriceQuerier,
-    borrow_amount_querier: BorrowAmountQuerier,
+    loan_amount_querier: LoanAmountQuerier,
+    borrow_rate_querier: BorrowRateQuerier,
+    borrow_limit_querier: BorrowLimitQuerier,
     canonical_length: usize,
 }
 
@@ -171,27 +173,75 @@ pub(crate) fn epoch_state_to_map(
 }
 
 #[derive(Clone, Default)]
-pub struct BorrowAmountQuerier {
+pub struct LoanAmountQuerier {
     // this lets us iterate over all pairs that match the first string
-    borrower_amount: HashMap<HumanAddr, Uint128>,
+    loan_amount: HashMap<HumanAddr, Uint128>,
 }
 
-impl BorrowAmountQuerier {
-    pub fn new(borrower_amount: &[(&HumanAddr, &Uint128)]) -> Self {
-        BorrowAmountQuerier {
-            borrower_amount: borrower_amount_to_map(borrower_amount),
+impl LoanAmountQuerier {
+    pub fn new(loan_amount: &[(&HumanAddr, &Uint128)]) -> Self {
+        LoanAmountQuerier {
+            loan_amount: loan_amount_to_map(loan_amount),
         }
     }
 }
 
-pub(crate) fn borrower_amount_to_map(
-    borrower_amount: &[(&HumanAddr, &Uint128)],
+pub(crate) fn loan_amount_to_map(
+    loan_amount: &[(&HumanAddr, &Uint128)],
 ) -> HashMap<HumanAddr, Uint128> {
-    let mut borrower_amount_map: HashMap<HumanAddr, Uint128> = HashMap::new();
-    for (market_contract, borrower_amount) in borrower_amount.iter() {
-        borrower_amount_map.insert((*market_contract).clone(), **borrower_amount);
+    let mut loan_amount_map: HashMap<HumanAddr, Uint128> = HashMap::new();
+    for (market_contract, loan_amount) in loan_amount.iter() {
+        loan_amount_map.insert((*market_contract).clone(), **loan_amount);
     }
-    borrower_amount_map
+    loan_amount_map
+}
+
+#[derive(Clone, Default)]
+pub struct BorrowRateQuerier {
+    // this lets us iterate over all pairs that match the first string
+    borrower_rate: HashMap<HumanAddr, Decimal>,
+}
+
+impl BorrowRateQuerier {
+    pub fn new(borrower_rate: &[(&HumanAddr, &Decimal)]) -> Self {
+        BorrowRateQuerier {
+            borrower_rate: borrower_rate_to_map(borrower_rate),
+        }
+    }
+}
+
+pub(crate) fn borrower_rate_to_map(
+    borrower_rate: &[(&HumanAddr, &Decimal)],
+) -> HashMap<HumanAddr, Decimal> {
+    let mut borrower_rate_map: HashMap<HumanAddr, Decimal> = HashMap::new();
+    for (market_contract, borrower_rate) in borrower_rate.iter() {
+        borrower_rate_map.insert((*market_contract).clone(), **borrower_rate);
+    }
+    borrower_rate_map
+}
+
+#[derive(Clone, Default)]
+pub struct BorrowLimitQuerier {
+    // this lets us iterate over all pairs that match the first string
+    borrow_limit: HashMap<HumanAddr, Uint128>,
+}
+
+impl BorrowLimitQuerier {
+    pub fn new(borrow_limit: &[(&HumanAddr, &Uint128)]) -> Self {
+        BorrowLimitQuerier {
+            borrow_limit: borrow_limit_to_map(borrow_limit),
+        }
+    }
+}
+
+pub(crate) fn borrow_limit_to_map(
+    borrow_limit: &[(&HumanAddr, &Uint128)],
+) -> HashMap<HumanAddr, Uint128> {
+    let mut borrow_limit_map: HashMap<HumanAddr, Uint128> = HashMap::new();
+    for (market_contract, borrow_limit) in borrow_limit.iter() {
+        borrow_limit_map.insert((*market_contract).clone(), **borrow_limit);
+    }
+    borrow_limit_map
 }
 
 impl Querier for WasmMockQuerier {
@@ -266,11 +316,11 @@ impl WasmMockQuerier {
                             }),
                         }
                     }
-                    QueryMsg::BorrowAmount { borrower } => {
-                        match self.borrow_amount_querier.borrower_amount.get(&borrower) {
-                            Some(v) => Ok(to_binary(&BorrowAmountResponse {
+                    QueryMsg::LoanAmount { borrower } => {
+                        match self.loan_amount_querier.loan_amount.get(&borrower) {
+                            Some(v) => Ok(to_binary(&LoanAmountResponse {
                                 borrower,
-                                amount: *v,
+                                loan_amount: *v,
                             })),
                             None => Err(SystemError::InvalidRequest {
                                 error: "No borrow amount exists".to_string(),
@@ -287,6 +337,27 @@ impl WasmMockQuerier {
                             })),
                             None => Err(SystemError::InvalidRequest {
                                 error: "No oracle price exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
+                        }
+                    }
+                    QueryMsg::BorrowRate {} => {
+                        match self.borrow_rate_querier.borrower_rate.get(&contract_addr) {
+                            Some(v) => Ok(to_binary(&BorrowRateResponse { rate: *v })),
+                            None => Err(SystemError::InvalidRequest {
+                                error: "No borrow rate exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
+                        }
+                    }
+                    QueryMsg::BorrowLimit { borrower } => {
+                        match self.borrow_limit_querier.borrow_limit.get(&borrower) {
+                            Some(v) => Ok(to_binary(&BorrowLimitResponse {
+                                borrower,
+                                borrow_limit: *v,
+                            })),
+                            None => Err(SystemError::InvalidRequest {
+                                error: "No borrow limit exists".to_string(),
                                 request: msg.as_slice().into(),
                             }),
                         }
@@ -374,7 +445,9 @@ impl WasmMockQuerier {
             distribution_params_querier: DistributionParamsQuerier::default(),
             epoch_state_querier: EpochStateQuerier::default(),
             oracle_price_querier: OraclePriceQuerier::default(),
-            borrow_amount_querier: BorrowAmountQuerier::default(),
+            loan_amount_querier: LoanAmountQuerier::default(),
+            borrow_rate_querier: BorrowRateQuerier::default(),
+            borrow_limit_querier: BorrowLimitQuerier::default(),
             canonical_length,
         }
     }
@@ -409,6 +482,14 @@ impl WasmMockQuerier {
     }
 
     pub fn with_borrow_amount(&mut self, borrow_amount: &[(&HumanAddr, &Uint128)]) {
-        self.borrow_amount_querier = BorrowAmountQuerier::new(borrow_amount);
+        self.loan_amount_querier = LoanAmountQuerier::new(borrow_amount);
+    }
+
+    pub fn with_borrow_rate(&mut self, borrow_rate: &[(&HumanAddr, &Decimal)]) {
+        self.borrow_rate_querier = BorrowRateQuerier::new(borrow_rate);
+    }
+
+    pub fn with_borrow_limit(&mut self, borrow_limit: &[(&HumanAddr, &Uint128)]) {
+        self.borrow_limit_querier = BorrowLimitQuerier::new(borrow_limit);
     }
 }

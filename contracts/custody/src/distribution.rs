@@ -14,12 +14,16 @@ use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
 
 /// Request withdraw reward operation to
 /// reward contract and execute `distribute_hook`
-/// Executor: anyone
+/// Executor: overseer
 pub fn distribute_rewards<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> HandleResult<TerraMsgWrapper> {
     let config: Config = read_config(&deps.storage)?;
+    if config.overseer_contract != deps.api.canonical_address(&env.message.sender)? {
+        return Err(StdError::unauthorized());
+    }
+
     let reward_contract = deps.api.human_address(&config.reward_contract)?;
     let contract_addr = env.contract.address;
 

@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 
 use crate::collateral::{
-    handle_liquidiate_collateral, handle_lock_collateral, handle_unlock_collateral,
+    liquidiate_collateral, lock_collateral, unlock_collateral,
 };
 use crate::math::{decimal_division, decimal_subtraction};
 use crate::msg::{HandleMsg, InitMsg, WhitelistResponseElem};
@@ -16,7 +16,6 @@ use crate::state::{
 
 use moneymarket::{
     deduct_tax, load_balance, load_epoch_state, CustodyHandleMsg, EpochStateResponse,
-    MarketHandleMsg,
 };
 
 /// # of blocks per epoch period
@@ -77,13 +76,13 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             custody_contract,
             ltv,
         } => register_whitelist(deps, env, collateral_token, custody_contract, ltv),
-        HandleMsg::ExecuteEpochOperations {} => handle_execute_epoch_operations(deps, env),
-        HandleMsg::LockCollateral { collaterals } => handle_lock_collateral(deps, env, collaterals),
+        HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
+        HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
         HandleMsg::UnlockCollateral { collaterals } => {
-            handle_unlock_collateral(deps, env, collaterals)
+            unlock_collateral(deps, env, collaterals)
         }
         HandleMsg::LiquidiateCollateral { borrower } => {
-            handle_liquidiate_collateral(deps, env, borrower)
+            liquidiate_collateral(deps, env, borrower)
         }
     }
 }
@@ -167,7 +166,7 @@ pub fn register_whitelist<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn handle_execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
+pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> HandleResult {
@@ -226,13 +225,6 @@ pub fn handle_execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
             )?],
         }));
     }
-
-    // Execute market send keeper premium
-    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: market_contract.clone(),
-        send: vec![],
-        msg: to_binary(&MarketHandleMsg::SendKeeperPremium {})?,
-    }));
 
     // Execute DistributeRewards
     let whitelist: Vec<WhitelistResponseElem> = read_whitelist(&deps, None, None)?;

@@ -1,8 +1,9 @@
 use crate::mock_querier::mock_dependencies;
 use crate::querier::{
-    compute_tax, deduct_tax, load_all_balances, load_balance, load_borrow_amount,
-    load_distribution_params, load_epoch_state, load_oracle_price, load_supply, load_token_balance,
-    BorrowAmountResponse, DistributionParamsResponse, EpochStateResponse, OraclePriceResponse,
+    compute_tax, deduct_tax, load_all_balances, load_balance, load_borrow_limit, load_borrow_rate,
+    load_distribution_params, load_epoch_state, load_loan_amount, load_oracle_price, load_supply,
+    load_token_balance, BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse,
+    EpochStateResponse, LoanAmountResponse, OraclePriceResponse,
 };
 use cosmwasm_std::testing::MOCK_CONTRACT_ADDR;
 use cosmwasm_std::{Coin, Decimal, HumanAddr, Uint128};
@@ -168,7 +169,7 @@ fn test_deduct_tax() {
 }
 
 #[test]
-fn test_epoch_state_query() {
+fn epoch_state_querier() {
     let mut deps = mock_dependencies(20, &[]);
 
     deps.querier.with_epoch_state(&[(
@@ -187,13 +188,13 @@ fn test_epoch_state_query() {
 }
 
 #[test]
-fn test_borrow_amount_query() {
+fn borrow_amount_querier() {
     let mut deps = mock_dependencies(20, &[]);
 
     deps.querier
         .with_borrow_amount(&[(&HumanAddr::from("addr0000"), &Uint128::from(100u128))]);
 
-    let borrow_amount = load_borrow_amount(
+    let borrow_amount = load_loan_amount(
         &deps,
         &HumanAddr::from("market"),
         &HumanAddr::from("addr0000"),
@@ -202,15 +203,15 @@ fn test_borrow_amount_query() {
 
     assert_eq!(
         borrow_amount,
-        BorrowAmountResponse {
+        LoanAmountResponse {
             borrower: HumanAddr::from("addr0000"),
-            amount: Uint128::from(100u128),
+            loan_amount: Uint128::from(100u128),
         }
     );
 }
 
 #[test]
-fn test_oracle_price_query() {
+fn oracle_price_querier() {
     let mut deps = mock_dependencies(20, &[]);
 
     deps.querier.with_oracle_price(&[(
@@ -242,4 +243,46 @@ fn test_oracle_price_query() {
         "terra123123".to_string(),
     )
     .unwrap_err();
+}
+
+#[test]
+fn borrow_rate_querier() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    deps.querier.with_borrow_rate(&[(
+        &HumanAddr::from("interest"),
+        &Decimal::from_ratio(100u128, 1u128),
+    )]);
+
+    let borrow_rate = load_borrow_rate(&deps, &HumanAddr::from("interest")).unwrap();
+
+    assert_eq!(
+        borrow_rate,
+        BorrowRateResponse {
+            rate: Decimal::from_ratio(100u128, 1u128),
+        }
+    );
+}
+
+#[test]
+fn borrow_limit_querier() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    deps.querier
+        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint128::from(1000u128))]);
+
+    let borrow_limit = load_borrow_limit(
+        &deps,
+        &HumanAddr::from("overseer"),
+        &HumanAddr::from("addr0000"),
+    )
+    .unwrap();
+
+    assert_eq!(
+        borrow_limit,
+        BorrowLimitResponse {
+            borrower: HumanAddr::from("addr0000"),
+            borrow_limit: Uint128::from(1000u128),
+        }
+    );
 }

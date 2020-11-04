@@ -50,7 +50,7 @@ pub enum HandleMsg {
     /// Claims all staking rewards from the bAsset contracts
     /// and also do a epoch basis updates
     /// 1. Distribute interest buffers to depositors
-    /// 2. Invoke [Market] SendKeeperPremium & [Custody] DistributeRewards
+    /// 2. Invoke [Custody] DistributeRewards
     ExecuteEpochOperations {},
 
     ////////////////////
