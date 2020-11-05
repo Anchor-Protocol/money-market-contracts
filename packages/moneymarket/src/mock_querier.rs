@@ -481,8 +481,8 @@ impl WasmMockQuerier {
         self.oracle_price_querier = OraclePriceQuerier::new(oracle_price);
     }
 
-    pub fn with_borrow_amount(&mut self, borrow_amount: &[(&HumanAddr, &Uint128)]) {
-        self.loan_amount_querier = LoanAmountQuerier::new(borrow_amount);
+    pub fn with_loan_amount(&mut self, loan_amount: &[(&HumanAddr, &Uint128)]) {
+        self.loan_amount_querier = LoanAmountQuerier::new(loan_amount);
     }
 
     pub fn with_borrow_rate(&mut self, borrow_rate: &[(&HumanAddr, &Decimal)]) {

@@ -192,7 +192,7 @@ fn borrow_amount_querier() {
     let mut deps = mock_dependencies(20, &[]);
 
     deps.querier
-        .with_borrow_amount(&[(&HumanAddr::from("addr0000"), &Uint128::from(100u128))]);
+        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint128::from(100u128))]);
 
     let borrow_amount = load_loan_amount(
         &deps,

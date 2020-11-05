@@ -1,6 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::tokens::TokensHuman;
+
 use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -15,7 +17,8 @@ pub struct InitMsg {
     /// The base denomination used when fetching oracle price,
     /// reward distribution, and borrow
     pub base_denom: String,
-    /// Distribute interest buffer, if deposit_rate < distribution_threshold
+    /// Distribute interest buffer to market contract,
+    /// when deposit_rate < distribution_threshold
     pub distribution_threshold: Decimal,
     /// Target deposit rate.
     /// When current deposit rate is bigger than this,
@@ -57,10 +60,10 @@ pub enum HandleMsg {
     /// User operations
     ////////////////////
     LockCollateral {
-        collaterals: Vec<(HumanAddr, Uint128)>, // <(Collateral Token, Amount)>
+        collaterals: TokensHuman, // <(Collateral Token, Amount)>
     },
     UnlockCollateral {
-        collaterals: Vec<(HumanAddr, Uint128)>, // <(Collateral Token, Amount)>
+        collaterals: TokensHuman, // <(Collateral Token, Amount)>
     },
 
     /////////////////////////////
@@ -73,6 +76,7 @@ pub enum HandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
+    EpochState {},
     Whitelist {
         collateral_token: Option<HumanAddr>,
         start_after: Option<HumanAddr>,
@@ -121,7 +125,7 @@ pub struct WhitelistResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct CollateralsResponse {
     pub borrower: HumanAddr,
-    pub collaterals: Vec<(HumanAddr, Uint128)>, // <(Collateral Token, Amount)>
+    pub collaterals: TokensHuman, // <(Collateral Token, Amount)>
 }
 
 // We define a custom struct for each query response

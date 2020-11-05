@@ -3,6 +3,7 @@ pub mod state;
 pub mod contract;
 pub mod collateral;
 pub mod querier;
+pub mod tokens;
 
 mod math;
 

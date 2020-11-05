@@ -1,38 +1,37 @@
 use cosmwasm_std::{
-    log, to_binary, Api, CanonicalAddr, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    log, to_binary, Api, CosmosMsg, Env, Extern, HandleResponse, HandleResult, HumanAddr, Querier,
+    StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::msg::{AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse};
 use crate::state::{
     read_all_collaterals, read_collaterals, read_config, read_whitelist_elem, store_collaterals,
-    Config, Tokens, TokensMath, WhitelistElem,
+    Config, WhitelistElem,
 };
+use crate::tokens::{Tokens, TokensHuman, TokensMath, TokensToRaw};
+
 use moneymarket::{
-    load_loan_amount, load_oracle_price, LoanAmountResponse, CustodyHandleMsg,
-    OraclePriceResponse,
+    load_loan_amount, load_oracle_price, CustodyHandleMsg, LoanAmountResponse, OraclePriceResponse,
 };
 
 pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    collaterals: Vec<(HumanAddr, Uint128)>,
+    collaterals_human: TokensHuman,
 ) -> HandleResult {
     let borrower_raw = deps.api.canonical_address(&env.message.sender)?;
     let mut cur_collaterals: Tokens = read_collaterals(&deps.storage, &borrower_raw);
 
-    let collaterals_raw: Vec<(CanonicalAddr, Uint128)> = collaterals
-        .iter()
-        .map(|c| Ok((deps.api.canonical_address(&c.0)?, c.1)))
-        .collect::<StdResult<Vec<(CanonicalAddr, Uint128)>>>()?;
+    let collaterals: Tokens = collaterals_human.to_raw(&deps)?;
 
-    cur_collaterals.add(collaterals_raw);
+    cur_collaterals.add(collaterals.clone());
     store_collaterals(&mut deps.storage, &borrower_raw, &cur_collaterals)?;
 
     let mut messages: Vec<CosmosMsg> = vec![];
-    for collateral in collaterals.clone() {
+    for collateral in collaterals {
+        let whitelist_elem: WhitelistElem = read_whitelist_elem(&deps.storage, &collateral.0)?;
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: collateral.0,
+            contract_addr: deps.api.human_address(&whitelist_elem.custody_contract)?,
             send: vec![],
             msg: to_binary(&CustodyHandleMsg::LockCollateral {
                 borrower: env.message.sender.clone(),
@@ -42,7 +41,7 @@ pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
     }
 
     // Loging stuff, so can be removed
-    let collateral_logs: Vec<String> = collaterals
+    let collateral_logs: Vec<String> = collaterals_human
         .iter()
         .map(|c| format!("{}{}", c.1, c.0.to_string()))
         .collect();
@@ -61,7 +60,7 @@ pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
 pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    collaterals: Vec<(HumanAddr, Uint128)>,
+    collaterals_human: TokensHuman,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let market = deps.api.human_address(&config.market_contract)?;
@@ -69,14 +68,10 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
     let mut cur_collaterals: Tokens = read_collaterals(&deps.storage, &borrower_raw);
-
-    let collaterals_raw: Tokens = collaterals
-        .iter()
-        .map(|c| Ok((deps.api.canonical_address(&c.0)?, c.1)))
-        .collect::<StdResult<Tokens>>()?;
+    let collaterals: Tokens = collaterals_human.to_raw(&deps)?;
 
     // Underflow check is done in sub_collateral
-    if !cur_collaterals.sub(collaterals_raw).is_ok() {
+    if !cur_collaterals.sub(collaterals).is_ok() {
         return Err(StdError::generic_err("Cannot unlock more than you have"));
     }
 
@@ -85,14 +80,14 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     let borrow_amount_res: LoanAmountResponse = load_loan_amount(deps, &market, &borrower)?;
     if borrow_limit < borrow_amount_res.loan_amount {
         return Err(StdError::generic_err(
-            "Cannot unlock collateral more than minimum LTV",
+            "Cannot unlock collateral more than LTV",
         ));
     }
 
     store_collaterals(&mut deps.storage, &borrower_raw, &cur_collaterals)?;
 
     let mut messages: Vec<CosmosMsg> = vec![];
-    for collateral in collaterals.clone() {
+    for collateral in collaterals_human.clone() {
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: collateral.0,
             send: vec![],
@@ -104,7 +99,7 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     }
 
     // Loging stuff, so can be removed
-    let collateral_logs: Vec<String> = collaterals
+    let collateral_logs: Vec<String> = collaterals_human
         .iter()
         .map(|c| format!("{}{}", c.1, c.0.to_string()))
         .collect();
@@ -178,13 +173,13 @@ fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
             &deps,
             &oracle_contract,
             config.base_denom.to_string(),
-            collateral_token.to_string(),
+            (deps.api.human_address(&collateral_token)?).to_string(),
         )?;
 
         // TODO check price last_updated
 
         let elem: WhitelistElem = read_whitelist_elem(&deps.storage, &collateral.0)?;
-        borrow_limit += collateral_amount * elem.ltv * price.rate;
+        borrow_limit += collateral_amount * price.rate * elem.ltv;
     }
 
     Ok(borrow_limit)

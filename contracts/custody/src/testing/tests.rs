@@ -21,7 +21,7 @@ fn proper_initialization() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        reward_denom: "uusd".to_string(),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -35,7 +35,7 @@ fn proper_initialization() {
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
     assert_eq!(HumanAddr::from("market"), config_res.market_contract);
     assert_eq!(HumanAddr::from("reward"), config_res.reward_contract);
-    assert_eq!("uusd".to_string(), config_res.reward_denom);
+    assert_eq!("uusd".to_string(), config_res.base_denom);
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn deposit_collateral() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        reward_denom: "uusd".to_string(),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -134,7 +134,7 @@ fn withdraw_collateral() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        reward_denom: "uusd".to_string(),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -228,7 +228,7 @@ fn lock_collateral() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        reward_denom: "uusd".to_string(),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -378,7 +378,7 @@ fn distribute_rewards() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        reward_denom: "uusd".to_string(),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -451,7 +451,7 @@ fn distribute_hook() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        reward_denom: "uusd".to_string(),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -500,7 +500,7 @@ fn distribute_hook() {
 }
 
 #[test]
-fn swap_to_reward_denom() {
+fn swap_to_base_denom() {
     let mut deps = mock_dependencies(
         20,
         &[
@@ -524,7 +524,7 @@ fn swap_to_reward_denom() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        reward_denom: "uusd".to_string(),
+        base_denom: "uusd".to_string(),
     };
 
     let env = mock_env("addr0000", &[]);

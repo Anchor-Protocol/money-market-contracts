@@ -143,8 +143,9 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
     let borrow_rate_res: BorrowRateResponse =
         load_borrow_rate(&deps, &deps.api.human_address(&config.interest_model)?)?;
 
+    let passed_blocks = env.block.height - state.last_interest_updated;
     let interest_factor: Decimal = decimal_multiplication(
-        Decimal::from_ratio(env.block.height - state.last_interest_updated, 1u128),
+        Decimal::from_ratio(passed_blocks, 1u128),
         borrow_rate_res.rate,
     );
 

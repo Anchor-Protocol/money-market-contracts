@@ -1,13 +1,13 @@
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
     HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError, Storage,
-    WasmMsg,
+    Uint128, WasmMsg,
 };
 
 use crate::borrow::{borrow_stable, repay_stable};
 use crate::deposit::{deposit_stable, redeem_stable};
 use crate::msg::{Cw20HookMsg, HandleMsg, InitMsg};
-use crate::state::{read_config, store_config, Config};
+use crate::state::{read_config, store_config, store_state, Config, State};
 
 use cw20::{Cw20ReceiveMsg, MinterResponse};
 use terraswap::{InitHook, TokenInitMsg};
@@ -26,6 +26,16 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             interest_model: deps.api.canonical_address(&msg.interest_model)?,
             base_denom: msg.base_denom.clone(),
             reserve_factor: msg.reserve_factor,
+        },
+    )?;
+
+    store_state(
+        &mut deps.storage,
+        &State {
+            total_liabilities: Uint128::zero(),
+            total_reserves: Uint128::zero(),
+            last_interest_updated: env.block.height,
+            global_interest_index: Decimal::zero(),
         },
     )?;
 

@@ -1,4 +1,5 @@
 use crate::msg::{CollateralsResponse, WhitelistResponseElem};
+use crate::tokens::Tokens;
 use cosmwasm_std::{
     Api, CanonicalAddr, Decimal, Extern, HumanAddr, Order, Querier, StdError, StdResult, Storage,
     Uint128,
@@ -36,72 +37,6 @@ pub struct EpochState {
 pub struct WhitelistElem {
     pub ltv: Decimal,
     pub custody_contract: CanonicalAddr,
-}
-
-pub type Tokens = Vec<(CanonicalAddr, Uint128)>; // <(Collateral Token, Amount)>
-pub trait TokensMath {
-    fn sub(self: &mut Self, collaterals: Tokens) -> StdResult<()>;
-    fn add(self: &mut Self, collaterals: Tokens);
-}
-
-impl TokensMath for Tokens {
-    fn sub(self: &mut Self, tokens: Tokens) -> StdResult<()> {
-        self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
-
-        let mut tokens = tokens.clone();
-        tokens.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
-
-        let mut i = 0;
-        let mut j = 0;
-        while i < self.len() || j < tokens.len() {
-            if self[i].0 == tokens[j].0 {
-                i += 1;
-                j += 1;
-
-                self[i].1 = (self[i].1 - tokens[j].1)?;
-            } else if self[i].0.as_slice().cmp(&tokens[j].0.as_slice())
-                == std::cmp::Ordering::Greater
-            {
-                j += 1;
-            } else {
-                i += 1;
-            }
-        }
-
-        if j != tokens.len() {
-            return Err(StdError::generic_err("Subtraction underflow"));
-        }
-
-        Ok(())
-    }
-
-    fn add(self: &mut Self, tokens: Tokens) {
-        self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
-
-        let mut tokens = tokens.clone();
-        tokens.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
-
-        let mut i = 0;
-        let mut j = 0;
-        while i < self.len() || j < tokens.len() {
-            if self[i].0 == tokens[j].0 {
-                i += 1;
-                j += 1;
-
-                self[i].1 += tokens[j].1;
-            } else if self[i].0.as_slice().cmp(&tokens[j].0.as_slice())
-                == std::cmp::Ordering::Greater
-            {
-                j += 1;
-            } else {
-                i += 1;
-            }
-        }
-
-        while j < tokens.len() {
-            self.push(tokens[j].clone());
-        }
-    }
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, data: &Config) -> StdResult<()> {

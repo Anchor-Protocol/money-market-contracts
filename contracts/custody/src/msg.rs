@@ -16,8 +16,8 @@ pub struct InitMsg {
     /// bAsset rewrad contract
     pub reward_contract: HumanAddr,
     /// Expected reward denom. If bAsset reward is not same with
-    /// it, we try to convert the reward to the `reward_denom`.
-    pub reward_denom: String,
+    /// it, we try to convert the reward to the `base_denom`.
+    pub base_denom: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -47,7 +47,7 @@ pub enum HandleMsg {
     /// (internal) Send withdrawn rewards to market & overseer
     DistributeHook {},
 
-    /// (internal) Swap all coins to reward_denom
+    /// (internal) Swap all coins to base_denom
     SwapToRewardDenom {},
 
     ////////////////////
@@ -87,7 +87,7 @@ pub struct ConfigResponse {
     pub overseer_contract: HumanAddr,
     pub market_contract: HumanAddr,
     pub reward_contract: HumanAddr,
-    pub reward_denom: String,
+    pub base_denom: String,
 }
 
 // We define a custom struct for each query response

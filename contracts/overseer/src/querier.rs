@@ -15,6 +15,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        QueryMsg::EpochState {} => to_binary(&query_state(deps)?),
         QueryMsg::Whitelist {
             collateral_token,
             start_after,
@@ -47,6 +48,12 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         target_deposit_rate: config.target_deposit_rate,
         buffer_distribution_rate: config.buffer_distribution_rate,
     })
+}
+
+pub fn query_state<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<EpochState> {
+    read_epoch_state(&deps.storage)
 }
 
 pub fn query_whitelist<S: Storage, A: Api, Q: Querier>(

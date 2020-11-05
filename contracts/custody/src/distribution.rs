@@ -67,7 +67,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
 
     // reward_amount = (prev_balance + reward_amount) - prev_balance
     let reward_amount: Uint128 =
-        load_balance(&deps, &contract_addr, config.reward_denom.to_string())?;
+        load_balance(&deps, &contract_addr, config.base_denom.to_string())?;
 
     // load distribution params from the overseer contract
     let distribution_params: DistributionParamsResponse =
@@ -96,7 +96,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
             amount: vec![deduct_tax(
                 deps,
                 Coin {
-                    denom: config.reward_denom.to_string(),
+                    denom: config.base_denom.to_string(),
                     amount: buffer_rewards,
                 },
             )?],
@@ -110,7 +110,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
         amount: vec![deduct_tax(
             deps,
             Coin {
-                denom: config.reward_denom,
+                denom: config.base_denom,
                 amount: depositor_subsidy,
             },
         )?],
@@ -127,10 +127,10 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-/// Swap all coins to reward_denom
+/// Swap all coins to base_denom
 /// and execute `swap_hook`
 /// Executor: itself
-pub fn swap_to_reward_denom<S: Storage, A: Api, Q: Querier>(
+pub fn swap_to_base_denom<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> HandleResult<TerraMsgWrapper> {
@@ -143,12 +143,12 @@ pub fn swap_to_reward_denom<S: Storage, A: Api, Q: Querier>(
     let balances: Vec<Coin> = load_all_balances(&deps, &contract_addr)?;
     let messages: Vec<CosmosMsg<TerraMsgWrapper>> = balances
         .iter()
-        .filter(|x| x.denom != config.reward_denom)
+        .filter(|x| x.denom != config.base_denom)
         .map(|coin: &Coin| {
             create_swap_msg(
                 contract_addr.clone(),
                 coin.clone(),
-                config.reward_denom.clone(),
+                config.base_denom.clone(),
             )
         })
         .collect();

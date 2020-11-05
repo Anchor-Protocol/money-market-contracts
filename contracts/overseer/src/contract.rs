@@ -4,9 +4,7 @@ use cosmwasm_std::{
     WasmMsg,
 };
 
-use crate::collateral::{
-    liquidiate_collateral, lock_collateral, unlock_collateral,
-};
+use crate::collateral::{liquidiate_collateral, lock_collateral, unlock_collateral};
 use crate::math::{decimal_division, decimal_subtraction};
 use crate::msg::{HandleMsg, InitMsg, WhitelistResponseElem};
 use crate::state::{
@@ -78,12 +76,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         } => register_whitelist(deps, env, collateral_token, custody_contract, ltv),
         HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
         HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
-        HandleMsg::UnlockCollateral { collaterals } => {
-            unlock_collateral(deps, env, collaterals)
-        }
-        HandleMsg::LiquidiateCollateral { borrower } => {
-            liquidiate_collateral(deps, env, borrower)
-        }
+        HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
+        HandleMsg::LiquidiateCollateral { borrower } => liquidiate_collateral(deps, env, borrower),
     }
 }
 
@@ -189,7 +183,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
         decimal_division(epoch_state.exchange_rate, state.prev_exchange_rate);
     let deposit_rate = decimal_division(
         decimal_subtraction(effective_deposit_rate, Decimal::one()),
-        Decimal::from_ratio(1u128, blocks),
+        Decimal::from_ratio(blocks, 1u128),
     );
 
     let mut messages: Vec<CosmosMsg> = vec![];
