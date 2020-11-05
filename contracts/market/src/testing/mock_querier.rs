@@ -34,6 +34,7 @@ pub fn mock_dependencies(
     let contract_addr = HumanAddr::from(MOCK_CONTRACT_ADDR);
     let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
         MockQuerier::new(&[(&contract_addr, contract_balance)]),
+        canonical_length,
         MockApi::new(canonical_length),
     );
 
@@ -46,9 +47,40 @@ pub fn mock_dependencies(
 
 pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
+    token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
     borrow_rate_querier: BorrowRateQuerier,
     borrow_limit_querier: BorrowLimitQuerier,
+    canonical_length: usize,
+}
+
+#[derive(Clone, Default)]
+pub struct TokenQuerier {
+    // this lets us iterate over all pairs that match the first string
+    balances: HashMap<HumanAddr, HashMap<HumanAddr, Uint128>>,
+}
+
+impl TokenQuerier {
+    pub fn new(balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])]) -> Self {
+        TokenQuerier {
+            balances: balances_to_map(balances),
+        }
+    }
+}
+
+pub(crate) fn balances_to_map(
+    balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])],
+) -> HashMap<HumanAddr, HashMap<HumanAddr, Uint128>> {
+    let mut balances_map: HashMap<HumanAddr, HashMap<HumanAddr, Uint128>> = HashMap::new();
+    for (contract_addr, balances) in balances.iter() {
+        let mut contract_balances_map: HashMap<HumanAddr, Uint128> = HashMap::new();
+        for (addr, balance) in balances.iter() {
+            contract_balances_map.insert(HumanAddr::from(addr), **balance);
+        }
+
+        balances_map.insert(HumanAddr::from(contract_addr), contract_balances_map);
+    }
+    balances_map
 }
 
 #[derive(Clone, Default)]
@@ -289,19 +321,93 @@ impl WasmMockQuerier {
                     }
                 }
             }
+            QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
+                let key: &[u8] = key.as_slice();
+
+                let prefix_token_info = to_length_prefixed(b"token_info").to_vec();
+                let prefix_balance = to_length_prefixed(b"balance").to_vec();
+
+                let balances: &HashMap<HumanAddr, Uint128> =
+                    match self.token_querier.balances.get(contract_addr) {
+                        Some(balances) => balances,
+                        None => {
+                            return Err(SystemError::InvalidRequest {
+                                error: format!(
+                                    "No balance info exists for the contract {}",
+                                    contract_addr
+                                ),
+                                request: key.into(),
+                            })
+                        }
+                    };
+
+                if key.to_vec() == prefix_token_info {
+                    let mut total_supply = Uint128::zero();
+
+                    for balance in balances {
+                        total_supply += *balance.1;
+                    }
+
+                    Ok(to_binary(
+                        &to_binary(&TokenInfoResponse {
+                            name: "mAPPL".to_string(),
+                            symbol: "mAPPL".to_string(),
+                            decimals: 6,
+                            total_supply: total_supply,
+                        })
+                        .unwrap(),
+                    ))
+                } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
+                    let key_address: &[u8] = &key[prefix_balance.len()..];
+                    let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
+                    let api: MockApi = MockApi::new(self.canonical_length);
+                    let address: HumanAddr = match api.human_address(&address_raw) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            return Err(SystemError::InvalidRequest {
+                                error: format!("Parsing query request: {}", e),
+                                request: key.into(),
+                            })
+                        }
+                    };
+                    let balance = match balances.get(&address) {
+                        Some(v) => v,
+                        None => {
+                            return Err(SystemError::InvalidRequest {
+                                error: "Balance not found".to_string(),
+                                request: key.into(),
+                            })
+                        }
+                    };
+                    Ok(to_binary(&to_binary(&balance).unwrap()))
+                } else {
+                    panic!("DO NOT ENTER HERE")
+                }
+            }
             _ => self.base.handle_query(request),
         }
     }
 }
 
 impl WasmMockQuerier {
-    pub fn new<A: Api>(base: MockQuerier<TerraQueryWrapper>, _api: A) -> Self {
+    pub fn new<A: Api>(
+        base: MockQuerier<TerraQueryWrapper>,
+        canonical_length: usize,
+        _api: A,
+    ) -> Self {
         WasmMockQuerier {
             base,
+            token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
             borrow_rate_querier: BorrowRateQuerier::default(),
             borrow_limit_querier: BorrowLimitQuerier::default(),
+            canonical_length,
         }
+    }
+
+    // configure the mint whitelist mock querier
+    pub fn with_token_balances(&mut self, balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])]) {
+        self.token_querier = TokenQuerier::new(balances);
     }
 
     // configure the tax mock querier

@@ -18,7 +18,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
 
     // Check base denom deposit
-    let amount: Uint128 = env
+    let deposit_amount: Uint128 = env
         .message
         .sent_funds
         .iter()
@@ -27,7 +27,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
         .unwrap_or(Uint128::zero());
 
     // Cannot deposit zero amount
-    if amount.is_zero() {
+    if deposit_amount.is_zero() {
         return Err(StdError::generic_err("Cannot deposit zero coins"));
     }
 
@@ -37,19 +37,24 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
     store_state(&mut deps.storage, &state)?;
 
     // Load anchor token exchange rate with updated state
-    let exchange_rate = compute_exchange_rate(deps, &env)?;
-    let mint_amount = amount * reverse_decimal(exchange_rate);
+    let exchange_rate = compute_exchange_rate(deps, &env, &config, &state, Some(deposit_amount))?;
+    let mint_amount = deposit_amount * reverse_decimal(exchange_rate);
 
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.human_address(&config.anchor_token)?,
             send: vec![],
             msg: to_binary(&Cw20HandleMsg::Mint {
-                recipient: env.message.sender,
+                recipient: env.message.sender.clone(),
                 amount: mint_amount,
             })?,
         })],
-        log: vec![],
+        log: vec![
+            log("action", "deposit_stable"),
+            log("depositor", env.message.sender),
+            log("mint_amount", mint_amount),
+            log("deposit_amount", deposit_amount),
+        ],
         data: None,
     })
 }
@@ -68,7 +73,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     store_state(&mut deps.storage, &state)?;
 
     // Load anchor token exchange rate with updated state
-    let exchange_rate = compute_exchange_rate(deps, &env)?;
+    let exchange_rate = compute_exchange_rate(deps, &env, &config, &state, None)?;
     let redeem_amount = burn_amount * exchange_rate;
 
     Ok(HandleResponse {
@@ -104,11 +109,13 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
 fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     env: &Env,
+    config: &Config,
+    state: &State,
+    deposit_amount: Option<Uint128>,
 ) -> StdResult<Decimal> {
-    let config: Config = read_config(&deps.storage)?;
-    let state: State = read_state(&deps.storage)?;
     let anchor_token_supply = load_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
-    let balance = load_balance(&deps, &env.contract.address, config.base_denom.to_string())?;
+    let balance = (load_balance(&deps, &env.contract.address, config.base_denom.to_string())?
+        - deposit_amount.unwrap_or(Uint128::zero()))?;
 
     // (anchor_token / base_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / anchor_token_supply

@@ -13,15 +13,15 @@ pub struct InitMsg {
 
     /// Owner address for config update
     pub owner_addr: HumanAddr,
+    /// The contract has the calculation logics
+    /// of Anchor borrow interest rate
+    pub interest_model: HumanAddr,
     /// stable coin denom used to borrow & repay
     pub base_denom: String,
     /// reserve ratio applied to interest
     pub reserve_factor: Decimal,
     /// Anchor token code ID used to instantiate
     pub anchor_token_code_id: u64,
-    /// The contract has the calculation logics
-    /// of Anchor borrow interest rate
-    pub interest_model: HumanAddr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

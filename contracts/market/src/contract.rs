@@ -35,7 +35,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             total_liabilities: Uint128::zero(),
             total_reserves: Uint128::zero(),
             last_interest_updated: env.block.height,
-            global_interest_index: Decimal::zero(),
+            global_interest_index: Decimal::one(),
         },
     )?;
 
@@ -62,6 +62,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         log: vec![],
     })
 }
+
 pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
