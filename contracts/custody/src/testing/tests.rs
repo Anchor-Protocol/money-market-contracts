@@ -402,7 +402,7 @@ fn distribute_rewards() {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from("reward"),
                 send: vec![],
-                msg: to_binary(&RewardContractHandleMsg::WithdrawReward {}).unwrap(),
+                msg: to_binary(&RewardContractHandleMsg::ClaimRewards { recipient: None }).unwrap(),
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),

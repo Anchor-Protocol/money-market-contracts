@@ -33,7 +33,7 @@ pub fn distribute_rewards<S: Storage, A: Api, Q: Querier>(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: reward_contract,
                 send: vec![],
-                msg: to_binary(&RewardContractHandleMsg::WithdrawReward {})?,
+                msg: to_binary(&RewardContractHandleMsg::ClaimRewards { recipient: None })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: contract_addr.clone(),

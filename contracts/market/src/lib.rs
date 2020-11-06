@@ -2,7 +2,6 @@ pub mod borrow;
 pub mod contract;
 pub mod deposit;
 pub mod msg;
-pub mod querier;
 pub mod state;
 
 mod math;

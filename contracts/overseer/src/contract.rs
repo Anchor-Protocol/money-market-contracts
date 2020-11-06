@@ -1,12 +1,18 @@
 use cosmwasm_std::{
-    log, to_binary, Api, BankMsg, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError, Storage, Uint128,
-    WasmMsg,
+    log, to_binary, Api, BankMsg, Binary, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
+    HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError, StdResult, Storage,
+    Uint128, WasmMsg,
 };
 
-use crate::collateral::{liquidiate_collateral, lock_collateral, unlock_collateral};
+use crate::collateral::{
+    liquidiate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
+    query_collaterals, unlock_collateral,
+};
 use crate::math::{decimal_division, decimal_subtraction};
-use crate::msg::{HandleMsg, InitMsg, WhitelistResponseElem};
+use crate::msg::{
+    ConfigResponse, DistributionParamsResponse, HandleMsg, InitMsg, QueryMsg, WhitelistResponse,
+    WhitelistResponseElem,
+};
 use crate::state::{
     read_config, read_epoch_state, read_whitelist, read_whitelist_elem, store_config,
     store_epoch_state, store_whitelist_elem, Config, EpochState, WhitelistElem,
@@ -251,5 +257,94 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
             log("a_token_supply", epoch_state.a_token_supply),
         ],
         data: None,
+    })
+}
+
+pub fn query<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    msg: QueryMsg,
+) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        QueryMsg::EpochState {} => to_binary(&query_state(deps)?),
+        QueryMsg::Whitelist {
+            collateral_token,
+            start_after,
+            limit,
+        } => to_binary(&query_whitelist(
+            deps,
+            collateral_token,
+            start_after,
+            limit,
+        )?),
+        QueryMsg::Collaterals { borrower } => to_binary(&query_collaterals(deps, borrower)?),
+        QueryMsg::AllCollaterals { start_after, limit } => {
+            to_binary(&query_all_collaterals(deps, start_after, limit)?)
+        }
+        QueryMsg::DistributionParams {} => to_binary(&query_distribution_params(deps)?),
+        QueryMsg::BorrowLimit { borrower } => to_binary(&query_borrow_limit(deps, borrower)?),
+    }
+}
+
+pub fn query_config<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<ConfigResponse> {
+    let config: Config = read_config(&deps.storage)?;
+    Ok(ConfigResponse {
+        owner_addr: deps.api.human_address(&config.owner_addr)?,
+        oracle_contract: deps.api.human_address(&config.oracle_contract)?,
+        market_contract: deps.api.human_address(&config.market_contract)?,
+        base_denom: config.base_denom,
+        distribution_threshold: config.distribution_threshold,
+        target_deposit_rate: config.target_deposit_rate,
+        buffer_distribution_rate: config.buffer_distribution_rate,
+    })
+}
+
+pub fn query_state<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<EpochState> {
+    read_epoch_state(&deps.storage)
+}
+
+pub fn query_whitelist<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    collateral_token: Option<HumanAddr>,
+    start_after: Option<HumanAddr>,
+    limit: Option<u32>,
+) -> StdResult<WhitelistResponse> {
+    if let Some(collateral_token) = collateral_token {
+        let whitelist_elem: WhitelistElem = read_whitelist_elem(
+            &deps.storage,
+            &deps.api.canonical_address(&collateral_token)?,
+        )?;
+        Ok(WhitelistResponse {
+            elems: vec![WhitelistResponseElem {
+                ltv: whitelist_elem.ltv,
+                custody_contract: deps.api.human_address(&whitelist_elem.custody_contract)?,
+                collateral_token,
+            }],
+        })
+    } else {
+        let start_after = if let Some(start_after) = start_after {
+            Some(deps.api.canonical_address(&start_after)?)
+        } else {
+            None
+        };
+
+        let whitelist: Vec<WhitelistResponseElem> = read_whitelist(&deps, start_after, limit)?;
+        Ok(WhitelistResponse { elems: whitelist })
+    }
+}
+
+pub fn query_distribution_params<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<DistributionParamsResponse> {
+    let config: Config = read_config(&deps.storage)?;
+    let epoch_state: EpochState = read_epoch_state(&deps.storage)?;
+
+    Ok(DistributionParamsResponse {
+        target_deposit_rate: config.target_deposit_rate,
+        deposit_rate: epoch_state.deposit_rate,
     })
 }

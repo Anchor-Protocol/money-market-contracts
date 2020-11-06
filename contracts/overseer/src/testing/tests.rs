@@ -3,12 +3,11 @@ use cosmwasm_std::{
     WasmMsg,
 };
 
-use crate::contract::{handle, init};
+use crate::contract::{handle, init, query};
 use crate::msg::{
     AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse, ConfigResponse, HandleMsg,
     InitMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
-use crate::querier::query;
 use crate::state::EpochState;
 use crate::testing::mock_querier::mock_dependencies;
 
