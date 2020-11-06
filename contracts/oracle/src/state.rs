@@ -30,14 +30,14 @@ pub struct PriceInfo {
 
 pub fn store_price<S: Storage>(
     storage: &mut S,
-    asset: &String,
+    asset: &str,
     price: &PriceInfo,
 ) -> StdResult<()> {
     let mut price_bucket: Bucket<S, PriceInfo> = Bucket::new(PREFIX_PRICE, storage);
     price_bucket.save(asset.as_bytes(), &price)
 }
 
-pub fn read_price<S: Storage>(storage: &S, asset: &String) -> StdResult<PriceInfo> {
+pub fn read_price<S: Storage>(storage: &S, asset: &str) -> StdResult<PriceInfo> {
     let price_bucket: ReadonlyBucket<S, PriceInfo> = ReadonlyBucket::new(PREFIX_PRICE, storage);
     let res = price_bucket.load(asset.as_bytes());
     match res {

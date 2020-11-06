@@ -28,7 +28,7 @@ impl TokensMath for Tokens {
     fn sub(self: &mut Self, tokens: Tokens) -> StdResult<()> {
         self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
 
-        let mut tokens = tokens.clone();
+        let mut tokens = tokens;
         tokens.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
 
         let mut i = 0;
@@ -58,7 +58,7 @@ impl TokensMath for Tokens {
     fn add(self: &mut Self, tokens: Tokens) {
         self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
 
-        let mut tokens = tokens.clone();
+        let mut tokens = tokens;
         tokens.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
 
         let mut i = 0;

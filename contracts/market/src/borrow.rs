@@ -46,7 +46,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Bank(BankMsg::Send {
             from_address: env.contract.address,
-            to_address: to.unwrap_or(borrower.clone()),
+            to_address: to.unwrap_or_else(|| borrower.clone()),
             amount: vec![deduct_tax(
                 &deps,
                 Coin {
@@ -77,7 +77,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
         .iter()
         .find(|c| c.denom == config.base_denom)
         .map(|c| c.amount)
-        .unwrap_or(Uint128::zero());
+        .unwrap_or_else(Uint128::zero);
 
     // Cannot deposit zero amount
     if amount.is_zero() {

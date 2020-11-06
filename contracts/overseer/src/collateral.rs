@@ -71,7 +71,7 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     let collaterals: Tokens = collaterals_human.to_raw(&deps)?;
 
     // Underflow check is done in sub_collateral
-    if !cur_collaterals.sub(collaterals).is_ok() {
+    if cur_collaterals.sub(collaterals).is_err() {
         return Err(StdError::generic_err("Cannot unlock more than you have"));
     }
 

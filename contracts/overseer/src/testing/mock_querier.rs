@@ -22,7 +22,7 @@ pub enum QueryMsg {
         block_height: u64,
     },
     /// Query oracle price to oracle contract
-    OraclePrice { base: String, quote: String },
+    Price { base: String, quote: String },
 }
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -220,7 +220,7 @@ impl WasmMockQuerier {
                             request: msg.as_slice().into(),
                         }),
                     },
-                    QueryMsg::OraclePrice { base, quote } => {
+                    QueryMsg::Price { base, quote } => {
                         match self.oracle_price_querier.oracle_price.get(&(base, quote)) {
                             Some(v) => Ok(to_binary(&PriceResponse {
                                 rate: v.0,

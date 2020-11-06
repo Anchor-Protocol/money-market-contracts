@@ -241,7 +241,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
-    return Ok(HandleResponse {
+    Ok(HandleResponse {
         messages,
         log: vec![
             log("action", "epoch_operations"),
@@ -251,5 +251,5 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
             log("a_token_supply", epoch_state.a_token_supply),
         ],
         data: None,
-    });
+    })
 }

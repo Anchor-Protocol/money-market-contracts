@@ -24,7 +24,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
         .iter()
         .find(|c| c.denom == config.base_denom)
         .map(|c| c.amount)
-        .unwrap_or(Uint128::zero());
+        .unwrap_or_else(Uint128::zero);
 
     // Cannot deposit zero amount
     if deposit_amount.is_zero() {
@@ -115,7 +115,7 @@ fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Decimal> {
     let anchor_token_supply = load_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
     let balance = (load_balance(&deps, &env.contract.address, config.base_denom.to_string())?
-        - deposit_amount.unwrap_or(Uint128::zero()))?;
+        - deposit_amount.unwrap_or_else(Uint128::zero))?;
 
     // (anchor_token / base_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / anchor_token_supply
