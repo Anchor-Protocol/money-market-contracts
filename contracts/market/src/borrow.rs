@@ -3,7 +3,7 @@ use cosmwasm_std::{
     HumanAddr, Querier, StdError, StdResult, Storage, Uint128,
 };
 
-use crate::math::{decimal_division, decimal_multiplication};
+use crate::math::{decimal_division, decimal_multiplication, decimal_subtraction};
 use crate::msg::{LiabilityResponse, LiabilitysResponse, LoanAmountResponse};
 use crate::state::{
     read_config, read_liabilities, read_liability, read_state, store_liability, store_state,
@@ -28,7 +28,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
 
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
-    let mut liability: Liability = read_liability(&deps.storage, &borrower_raw)?;
+    let mut liability: Liability = read_liability(&deps.storage, &borrower_raw);
     compute_loan(&state, &mut liability);
 
     let overseer = deps.api.human_address(&config.overseer_contract)?;
@@ -39,7 +39,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     }
 
     liability.loan_amount += borrow_amount;
-    state.total_liabilities += borrow_amount;
+    state.total_liabilities = state.total_liabilities + Decimal::from_ratio(borrow_amount, 1u128);
     store_state(&mut deps.storage, &state)?;
     store_liability(&mut deps.storage, &borrower_raw, &liability)?;
 
@@ -81,7 +81,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
 
     // Cannot deposit zero amount
     if amount.is_zero() {
-        return Err(StdError::generic_err("Cannot deposit zero coins"));
+        return Err(StdError::generic_err("Cannot repay zero coins"));
     }
 
     // Update interest related state
@@ -90,7 +90,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
 
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
-    let mut liability: Liability = read_liability(&deps.storage, &borrower_raw)?;
+    let mut liability: Liability = read_liability(&deps.storage, &borrower_raw);
     compute_loan(&state, &mut liability);
 
     let repay_amount: Uint128;
@@ -98,7 +98,6 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
     if liability.loan_amount < amount {
         repay_amount = liability.loan_amount;
         liability.loan_amount = Uint128::zero();
-        state.total_liabilities = (state.total_liabilities - repay_amount)?;
 
         // Payback left repay amount to sender
         messages.push(CosmosMsg::Bank(BankMsg::Send {
@@ -115,8 +114,12 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
     } else {
         repay_amount = amount;
         liability.loan_amount = (liability.loan_amount - repay_amount)?;
-        state.total_liabilities = (state.total_liabilities - repay_amount)?;
     }
+
+    state.total_liabilities = decimal_subtraction(
+        state.total_liabilities,
+        Decimal::from_ratio(repay_amount, 1u128),
+    );
 
     store_liability(&mut deps.storage, &borrower_raw, &liability)?;
     store_state(&mut deps.storage, &state)?;
@@ -149,14 +152,15 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
         borrow_rate_res.rate,
     );
 
-    let interest_accrued = state.total_liabilities * interest_factor;
+    let interest_accrued = decimal_multiplication(state.total_liabilities, interest_factor);
 
     state.global_interest_index = decimal_multiplication(
         state.global_interest_index,
         Decimal::one() + interest_factor,
     );
-    state.total_liabilities += interest_accrued;
-    state.total_reserves += interest_accrued * config.reserve_factor;
+    state.total_liabilities = state.total_liabilities + interest_accrued;
+    state.total_reserves =
+        state.total_reserves + decimal_multiplication(interest_accrued, config.reserve_factor);
     state.last_interest_updated = env.block.height;
 
     Ok(())
@@ -174,7 +178,7 @@ pub fn query_liability<S: Storage, A: Api, Q: Querier>(
     borrower: HumanAddr,
 ) -> StdResult<LiabilityResponse> {
     let liability: Liability =
-        read_liability(&deps.storage, &deps.api.canonical_address(&borrower)?)?;
+        read_liability(&deps.storage, &deps.api.canonical_address(&borrower)?);
 
     Ok(LiabilityResponse {
         borrower,
@@ -204,7 +208,7 @@ pub fn query_loan_amount<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<LoanAmountResponse> {
     let state: State = read_state(&deps.storage)?;
     let mut liability: Liability =
-        read_liability(&deps.storage, &deps.api.canonical_address(&borrower)?)?;
+        read_liability(&deps.storage, &deps.api.canonical_address(&borrower)?);
 
     compute_loan(&state, &mut liability);
 

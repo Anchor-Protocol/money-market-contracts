@@ -26,8 +26,8 @@ pub struct Config {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
-    pub total_liabilities: Uint128,
-    pub total_reserves: Uint128,
+    pub total_liabilities: Decimal,
+    pub total_reserves: Decimal,
     pub last_interest_updated: u64,
     pub global_interest_index: Decimal,
 }
@@ -65,12 +65,15 @@ pub fn store_liability<S: Storage>(
     Ok(())
 }
 
-pub fn read_liability<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> StdResult<Liability> {
+pub fn read_liability<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> Liability {
     let liability_bucket: ReadonlyBucket<S, Liability> =
         ReadonlyBucket::new(PREFIX_LIABILITY, storage);
     match liability_bucket.load(&borrower.as_slice()) {
-        Ok(v) => Ok(v),
-        _ => Err(StdError::generic_err("No whitelist data is stored")),
+        Ok(v) => v,
+        _ => Liability {
+            interest_index: Decimal::one(),
+            loan_amount: Uint128::zero(),
+        },
     }
 }
 

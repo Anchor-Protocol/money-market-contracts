@@ -4,7 +4,7 @@ use cosmwasm_std::{
 };
 
 use crate::borrow::compute_interest;
-use crate::math::reverse_decimal;
+use crate::math::{decimal_division, decimal_subtraction, reverse_decimal};
 use crate::state::{read_config, read_state, store_state, Config, State};
 
 use cw20::Cw20HandleMsg;
@@ -119,8 +119,11 @@ fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
 
     // (anchor_token / base_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / anchor_token_supply
-    Ok(Decimal::from_ratio(
-        (balance + state.total_liabilities - state.total_reserves)?,
-        anchor_token_supply,
+    Ok(decimal_division(
+        decimal_subtraction(
+            Decimal::from_ratio(balance, 1u128) + state.total_liabilities,
+            state.total_reserves,
+        ),
+        Decimal::from_ratio(anchor_token_supply, 1u128),
     ))
 }
