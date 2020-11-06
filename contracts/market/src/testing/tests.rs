@@ -5,8 +5,8 @@ use cosmwasm_std::{
 
 use crate::contract::{handle, init};
 use crate::msg::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LiabilityResponse, LiabilitysResponse,
-    LoanAmountResponse, QueryMsg,
+    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LiabilityResponse, LoanAmountResponse,
+    QueryMsg,
 };
 use crate::querier::query;
 use crate::state::{store_state, State};
@@ -14,7 +14,7 @@ use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg, MinterResponse};
-use moneymarket::{deduct_tax, CustodyHandleMsg};
+use moneymarket::deduct_tax;
 use terraswap::{InitHook, TokenInitMsg};
 
 #[test]
@@ -452,6 +452,10 @@ fn redeem_stable() {
 #[test]
 fn borrow_stable() {
     let mut deps = mock_dependencies(20, &[]);
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
@@ -551,6 +555,7 @@ fn borrow_stable() {
         },
     )
     .unwrap();
+
     let liability: LiabilityResponse = from_binary(&res).unwrap();
     assert_eq!(
         liability,
@@ -558,6 +563,44 @@ fn borrow_stable() {
             borrower: HumanAddr::from("addr0000"),
             interest_index: Decimal::from_ratio(2u128, 1u128),
             loan_amount: Uint128::from(500000u128),
+        }
+    );
+
+    let res = query(
+        &deps,
+        QueryMsg::LoanAmount {
+            borrower: HumanAddr::from("addr0000"),
+            block_height: env.block.height,
+        },
+    )
+    .unwrap();
+
+    let loan_amount: LoanAmountResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        loan_amount,
+        LoanAmountResponse {
+            borrower: HumanAddr::from("addr0000"),
+            loan_amount: Uint128::from(500000u128),
+        }
+    );
+
+    // Query to future blocks
+    // interest_factor is 100%
+    let res = query(
+        &deps,
+        QueryMsg::LoanAmount {
+            borrower: HumanAddr::from("addr0000"),
+            block_height: env.block.height + 100,
+        },
+    )
+    .unwrap();
+
+    let loan_amount: LoanAmountResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        loan_amount,
+        LoanAmountResponse {
+            borrower: HumanAddr::from("addr0000"),
+            loan_amount: Uint128::from(1000000u128),
         }
     );
 
@@ -576,6 +619,10 @@ fn borrow_stable() {
 #[test]
 fn repay_stable() {
     let mut deps = mock_dependencies(20, &[]);
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
@@ -676,7 +723,8 @@ fn repay_stable() {
                     denom: "uusd".to_string(),
                     amount: Uint128::from(100000u128),
                 }
-            ).unwrap()]
+            )
+            .unwrap()]
         })]
     );
 }

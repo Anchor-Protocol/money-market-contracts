@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use crate::querier::{
     BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse, EpochStateResponse,
-    LoanAmountResponse, OraclePriceResponse, QueryMsg,
+    LoanAmountResponse, PriceResponse, QueryMsg,
 };
 use cw20::TokenInfoResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
@@ -316,21 +316,22 @@ impl WasmMockQuerier {
                             }),
                         }
                     }
-                    QueryMsg::LoanAmount { borrower } => {
-                        match self.loan_amount_querier.loan_amount.get(&borrower) {
-                            Some(v) => Ok(to_binary(&LoanAmountResponse {
-                                borrower,
-                                loan_amount: *v,
-                            })),
-                            None => Err(SystemError::InvalidRequest {
-                                error: "No borrow amount exists".to_string(),
-                                request: msg.as_slice().into(),
-                            }),
-                        }
-                    }
-                    QueryMsg::OraclePrice { base, quote } => {
+                    QueryMsg::LoanAmount {
+                        borrower,
+                        block_height: _,
+                    } => match self.loan_amount_querier.loan_amount.get(&borrower) {
+                        Some(v) => Ok(to_binary(&LoanAmountResponse {
+                            borrower,
+                            loan_amount: *v,
+                        })),
+                        None => Err(SystemError::InvalidRequest {
+                            error: "No borrow amount exists".to_string(),
+                            request: msg.as_slice().into(),
+                        }),
+                    },
+                    QueryMsg::Price { base, quote } => {
                         match self.oracle_price_querier.oracle_price.get(&(base, quote)) {
-                            Some(v) => Ok(to_binary(&OraclePriceResponse {
+                            Some(v) => Ok(to_binary(&PriceResponse {
                                 rate: v.0,
                                 last_updated_base: v.1,
                                 last_updated_quote: v.2,

@@ -10,10 +10,7 @@ use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
 
 use cw20::TokenInfoResponse;
-use moneymarket::{
-    BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse, EpochStateResponse,
-    LoanAmountResponse, OraclePriceResponse,
-};
+use moneymarket::{BorrowLimitResponse, BorrowRateResponse};
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -105,103 +102,6 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
         owner_map.insert(denom.to_string(), **cap);
     }
     owner_map
-}
-
-#[derive(Clone, Default)]
-pub struct DistributionParamsQuerier {
-    // this lets us iterate over all pairs that match the first string
-    distribution_params: HashMap<HumanAddr, (Decimal, Decimal)>,
-}
-
-impl DistributionParamsQuerier {
-    pub fn new(distribution_params: &[(&HumanAddr, &(Decimal, Decimal))]) -> Self {
-        DistributionParamsQuerier {
-            distribution_params: distribution_params_to_map(distribution_params),
-        }
-    }
-}
-
-pub(crate) fn distribution_params_to_map(
-    caps: &[(&HumanAddr, &(Decimal, Decimal))],
-) -> HashMap<HumanAddr, (Decimal, Decimal)> {
-    let mut distribution_params_map: HashMap<HumanAddr, (Decimal, Decimal)> = HashMap::new();
-    for (asset_token, distribution_params) in caps.iter() {
-        distribution_params_map.insert((*asset_token).clone(), **distribution_params);
-    }
-    distribution_params_map
-}
-
-#[derive(Clone, Default)]
-pub struct OraclePriceQuerier {
-    // this lets us iterate over all pairs that match the first string
-    oracle_price: HashMap<(String, String), (Decimal, u64, u64)>,
-}
-
-impl OraclePriceQuerier {
-    pub fn new(oracle_price: &[(&(String, String), &(Decimal, u64, u64))]) -> Self {
-        OraclePriceQuerier {
-            oracle_price: oracle_price_to_map(oracle_price),
-        }
-    }
-}
-
-pub(crate) fn oracle_price_to_map(
-    oracle_price: &[(&(String, String), &(Decimal, u64, u64))],
-) -> HashMap<(String, String), (Decimal, u64, u64)> {
-    let mut oracle_price_map: HashMap<(String, String), (Decimal, u64, u64)> = HashMap::new();
-    for (base_quote, oracle_price) in oracle_price.iter() {
-        oracle_price_map.insert((*base_quote).clone(), **oracle_price);
-    }
-
-    oracle_price_map
-}
-
-#[derive(Clone, Default)]
-pub struct EpochStateQuerier {
-    // this lets us iterate over all pairs that match the first string
-    epoch_state: HashMap<HumanAddr, (Uint128, Decimal)>,
-}
-
-impl EpochStateQuerier {
-    pub fn new(epoch_state: &[(&HumanAddr, &(Uint128, Decimal))]) -> Self {
-        EpochStateQuerier {
-            epoch_state: epoch_state_to_map(epoch_state),
-        }
-    }
-}
-
-pub(crate) fn epoch_state_to_map(
-    epoch_state: &[(&HumanAddr, &(Uint128, Decimal))],
-) -> HashMap<HumanAddr, (Uint128, Decimal)> {
-    let mut epoch_state_map: HashMap<HumanAddr, (Uint128, Decimal)> = HashMap::new();
-    for (market_contract, epoch_state) in epoch_state.iter() {
-        epoch_state_map.insert((*market_contract).clone(), **epoch_state);
-    }
-    epoch_state_map
-}
-
-#[derive(Clone, Default)]
-pub struct LoanAmountQuerier {
-    // this lets us iterate over all pairs that match the first string
-    loan_amount: HashMap<HumanAddr, Uint128>,
-}
-
-impl LoanAmountQuerier {
-    pub fn new(loan_amount: &[(&HumanAddr, &Uint128)]) -> Self {
-        LoanAmountQuerier {
-            loan_amount: loan_amount_to_map(loan_amount),
-        }
-    }
-}
-
-pub(crate) fn loan_amount_to_map(
-    loan_amount: &[(&HumanAddr, &Uint128)],
-) -> HashMap<HumanAddr, Uint128> {
-    let mut loan_amount_map: HashMap<HumanAddr, Uint128> = HashMap::new();
-    for (market_contract, loan_amount) in loan_amount.iter() {
-        loan_amount_map.insert((*market_contract).clone(), **loan_amount);
-    }
-    loan_amount_map
 }
 
 #[derive(Clone, Default)]

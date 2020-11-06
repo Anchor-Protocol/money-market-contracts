@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
     HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError, Storage,
-    Uint128, WasmMsg,
+    WasmMsg,
 };
 
 use crate::borrow::{borrow_stable, repay_stable};

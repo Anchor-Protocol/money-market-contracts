@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfigResponse",
+  "type": "object",
+  "required": [
+    "base_denom",
+    "collateral_token",
+    "market_contract",
+    "overseer_contract",
+    "reward_contract"
+  ],
+  "properties": {
+    "base_denom": {
+      "type": "string"
+    },
+    "collateral_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "market_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "overseer_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "reward_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
+}

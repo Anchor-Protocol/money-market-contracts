@@ -11,7 +11,7 @@ use crate::state::{
 use crate::tokens::{Tokens, TokensHuman, TokensMath, TokensToRaw};
 
 use moneymarket::{
-    load_loan_amount, load_oracle_price, CustodyHandleMsg, LoanAmountResponse, OraclePriceResponse,
+    load_loan_amount, load_price, CustodyHandleMsg, LoanAmountResponse, PriceResponse,
 };
 
 pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
@@ -77,7 +77,8 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
 
     // Compute borrow limit with collaterals except unlock target collaterals
     let borrow_limit = compute_borrow_limit(deps, &cur_collaterals)?;
-    let borrow_amount_res: LoanAmountResponse = load_loan_amount(deps, &market, &borrower)?;
+    let borrow_amount_res: LoanAmountResponse =
+        load_loan_amount(deps, &market, &borrower, env.block.height)?;
     if borrow_limit < borrow_amount_res.loan_amount {
         return Err(StdError::generic_err(
             "Cannot unlock collateral more than LTV",
@@ -169,7 +170,7 @@ fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
         let collateral_token = collateral.0.clone();
         let collateral_amount = collateral.1;
 
-        let price: OraclePriceResponse = load_oracle_price(
+        let price: PriceResponse = load_price(
             &deps,
             &oracle_contract,
             config.base_denom.to_string(),

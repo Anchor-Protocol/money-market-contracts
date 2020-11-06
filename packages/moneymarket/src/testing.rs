@@ -1,9 +1,9 @@
 use crate::mock_querier::mock_dependencies;
 use crate::querier::{
     compute_tax, deduct_tax, load_all_balances, load_balance, load_borrow_limit, load_borrow_rate,
-    load_distribution_params, load_epoch_state, load_loan_amount, load_oracle_price, load_supply,
+    load_distribution_params, load_epoch_state, load_loan_amount, load_price, load_supply,
     load_token_balance, BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse,
-    EpochStateResponse, LoanAmountResponse, OraclePriceResponse,
+    EpochStateResponse, LoanAmountResponse, PriceResponse,
 };
 use cosmwasm_std::testing::MOCK_CONTRACT_ADDR;
 use cosmwasm_std::{Coin, Decimal, HumanAddr, Uint128};
@@ -198,6 +198,7 @@ fn borrow_amount_querier() {
         &deps,
         &HumanAddr::from("market"),
         &HumanAddr::from("addr0000"),
+        100u64,
     )
     .unwrap();
 
@@ -219,7 +220,7 @@ fn oracle_price_querier() {
         &(Decimal::from_ratio(131u128, 2u128), 123, 321),
     )]);
 
-    let oracle_price = load_oracle_price(
+    let oracle_price = load_price(
         &deps,
         &HumanAddr::from("oracle"),
         "uusd".to_string(),
@@ -229,14 +230,14 @@ fn oracle_price_querier() {
 
     assert_eq!(
         oracle_price,
-        OraclePriceResponse {
+        PriceResponse {
             rate: Decimal::from_ratio(131u128, 2u128),
             last_updated_base: 123,
             last_updated_quote: 321,
         }
     );
 
-    load_oracle_price(
+    load_price(
         &deps,
         &HumanAddr::from("oracle"),
         "ukrw".to_string(),

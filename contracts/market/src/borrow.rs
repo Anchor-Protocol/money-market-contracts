@@ -24,7 +24,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
 
     // Update interest related state
     let mut state: State = read_state(&deps.storage)?;
-    compute_interest(deps, &env, &config, &mut state)?;
+    compute_interest(&deps, &config, &mut state, env.block.height)?;
 
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
@@ -86,7 +86,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
 
     // Update interest related state
     let mut state: State = read_state(&deps.storage)?;
-    compute_interest(deps, &env, &config, &mut state)?;
+    compute_interest(&deps, &config, &mut state, env.block.height)?;
 
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
@@ -138,15 +138,15 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
 /// Compute interest and update state
 /// total liabilities and total reserves
 pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: &Env,
+    deps: &Extern<S, A, Q>,
     config: &Config,
     state: &mut State,
+    block_height: u64,
 ) -> StdResult<()> {
     let borrow_rate_res: BorrowRateResponse =
         load_borrow_rate(&deps, &deps.api.human_address(&config.interest_model)?)?;
 
-    let passed_blocks = env.block.height - state.last_interest_updated;
+    let passed_blocks = block_height - state.last_interest_updated;
     let interest_factor: Decimal = decimal_multiplication(
         Decimal::from_ratio(passed_blocks, 1u128),
         borrow_rate_res.rate,
@@ -161,7 +161,7 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
     state.total_liabilities = state.total_liabilities + interest_accrued;
     state.total_reserves =
         state.total_reserves + decimal_multiplication(interest_accrued, config.reserve_factor);
-    state.last_interest_updated = env.block.height;
+    state.last_interest_updated = block_height;
 
     Ok(())
 }
@@ -205,11 +205,14 @@ pub fn query_liabilitys<S: Storage, A: Api, Q: Querier>(
 pub fn query_loan_amount<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     borrower: HumanAddr,
+    block_height: u64,
 ) -> StdResult<LoanAmountResponse> {
-    let state: State = read_state(&deps.storage)?;
+    let config: Config = read_config(&deps.storage)?;
+    let mut state: State = read_state(&deps.storage)?;
     let mut liability: Liability =
         read_liability(&deps.storage, &deps.api.canonical_address(&borrower)?);
 
+    compute_interest(&deps, &config, &mut state, block_height)?;
     compute_loan(&state, &mut liability);
 
     Ok(LoanAmountResponse {

@@ -1,0 +1,164 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HandleMsg",
+  "anyOf": [
+    {
+      "description": "CW20 token receiver",
+      "type": "object",
+      "required": [
+        "receive"
+      ],
+      "properties": {
+        "receive": {
+          "$ref": "#/definitions/Cw20ReceiveMsg"
+        }
+      }
+    },
+    {
+      "description": "Owner operations Make specified amount of tokens unspendable",
+      "type": "object",
+      "required": [
+        "lock_collateral"
+      ],
+      "properties": {
+        "lock_collateral": {
+          "type": "object",
+          "required": [
+            "amount",
+            "borrower"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Make specified amount of collateral tokens spendable",
+      "type": "object",
+      "required": [
+        "unlock_collateral"
+      ],
+      "properties": {
+        "unlock_collateral": {
+          "type": "object",
+          "required": [
+            "amount",
+            "borrower"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Claim bAsset rewards and distribute claimed rewards to market and overseer contracts",
+      "type": "object",
+      "required": [
+        "distribute_rewards"
+      ],
+      "properties": {
+        "distribute_rewards": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "description": "(internal) Send withdrawn rewards to market & overseer",
+      "type": "object",
+      "required": [
+        "distribute_hook"
+      ],
+      "properties": {
+        "distribute_hook": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "description": "(internal) Swap all coins to base_denom",
+      "type": "object",
+      "required": [
+        "swap_to_reward_denom"
+      ],
+      "properties": {
+        "swap_to_reward_denom": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "description": "User operations Withdraw spendable collateral token. If the amount is not given, return all spendable collateral",
+      "type": "object",
+      "required": [
+        "withdraw_collateral"
+      ],
+      "properties": {
+        "withdraw_collateral": {
+          "type": "object",
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
+      "type": "string"
+    },
+    "Cw20ReceiveMsg": {
+      "description": "Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg",
+      "type": "object",
+      "required": [
+        "amount",
+        "sender"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "msg": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sender": {
+          "$ref": "#/definitions/HumanAddr"
+        }
+      }
+    },
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}

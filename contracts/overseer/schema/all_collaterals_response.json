@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AllCollateralsResponse",
+  "type": "object",
+  "required": [
+    "all_collaterals"
+  ],
+  "properties": {
+    "all_collaterals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/CollateralsResponse"
+      }
+    }
+  },
+  "definitions": {
+    "CollateralsResponse": {
+      "type": "object",
+      "required": [
+        "borrower",
+        "collaterals"
+      ],
+      "properties": {
+        "borrower": {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        "collaterals": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": [
+              {
+                "$ref": "#/definitions/HumanAddr"
+              },
+              {
+                "$ref": "#/definitions/Uint128"
+              }
+            ],
+            "maxItems": 2,
+            "minItems": 2
+          }
+        }
+      }
+    },
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}

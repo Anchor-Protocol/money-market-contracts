@@ -86,6 +86,7 @@ pub enum QueryMsg {
     },
     LoanAmount {
         borrower: HumanAddr,
+        block_height: u64,
     },
 }
 

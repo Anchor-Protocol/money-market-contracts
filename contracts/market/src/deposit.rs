@@ -33,7 +33,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
 
     // Update interest related state
     let mut state: State = read_state(&deps.storage)?;
-    compute_interest(deps, &env, &config, &mut state)?;
+    compute_interest(&deps, &config, &mut state, env.block.height)?;
     store_state(&mut deps.storage, &state)?;
 
     // Load anchor token exchange rate with updated state
@@ -69,7 +69,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
 
     // Update interest related state
     let mut state: State = read_state(&deps.storage)?;
-    compute_interest(deps, &env, &config, &mut state)?;
+    compute_interest(&deps, &config, &mut state, env.block.height)?;
     store_state(&mut deps.storage, &state)?;
 
     // Load anchor token exchange rate with updated state

@@ -8,7 +8,7 @@ use cosmwasm_std::{
 };
 use std::collections::HashMap;
 
-use moneymarket::{EpochStateResponse, LoanAmountResponse, OraclePriceResponse};
+use moneymarket::{EpochStateResponse, LoanAmountResponse, PriceResponse};
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -17,7 +17,10 @@ pub enum QueryMsg {
     /// Query epoch state to market contract
     EpochState {},
     /// Query loan amount to market contract
-    LoanAmount { borrower: HumanAddr },
+    LoanAmount {
+        borrower: HumanAddr,
+        block_height: u64,
+    },
     /// Query oracle price to oracle contract
     OraclePrice { base: String, quote: String },
 }
@@ -204,21 +207,22 @@ impl WasmMockQuerier {
                             }),
                         }
                     }
-                    QueryMsg::LoanAmount { borrower } => {
-                        match self.loan_amount_querier.borrower_amount.get(&borrower) {
-                            Some(v) => Ok(to_binary(&LoanAmountResponse {
-                                borrower,
-                                loan_amount: *v,
-                            })),
-                            None => Err(SystemError::InvalidRequest {
-                                error: "No borrow amount exists".to_string(),
-                                request: msg.as_slice().into(),
-                            }),
-                        }
-                    }
+                    QueryMsg::LoanAmount {
+                        borrower,
+                        block_height: _,
+                    } => match self.loan_amount_querier.borrower_amount.get(&borrower) {
+                        Some(v) => Ok(to_binary(&LoanAmountResponse {
+                            borrower,
+                            loan_amount: *v,
+                        })),
+                        None => Err(SystemError::InvalidRequest {
+                            error: "No borrow amount exists".to_string(),
+                            request: msg.as_slice().into(),
+                        }),
+                    },
                     QueryMsg::OraclePrice { base, quote } => {
                         match self.oracle_price_querier.oracle_price.get(&(base, quote)) {
-                            Some(v) => Ok(to_binary(&OraclePriceResponse {
+                            Some(v) => Ok(to_binary(&PriceResponse {
                                 rate: v.0,
                                 last_updated_base: v.1,
                                 last_updated_quote: v.2,

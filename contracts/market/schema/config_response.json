@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfigResponse",
+  "type": "object",
+  "required": [
+    "anchor_token",
+    "base_denom",
+    "interest_model",
+    "overseer_contract",
+    "owner_addr",
+    "reserve_factor"
+  ],
+  "properties": {
+    "anchor_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "base_denom": {
+      "type": "string"
+    },
+    "interest_model": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "overseer_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "owner_addr": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "reserve_factor": {
+      "$ref": "#/definitions/Decimal"
+    }
+  },
+  "definitions": {
+    "Decimal": {
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "type": "string"
+    },
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
+}

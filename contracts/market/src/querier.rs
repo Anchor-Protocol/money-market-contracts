@@ -15,7 +15,10 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::Liabilitys { start_after, limit } => {
             to_binary(&query_liabilitys(deps, start_after, limit)?)
         }
-        QueryMsg::LoanAmount { borrower } => to_binary(&query_loan_amount(deps, borrower)?),
+        QueryMsg::LoanAmount {
+            borrower,
+            block_height,
+        } => to_binary(&query_loan_amount(deps, borrower, block_height)?),
     }
 }
 

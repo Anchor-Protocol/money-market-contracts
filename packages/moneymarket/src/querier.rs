@@ -109,9 +109,12 @@ pub enum QueryMsg {
     /// Query epoch state to market contract
     EpochState {},
     /// Query borrow amount to market contract
-    LoanAmount { borrower: HumanAddr },
+    LoanAmount {
+        borrower: HumanAddr,
+        block_height: u64,
+    },
     /// Query oracle price to oracle contract
-    OraclePrice { base: String, quote: String },
+    Price { base: String, quote: String },
     /// Query borrow rate to interest model contract
     BorrowRate {},
     /// Query borrow limit to overseer contract
@@ -184,12 +187,14 @@ pub fn load_loan_amount<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     market_addr: &HumanAddr,
     borrower: &HumanAddr,
+    block_height: u64,
 ) -> StdResult<LoanAmountResponse> {
     let borrower_amount: LoanAmountResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(market_addr),
             msg: to_binary(&QueryMsg::LoanAmount {
                 borrower: HumanAddr::from(borrower),
+                block_height,
             })?,
         }))?;
 
@@ -198,22 +203,22 @@ pub fn load_loan_amount<S: Storage, A: Api, Q: Querier>(
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct OraclePriceResponse {
+pub struct PriceResponse {
     pub rate: Decimal,
     pub last_updated_base: u64,
     pub last_updated_quote: u64,
 }
 
-pub fn load_oracle_price<S: Storage, A: Api, Q: Querier>(
+pub fn load_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     oracle_addr: &HumanAddr,
     base: String,
     quote: String,
-) -> StdResult<OraclePriceResponse> {
-    let oracle_price: OraclePriceResponse =
+) -> StdResult<PriceResponse> {
+    let oracle_price: PriceResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(oracle_addr),
-            msg: to_binary(&QueryMsg::OraclePrice { base, quote })?,
+            msg: to_binary(&QueryMsg::Price { base, quote })?,
         }))?;
 
     Ok(oracle_price)
