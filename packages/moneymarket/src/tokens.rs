@@ -2,8 +2,11 @@ use cosmwasm_std::{
     Api, CanonicalAddr, Extern, HumanAddr, Querier, StdError, StdResult, Storage, Uint128,
 };
 
-pub type Tokens = Vec<(CanonicalAddr, Uint128)>; // <(Collateral Token, Amount)>
-pub type TokensHuman = Vec<(HumanAddr, Uint128)>;
+pub type Token = (CanonicalAddr, Uint128);
+pub type TokenHuman = (HumanAddr, Uint128);
+
+pub type Tokens = Vec<Token>;
+pub type TokensHuman = Vec<TokenHuman>;
 
 pub trait TokensMath {
     fn sub(self: &mut Self, collaterals: Tokens) -> StdResult<()>;

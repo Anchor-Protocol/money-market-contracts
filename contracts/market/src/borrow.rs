@@ -4,15 +4,16 @@ use cosmwasm_std::{
 };
 
 use crate::math::{decimal_division, decimal_multiplication, decimal_subtraction};
-use crate::msg::{LiabilityResponse, LiabilitysResponse, LoanAmountResponse};
+use crate::msg::{LiabilitiesResponse, LiabilityResponse, LoanAmountResponse};
 use crate::state::{
     read_config, read_liabilities, read_liability, read_state, store_liability, store_state,
     Config, Liability, State,
 };
 
 use moneymarket::{
-    deduct_tax, load_borrow_limit, load_borrow_rate, BorrowLimitResponse, BorrowRateResponse,
+    deduct_tax, query_borrow_limit, query_borrow_rate, BorrowLimitResponse, BorrowRateResponse,
 };
+use terraswap::query_balance;
 
 pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -32,7 +33,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     compute_loan(&state, &mut liability);
 
     let overseer = deps.api.human_address(&config.overseer_contract)?;
-    let borrow_limit_res: BorrowLimitResponse = load_borrow_limit(deps, &overseer, &borrower)?;
+    let borrow_limit_res: BorrowLimitResponse = query_borrow_limit(deps, &overseer, &borrower)?;
 
     if borrow_limit_res.borrow_limit < borrow_amount + liability.loan_amount {
         return Err(StdError::generic_err("Cannot borrow more than limit"));
@@ -50,7 +51,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
             amount: vec![deduct_tax(
                 &deps,
                 Coin {
-                    denom: config.base_denom,
+                    denom: config.stable_denom,
                     amount: borrow_amount,
                 },
             )?],
@@ -64,6 +65,35 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+pub fn repay_stable_from_liquidation<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    borrower: HumanAddr,
+    prev_balance: Uint128,
+) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
+    if config.overseer_contract != deps.api.canonical_address(&env.message.sender)? {
+        return Err(StdError::unauthorized());
+    }
+
+    let cur_balance: Uint128 = query_balance(
+        &deps,
+        &env.contract.address,
+        config.stable_denom.to_string(),
+    )?;
+
+    // override env
+    let mut env = env;
+
+    env.message.sender = borrower;
+    env.message.sent_funds = vec![Coin {
+        denom: config.stable_denom,
+        amount: (cur_balance - prev_balance).unwrap(),
+    }];
+
+    repay_stable(deps, env)
+}
+
 pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -75,7 +105,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
         .message
         .sent_funds
         .iter()
-        .find(|c| c.denom == config.base_denom)
+        .find(|c| c.denom == config.stable_denom)
         .map(|c| c.amount)
         .unwrap_or_else(Uint128::zero);
 
@@ -106,7 +136,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
             amount: vec![deduct_tax(
                 &deps,
                 Coin {
-                    denom: config.base_denom,
+                    denom: config.stable_denom,
                     amount: (amount - repay_amount)?,
                 },
             )?],
@@ -144,7 +174,7 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
     block_height: u64,
 ) -> StdResult<()> {
     let borrow_rate_res: BorrowRateResponse =
-        load_borrow_rate(&deps, &deps.api.human_address(&config.interest_model)?)?;
+        query_borrow_rate(&deps, &deps.api.human_address(&config.interest_model)?)?;
 
     let passed_blocks = block_height - state.last_interest_updated;
     let interest_factor: Decimal = decimal_multiplication(
@@ -187,19 +217,19 @@ pub fn query_liability<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn query_liabilitys<S: Storage, A: Api, Q: Querier>(
+pub fn query_liabilities<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     start_after: Option<HumanAddr>,
     limit: Option<u32>,
-) -> StdResult<LiabilitysResponse> {
+) -> StdResult<LiabilitiesResponse> {
     let start_after = if let Some(start_after) = start_after {
         Some(deps.api.canonical_address(&start_after)?)
     } else {
         None
     };
 
-    let liabilitys: Vec<LiabilityResponse> = read_liabilities(&deps, start_after, limit)?;
-    Ok(LiabilitysResponse { liabilitys })
+    let liabilities: Vec<LiabilityResponse> = read_liabilities(&deps, start_after, limit)?;
+    Ok(LiabilitiesResponse { liabilities })
 }
 
 pub fn query_loan_amount<S: Storage, A: Api, Q: Querier>(

@@ -1,14 +1,18 @@
 mod msgs;
 mod querier;
+mod tokens;
 
 pub use crate::querier::{
-    compute_tax, deduct_tax, load_all_balances, load_balance, load_borrow_limit, load_borrow_rate,
-    load_distribution_params, load_epoch_state, load_loan_amount, load_price, load_supply,
-    load_token_balance, BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse,
-    EpochStateResponse, LoanAmountResponse, PriceResponse, QueryMsg,
+    compute_tax, deduct_tax, query_borrow_limit, query_borrow_rate, query_distribution_params,
+    query_epoch_state, query_liquidation_amount, query_loan_amount, query_price,
+    BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse, EpochStateResponse,
+    LiquidationAmountResponse, LoanAmountResponse, PriceResponse, QueryMsg,
 };
 
 pub use crate::msgs::{CustodyHandleMsg, MarketHandleMsg};
+pub use crate::tokens::{
+    Token, TokenHuman, Tokens, TokensHuman, TokensMath, TokensToHuman, TokensToRaw,
+};
 
 #[cfg(test)]
 mod mock_querier;

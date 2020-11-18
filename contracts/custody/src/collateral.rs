@@ -3,11 +3,14 @@ use crate::state::{
     read_borrower_info, read_borrowers, read_config, remove_borrower_info, store_borrower_info,
     BorrowerInfo, Config,
 };
+
 use cosmwasm_std::{
-    log, Api, CanonicalAddr, Env, Extern, HandleResponse, HandleResult, HumanAddr, Querier,
-    StdError, StdResult, Storage, Uint128,
+    log, to_binary, Api, CanonicalAddr, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
+    HumanAddr, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
+use cw20::Cw20HandleMsg;
 use terra_cosmwasm::TerraMsgWrapper;
+use terraswap::PairCw20HookMsg;
 
 /// Deposit new collateral
 /// Executor: bAsset token contract
@@ -144,6 +147,53 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         log: vec![
             log("action", "unlock_collateral"),
+            log("borrower", borrower),
+            log("amount", amount),
+        ],
+        data: None,
+    })
+}
+
+pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    borrower: HumanAddr,
+    amount: Uint128,
+) -> HandleResult<TerraMsgWrapper> {
+    let config: Config = read_config(&deps.storage)?;
+    if deps.api.canonical_address(&env.message.sender)? != config.overseer_contract {
+        return Err(StdError::unauthorized());
+    }
+
+    let borrower_raw: CanonicalAddr = deps.api.canonical_address(&borrower)?;
+    let mut borrower_info: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
+    let borrowed_amt = (borrower_info.balance - borrower_info.spendable).unwrap();
+    if amount > borrowed_amt {
+        return Err(StdError::generic_err(format!(
+            "Cannot liquidate more than locked {}",
+            borrowed_amt
+        )));
+    }
+
+    borrower_info.balance = (borrower_info.balance - amount).unwrap();
+    store_borrower_info(&mut deps.storage, &borrower_raw, &borrower_info)?;
+
+    Ok(HandleResponse {
+        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.human_address(&config.collateral_token)?,
+            send: vec![],
+            msg: to_binary(&Cw20HandleMsg::Send {
+                contract: deps.api.human_address(&config.terraswap_contract)?,
+                amount,
+                msg: Some(to_binary(&PairCw20HookMsg::Swap {
+                    belief_price: None,
+                    max_spread: None,
+                    to: Some(deps.api.human_address(&config.market_contract)?),
+                })?),
+            })?,
+        })],
+        log: vec![
+            log("action", "liquidate_collateral"),
             log("borrower", borrower),
             log("amount", amount),
         ],

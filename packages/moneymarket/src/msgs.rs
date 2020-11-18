@@ -23,6 +23,11 @@ pub enum CustodyHandleMsg {
     /// Claim bAsset rewards and distribute claimed rewards
     /// to market and overseer contracts
     DistributeRewards {},
+    /// Liquidate colalteral and send liquidated collateral to `to` address
+    LiquidateCollateral {
+        borrower: HumanAddr,
+        amount: Uint128,
+    },
 
     ////////////////////
     /// User operations
@@ -37,5 +42,27 @@ pub enum CustodyHandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MarketHandleMsg {
-    
+    ////////////////////
+    /// Overseer operations
+    ////////////////////
+    /// Repay stable with liquidated collaterals
+    RepayStableFromLiquidation {
+        borrower: HumanAddr,
+        prev_balance: Uint128,
+    },
+
+    ////////////////////
+    /// User operations
+    ////////////////////
+    /// Deposit stable asset to get interest
+    DepositStable {},
+
+    /// Borrow stable asset with collaterals in overseer contract
+    BorrowStable {
+        borrow_amount: Uint128,
+        to: Option<HumanAddr>,
+    },
+
+    /// Repay stable asset to decrease liability
+    RepayStable {},
 }

@@ -16,7 +16,8 @@ pub struct Config {
     pub overseer_contract: CanonicalAddr,
     pub market_contract: CanonicalAddr,
     pub reward_contract: CanonicalAddr,
-    pub base_denom: String,
+    pub terraswap_contract: CanonicalAddr,
+    pub stable_denom: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

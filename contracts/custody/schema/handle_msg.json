@@ -87,7 +87,7 @@
       }
     },
     {
-      "description": "(internal) Swap all coins to base_denom",
+      "description": "(internal) Swap all coins to stable_denom",
       "type": "object",
       "required": [
         "swap_to_reward_denom"
@@ -95,6 +95,30 @@
       "properties": {
         "swap_to_reward_denom": {
           "type": "object"
+        }
+      }
+    },
+    {
+      "description": "Liquidate colalteral and send liquidated collateral to `to` address",
+      "type": "object",
+      "required": [
+        "liquidate_collateral"
+      ],
+      "properties": {
+        "liquidate_collateral": {
+          "type": "object",
+          "required": [
+            "amount",
+            "borrower"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
         }
       }
     },

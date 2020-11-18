@@ -3,16 +3,14 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
-    "base_denom",
     "collateral_token",
     "market_contract",
     "overseer_contract",
-    "reward_contract"
+    "reward_contract",
+    "stable_denom",
+    "terraswap_contract"
   ],
   "properties": {
-    "base_denom": {
-      "type": "string"
-    },
     "collateral_token": {
       "$ref": "#/definitions/HumanAddr"
     },
@@ -23,6 +21,12 @@
       "$ref": "#/definitions/HumanAddr"
     },
     "reward_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "stable_denom": {
+      "type": "string"
+    },
+    "terraswap_contract": {
       "$ref": "#/definitions/HumanAddr"
     }
   },

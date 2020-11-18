@@ -3,7 +3,7 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "base_denom",
+    "stable_denom",
     "buffer_distribution_rate",
     "distribution_threshold",
     "market_contract",
@@ -12,7 +12,7 @@
     "target_deposit_rate"
   ],
   "properties": {
-    "base_denom": {
+    "stable_denom": {
       "description": "The base denomination used when fetching oracle price, reward distribution, and borrow",
       "type": "string"
     },

@@ -4,18 +4,15 @@
   "type": "object",
   "required": [
     "anchor_token",
-    "base_denom",
     "interest_model",
     "overseer_contract",
     "owner_addr",
-    "reserve_factor"
+    "reserve_factor",
+    "stable_denom"
   ],
   "properties": {
     "anchor_token": {
       "$ref": "#/definitions/HumanAddr"
-    },
-    "base_denom": {
-      "type": "string"
     },
     "interest_model": {
       "$ref": "#/definitions/HumanAddr"
@@ -28,6 +25,9 @@
     },
     "reserve_factor": {
       "$ref": "#/definitions/Decimal"
+    },
+    "stable_denom": {
+      "type": "string"
     }
   },
   "definitions": {

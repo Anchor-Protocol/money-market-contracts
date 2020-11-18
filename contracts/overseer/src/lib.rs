@@ -2,9 +2,9 @@ pub mod collateral;
 pub mod contract;
 pub mod msg;
 pub mod state;
-pub mod tokens;
 
 mod math;
+mod querier;
 
 #[cfg(test)]
 mod testing;

@@ -23,7 +23,7 @@ fn proper_initialization() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
-        base_denom: "uusd".to_string(),
+        stable_denom: "uusd".to_string(),
         reserve_factor: Decimal::permille(3),
         anchor_token_code_id: 123u64,
     };
@@ -86,7 +86,7 @@ fn proper_initialization() {
     assert_eq!(HumanAddr::from("AT-uusd"), config_res.anchor_token);
     assert_eq!(HumanAddr::from("interest"), config_res.interest_model);
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
-    assert_eq!("uusd".to_string(), config_res.base_denom);
+    assert_eq!("uusd".to_string(), config_res.stable_denom);
     assert_eq!(Decimal::permille(3), config_res.reserve_factor);
 
     let query_res = query(&deps, QueryMsg::State {}).unwrap();
@@ -104,7 +104,7 @@ fn update_config() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
-        base_denom: "uusd".to_string(),
+        stable_denom: "uusd".to_string(),
         reserve_factor: Decimal::permille(3),
         anchor_token_code_id: 123u64,
     };
@@ -187,7 +187,7 @@ fn deposit_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
-        base_denom: "uusd".to_string(),
+        stable_denom: "uusd".to_string(),
         reserve_factor: Decimal::permille(3),
         anchor_token_code_id: 123u64,
     };
@@ -208,7 +208,7 @@ fn deposit_stable() {
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
-    // Must deposit base_denom
+    // Must deposit stable_denom
     let msg = HandleMsg::DepositStable {};
     let env = mock_env(
         "addr0000",
@@ -316,7 +316,7 @@ fn redeem_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
-        base_denom: "uusd".to_string(),
+        stable_denom: "uusd".to_string(),
         reserve_factor: Decimal::permille(3),
         anchor_token_code_id: 123u64,
     };
@@ -459,7 +459,7 @@ fn borrow_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
-        base_denom: "uusd".to_string(),
+        stable_denom: "uusd".to_string(),
         reserve_factor: Decimal::permille(3),
         anchor_token_code_id: 123u64,
     };
@@ -626,7 +626,7 @@ fn repay_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
-        base_denom: "uusd".to_string(),
+        stable_denom: "uusd".to_string(),
         reserve_factor: Decimal::permille(3),
         anchor_token_code_id: 123u64,
     };
@@ -701,6 +701,146 @@ fn repay_stable() {
         denom: "uusd".to_string(),
         amount: Uint128(500000u128),
     }];
+    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "repay_stable"),
+            log("borrower", "addr0000"),
+            log("repay_amount", "400000"),
+        ]
+    );
+
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Bank(BankMsg::Send {
+            from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+            to_address: HumanAddr::from("addr0000"),
+            amount: vec![deduct_tax(
+                &deps,
+                Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(100000u128),
+                }
+            )
+            .unwrap()]
+        })]
+    );
+}
+
+#[test]
+fn repay_stable_from_liquidation() {
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+
+    let msg = InitMsg {
+        owner_addr: HumanAddr::from("owner"),
+        interest_model: HumanAddr::from("interest"),
+        stable_denom: "uusd".to_string(),
+        reserve_factor: Decimal::permille(3),
+        anchor_token_code_id: 123u64,
+    };
+
+    let env = mock_env("addr0000", &[]);
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    // Register anchor token contract
+    let msg = HandleMsg::RegisterAnchorToken {};
+    let env = mock_env("AT-uusd", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // Register overseer contract
+    let msg = HandleMsg::RegisterOverseer {
+        overseer_contract: HumanAddr::from("overseer"),
+    };
+    let mut env = mock_env("addr0000", &[]);
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    deps.querier
+        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal::percent(1))]);
+    deps.querier
+        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint128::from(1000000u128))]);
+
+    store_state(
+        &mut deps.storage,
+        &State {
+            total_liabilities: Decimal::from_ratio(1000000u128, 1u128),
+            total_reserves: Decimal::zero(),
+            last_interest_updated: env.block.height,
+            global_interest_index: Decimal::one(),
+        },
+    )
+    .unwrap();
+
+    let msg = HandleMsg::BorrowStable {
+        borrow_amount: Uint128::from(500000u128),
+        to: None,
+    };
+
+    env.block.height += 100;
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    // update balance to make repay
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "ukrw".to_string(),
+            amount: Uint128(100000u128),
+        }],
+    );
+
+    let msg = HandleMsg::RepayStableFromLiquidation {
+        borrower: HumanAddr::from("addr0000"),
+        prev_balance: Uint128::zero(),
+    };
+
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let height = env.block.height;
+    let mut env = mock_env("overseer", &[]);
+    env.block.height = height;
+
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot repay zero coins"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    // update balance to make repay
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(100000u128),
+        }],
+    );
+
+    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "repay_stable"),
+            log("borrower", "addr0000"),
+            log("repay_amount", "100000"),
+        ]
+    );
+
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(500000u128),
+        }],
+    );
+
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
     assert_eq!(
         res.log,
