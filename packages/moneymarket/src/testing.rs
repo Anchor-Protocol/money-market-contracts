@@ -212,6 +212,7 @@ fn liquidation_amount_querier() {
             (HumanAddr::from("token0001"), Uint128::from(2000000u128)),
             (HumanAddr::from("token0002"), Uint128::from(3000000u128)),
         ],
+        Uint128::from(1000000u128),
     )
     .unwrap();
     assert_eq!(
@@ -232,6 +233,7 @@ fn liquidation_amount_querier() {
             (HumanAddr::from("token0001"), Uint128::from(2000000u128)),
             (HumanAddr::from("token0002"), Uint128::from(3000000u128)),
         ],
+        Uint128::from(1000000u128),
     )
     .unwrap();
     assert_eq!(

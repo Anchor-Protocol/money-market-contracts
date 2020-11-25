@@ -39,6 +39,7 @@ pub struct EpochState {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct WhitelistElem {
     pub ltv: Decimal,
+    pub min_liquidation: Uint128,
     pub custody_contract: CanonicalAddr,
 }
 
@@ -103,6 +104,7 @@ pub fn read_whitelist<S: Storage, A: Api, Q: Querier>(
                 collateral_token,
                 custody_contract,
                 ltv: v.ltv,
+                min_liquidation: v.min_liquidation,
             })
         })
         .collect()

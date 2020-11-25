@@ -159,6 +159,7 @@ fn whitelist() {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody"),
         ltv: Decimal::percent(60),
+        min_liquidation: Uint128::from(1000u128),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -176,7 +177,8 @@ fn whitelist() {
             log("action", "register_whitelist"),
             log("collateral_token", "bluna"),
             log("custody_contract", "custody"),
-            log("LTV", "0.6")
+            log("LTV", "0.6"),
+            log("min_liquidation", "1000"),
         ]
     );
 
@@ -196,7 +198,8 @@ fn whitelist() {
             elems: vec![WhitelistResponseElem {
                 collateral_token: HumanAddr::from("bluna"),
                 custody_contract: HumanAddr::from("custody"),
-                ltv: Decimal::percent(60)
+                ltv: Decimal::percent(60),
+                min_liquidation: Uint128::from(1000u128),
             }]
         }
     );
@@ -232,6 +235,7 @@ fn execute_epoch_operations() {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
         ltv: Decimal::percent(60),
+        min_liquidation: Uint128::from(1000u128),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -240,6 +244,7 @@ fn execute_epoch_operations() {
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
         ltv: Decimal::percent(60),
+        min_liquidation: Uint128::from(1000u128),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -369,6 +374,7 @@ fn lock_collateral() {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
         ltv: Decimal::percent(60),
+        min_liquidation: Uint128::from(1000u128),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -377,6 +383,7 @@ fn lock_collateral() {
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
         ltv: Decimal::percent(60),
+        min_liquidation: Uint128::from(1000u128),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -488,6 +495,7 @@ fn unlock_collateral() {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
         ltv: Decimal::percent(60),
+        min_liquidation: Uint128::from(1000u128),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -496,6 +504,7 @@ fn unlock_collateral() {
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
         ltv: Decimal::percent(60),
+        min_liquidation: Uint128::from(1000u128),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -659,6 +668,7 @@ fn liquidate_collateral() {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
         ltv: Decimal::percent(60),
+        min_liquidation: Uint128::from(1000u128),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -667,6 +677,7 @@ fn liquidate_collateral() {
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
         ltv: Decimal::percent(60),
+        min_liquidation: Uint128::from(1000u128),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -771,6 +782,142 @@ fn liquidate_collateral() {
             collaterals: vec![
                 (HumanAddr::from("batom"), Uint128::from(9900000u128)),
                 (HumanAddr::from("bluna"), Uint128::from(990000u128)),
+            ]
+        }
+    );
+}
+
+#[test]
+fn liquidate_collateral_under_min_liquidation() {
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier
+        .with_liquidation_percent(&[(&HumanAddr::from("liquidation"), &Decimal::percent(1))]);
+
+    let env = mock_env("owner", &[]);
+    let msg = InitMsg {
+        owner_addr: HumanAddr::from("owner"),
+        oracle_contract: HumanAddr::from("oracle"),
+        market_contract: HumanAddr::from("market"),
+        liquidation_model: HumanAddr::from("liquidation"),
+        stable_denom: "uusd".to_string(),
+        distribution_threshold: Decimal::permille(3),
+        target_deposit_rate: Decimal::permille(5),
+        buffer_distribution_rate: Decimal::percent(20),
+    };
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // store whitelist elems
+    let msg = HandleMsg::Whitelist {
+        collateral_token: HumanAddr::from("bluna"),
+        custody_contract: HumanAddr::from("custody_bluna"),
+        ltv: Decimal::percent(60),
+        min_liquidation: Uint128::from(10001u128),
+    };
+
+    let _res = handle(&mut deps, env.clone(), msg);
+
+    let msg = HandleMsg::Whitelist {
+        collateral_token: HumanAddr::from("batom"),
+        custody_contract: HumanAddr::from("custody_batom"),
+        ltv: Decimal::percent(60),
+        min_liquidation: Uint128::from(1000u128),
+    };
+
+    let _res = handle(&mut deps, env.clone(), msg);
+
+    let msg = HandleMsg::LockCollateral {
+        collaterals: vec![
+            (HumanAddr::from("bluna"), Uint128::from(1000000u128)),
+            (HumanAddr::from("batom"), Uint128::from(10000000u128)),
+        ],
+    };
+    let env = mock_env("addr0000", &[]);
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    deps.querier.with_oracle_price(&[
+        (
+            &("uusd".to_string(), "bluna".to_string()),
+            &(
+                Decimal::from_ratio(1000u128, 1u128),
+                env.block.time,
+                env.block.time,
+            ),
+        ),
+        (
+            &("uusd".to_string(), "batom".to_string()),
+            &(
+                Decimal::from_ratio(2000u128, 1u128),
+                env.block.time,
+                env.block.time,
+            ),
+        ),
+    ]);
+
+    // borrow_limit = 1000 * 1000000 * 0.6 + 2000 * 10000000 * 0.6
+    // = 12,600,000,000 uusd
+    deps.querier.with_loan_amount(&[(
+        &HumanAddr::from("addr0000"),
+        &Uint128::from(12600000000u128),
+    )]);
+
+    let msg = HandleMsg::LiquidiateCollateral {
+        borrower: HumanAddr::from("addr0000"),
+    };
+    let env = mock_env("addr0001", &[]);
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Cannot liquidate safely collateralized borrower")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    deps.querier.with_loan_amount(&[(
+        &HumanAddr::from("addr0000"),
+        &Uint128::from(12600000001u128),
+    )]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("custody_batom"),
+                send: vec![],
+                msg: to_binary(&CustodyHandleMsg::LiquidateCollateral {
+                    borrower: HumanAddr::from("addr0000"),
+                    amount: Uint128::from(100000u128),
+                })
+                .unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("market"),
+                send: vec![],
+                msg: to_binary(&MarketHandleMsg::RepayStableFromLiquidation {
+                    borrower: HumanAddr::from("addr0000"),
+                    prev_balance: Uint128::zero(),
+                })
+                .unwrap(),
+            })
+        ]
+    );
+
+    let res = query(
+        &deps,
+        QueryMsg::Collaterals {
+            borrower: HumanAddr::from("addr0000"),
+        },
+    )
+    .unwrap();
+    let collaterals_res: CollateralsResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        collaterals_res,
+        CollateralsResponse {
+            borrower: HumanAddr::from("addr0000"),
+            collaterals: vec![
+                (HumanAddr::from("batom"), Uint128::from(9900000u128)),
+                (HumanAddr::from("bluna"), Uint128::from(1000000u128)),
             ]
         }
     );

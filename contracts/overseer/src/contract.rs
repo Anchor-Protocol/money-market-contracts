@@ -83,7 +83,15 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             collateral_token,
             custody_contract,
             ltv,
-        } => register_whitelist(deps, env, collateral_token, custody_contract, ltv),
+            min_liquidation,
+        } => register_whitelist(
+            deps,
+            env,
+            collateral_token,
+            custody_contract,
+            ltv,
+            min_liquidation,
+        ),
         HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
         HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
         HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
@@ -147,6 +155,7 @@ pub fn register_whitelist<S: Storage, A: Api, Q: Querier>(
     collateral_token: HumanAddr,
     custody_contract: HumanAddr,
     ltv: Decimal,
+    min_liquidation: Uint128,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.owner_addr {
@@ -166,6 +175,7 @@ pub fn register_whitelist<S: Storage, A: Api, Q: Querier>(
         &WhitelistElem {
             custody_contract: deps.api.canonical_address(&custody_contract)?,
             ltv,
+            min_liquidation,
         },
     )?;
 
@@ -176,6 +186,7 @@ pub fn register_whitelist<S: Storage, A: Api, Q: Querier>(
             log("collateral_token", collateral_token),
             log("custody_contract", custody_contract),
             log("LTV", ltv),
+            log("min_liquidation", min_liquidation),
         ],
         data: None,
     })
@@ -340,6 +351,7 @@ pub fn query_whitelist<S: Storage, A: Api, Q: Querier>(
         Ok(WhitelistResponse {
             elems: vec![WhitelistResponseElem {
                 ltv: whitelist_elem.ltv,
+                min_liquidation: whitelist_elem.min_liquidation,
                 custody_contract: deps.api.human_address(&whitelist_elem.custody_contract)?,
                 collateral_token,
             }],

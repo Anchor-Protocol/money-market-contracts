@@ -50,7 +50,11 @@ pub enum HandleMsg {
     Whitelist {
         collateral_token: HumanAddr, // bAsset token contract
         custody_contract: HumanAddr, // bAsset custody contract
-        ltv: Decimal,
+        ltv: Decimal,                // Loan To Value ratio
+        /// Minimum liquidation amount.
+        /// If the liquidation amount is below than this value, 
+        /// exclude the asset from the liquidation process
+        min_liquidation: Uint128,    
     },
 
     /// Claims all staking rewards from the bAsset contracts
@@ -115,6 +119,7 @@ pub struct ConfigResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct WhitelistResponseElem {
     pub ltv: Decimal,
+    pub min_liquidation: Uint128,
     pub custody_contract: HumanAddr,
     pub collateral_token: HumanAddr,
 }

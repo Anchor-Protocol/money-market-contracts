@@ -78,7 +78,7 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     }
 
     // Compute borrow limit with collaterals except unlock target collaterals
-    let borrow_limit = compute_borrow_limit(deps, &cur_collaterals)?;
+    let (borrow_limit, _) = compute_borrow_limit(deps, &cur_collaterals)?;
     let borrow_amount_res: LoanAmountResponse =
         query_loan_amount(deps, &market, &borrower, env.block.height)?;
     if borrow_limit < borrow_amount_res.loan_amount {
@@ -130,40 +130,44 @@ pub fn liquidiate_collateral<S: Storage, A: Api, Q: Querier>(
     let mut cur_collaterals: Tokens = read_collaterals(&deps.storage, &borrower_raw);
 
     // Compute borrow limit with collaterals except unlock target collaterals
-    let borrow_limit = compute_borrow_limit(deps, &cur_collaterals)?;
+    let (borrow_limit, collaterals_amount) = compute_borrow_limit(deps, &cur_collaterals)?;
     let borrow_amount_res: LoanAmountResponse =
         query_loan_amount(deps, &market, &borrower, env.block.height)?;
+    let borrow_amount = borrow_amount_res.loan_amount;
 
     // borrow limit is equal or bigger than loan amount
     // cannot liquidation collaterals
-    if borrow_limit >= borrow_amount_res.loan_amount {
+    if borrow_limit >= borrow_amount {
         return Err(StdError::generic_err(
             "Cannot liquidate safely collateralized borrower",
         ));
     }
 
     // Query required liquidation amount of collateral to liquidation model
-    let liquidation_amount: LiquidationAmountResponse = query_liquidation_amount(
+    let liquidation_amount_res: LiquidationAmountResponse = query_liquidation_amount(
         &deps,
         &deps.api.human_address(&config.liquidation_model)?,
-        borrow_amount_res.loan_amount,
+        borrow_amount,
         borrow_limit,
         config.stable_denom.to_string(),
         &cur_collaterals.to_human(&deps)?,
+        collaterals_amount,
     )?;
 
     let market_contract = deps.api.human_address(&config.market_contract)?;
     let prev_balance: Uint128 = query_balance(&deps, &market_contract, config.stable_denom)?;
 
-    // Store left collaterals
-    let liquidated_collaterals = liquidation_amount.collaterals.to_raw(&deps)?;
-    cur_collaterals.sub(liquidated_collaterals.clone())?;
-    store_collaterals(&mut deps.storage, &borrower_raw, &cur_collaterals)?;
-
-    let liquidation_messages: Vec<CosmosMsg> = liquidated_collaterals
+    let mut liquidated_collaterals: Tokens = vec![];
+    let liquidation_amount = liquidation_amount_res.collaterals.to_raw(&deps)?;
+    let liquidation_messages: Vec<CosmosMsg> = liquidation_amount
         .iter()
         .map(|collateral| {
             let whitelist_elem: WhitelistElem = read_whitelist_elem(&deps.storage, &collateral.0)?;
+            if whitelist_elem.min_liquidation > collateral.1 {
+                return Err(StdError::generic_err("liquidation amount is too small"));
+            }
+
+            liquidated_collaterals.push(collateral.clone());
             Ok(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.human_address(&whitelist_elem.custody_contract)?,
                 send: vec![],
@@ -173,7 +177,12 @@ pub fn liquidiate_collateral<S: Storage, A: Api, Q: Querier>(
                 })?,
             }))
         })
+        .filter(|msg| msg.is_ok())
         .collect::<StdResult<Vec<CosmosMsg>>>()?;
+
+    // Store left collaterals
+    cur_collaterals.sub(liquidated_collaterals.clone())?;
+    store_collaterals(&mut deps.storage, &borrower_raw, &cur_collaterals)?;
 
     Ok(HandleResponse {
         messages: vec![
@@ -230,11 +239,12 @@ pub fn query_all_collaterals<S: Storage, A: Api, Q: Querier>(
 fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collaterals: &Tokens,
-) -> StdResult<Uint128> {
+) -> StdResult<(Uint128, Uint128)> {
     let config: Config = read_config(&deps.storage)?;
     let oracle_contract = deps.api.human_address(&config.oracle_contract)?;
 
     let mut borrow_limit: Uint128 = Uint128::zero();
+    let mut collaterals_amount: Uint128 = Uint128::zero();
     for collateral in collaterals.iter() {
         let collateral_token = collateral.0.clone();
         let collateral_amount = collateral.1;
@@ -249,10 +259,13 @@ fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
         // TODO check price last_updated
 
         let elem: WhitelistElem = read_whitelist_elem(&deps.storage, &collateral.0)?;
-        borrow_limit += collateral_amount * price.rate * elem.ltv;
+        let collateral_value = collateral_amount * price.rate;
+        borrow_limit += collateral_value * elem.ltv;
+        collaterals_amount += collateral_value;
     }
 
-    Ok(borrow_limit)
+    // returns borrow_limit with collaterals value in stable denom
+    Ok((borrow_limit, collaterals_amount))
 }
 
 pub fn query_borrow_limit<S: Storage, A: Api, Q: Querier>(
@@ -262,7 +275,7 @@ pub fn query_borrow_limit<S: Storage, A: Api, Q: Querier>(
     let collaterals = read_collaterals(&deps.storage, &deps.api.canonical_address(&borrower)?);
 
     // Compute borrow limit with collaterals
-    let borrow_limit = compute_borrow_limit(deps, &collaterals)?;
+    let (borrow_limit, _) = compute_borrow_limit(deps, &collaterals)?;
 
     Ok(BorrowLimitResponse {
         borrower,

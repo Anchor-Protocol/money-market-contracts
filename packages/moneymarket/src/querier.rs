@@ -64,6 +64,7 @@ pub enum QueryMsg {
         borrow_limit: Uint128,
         stable_denom: String,
         collaterals: TokensHuman,
+        collaterals_amount: Uint128,
     },
 }
 
@@ -224,6 +225,7 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     borrow_limit: Uint128,
     stable_denom: String,
     collaterals: &TokensHuman,
+    collaterals_amount: Uint128,
 ) -> StdResult<LiquidationAmountResponse> {
     let liquidation_amount_res: LiquidationAmountResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
@@ -233,6 +235,7 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
                 borrow_limit,
                 stable_denom,
                 collaterals: collaterals.clone(),
+                collaterals_amount,
             })?,
         }))?;
 
