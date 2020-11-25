@@ -118,7 +118,7 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn liquidiate_collateral<S: Storage, A: Api, Q: Querier>(
+pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     borrower: HumanAddr,

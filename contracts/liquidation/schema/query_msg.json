@@ -16,13 +16,58 @@
     {
       "type": "object",
       "required": [
-        "borrow_rate"
+        "liquidation_amount"
       ],
       "properties": {
-        "borrow_rate": {
-          "type": "object"
+        "liquidation_amount": {
+          "type": "object",
+          "required": [
+            "borrow_amount",
+            "borrow_limit",
+            "collaterals",
+            "collaterals_amount",
+            "stable_denom"
+          ],
+          "properties": {
+            "borrow_amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "borrow_limit": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "collaterals": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "$ref": "#/definitions/HumanAddr"
+                  },
+                  {
+                    "$ref": "#/definitions/Uint128"
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
+            },
+            "collaterals_amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "stable_denom": {
+              "type": "string"
+            }
+          }
         }
       }
     }
-  ]
+  ],
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
 }

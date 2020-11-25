@@ -3,15 +3,15 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "borrow_rate",
-    "owner"
+    "owner",
+    "safe_ratio"
   ],
   "properties": {
-    "borrow_rate": {
-      "$ref": "#/definitions/Decimal"
-    },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "safe_ratio": {
+      "$ref": "#/definitions/Decimal"
     }
   },
   "definitions": {

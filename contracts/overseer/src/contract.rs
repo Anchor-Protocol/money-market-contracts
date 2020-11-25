@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 
 use crate::collateral::{
-    liquidiate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
+    liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
     query_collaterals, unlock_collateral,
 };
 use crate::math::{decimal_division, decimal_subtraction};
@@ -95,7 +95,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
         HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
         HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
-        HandleMsg::LiquidiateCollateral { borrower } => liquidiate_collateral(deps, env, borrower),
+        HandleMsg::LiquidiateCollateral { borrower } => liquidate_collateral(deps, env, borrower),
     }
 }
 

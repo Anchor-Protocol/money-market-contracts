@@ -11,20 +11,20 @@
         "update_config": {
           "type": "object",
           "properties": {
-            "borrow_rate": {
+            "owner": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/Decimal"
+                  "$ref": "#/definitions/HumanAddr"
                 },
                 {
                   "type": "null"
                 }
               ]
             },
-            "owner": {
+            "safe_ratio": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/HumanAddr"
+                  "$ref": "#/definitions/Decimal"
                 },
                 {
                   "type": "null"
