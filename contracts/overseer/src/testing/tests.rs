@@ -12,7 +12,7 @@ use crate::state::EpochState;
 use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
-use moneymarket::{deduct_tax, CustodyHandleMsg};
+use moneymarket::{deduct_tax, CustodyHandleMsg, MarketHandleMsg};
 
 #[test]
 fn proper_initialization() {
@@ -22,7 +22,8 @@ fn proper_initialization() {
         owner_addr: HumanAddr::from("owner"),
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
-        base_denom: "uusd".to_string(),
+        liquidation_model: HumanAddr::from("liquidation"),
+        stable_denom: "uusd".to_string(),
         distribution_threshold: Decimal::permille(3),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -38,7 +39,8 @@ fn proper_initialization() {
     assert_eq!(HumanAddr::from("owner"), config_res.owner_addr);
     assert_eq!(HumanAddr::from("oracle"), config_res.oracle_contract);
     assert_eq!(HumanAddr::from("market"), config_res.market_contract);
-    assert_eq!("uusd".to_string(), config_res.base_denom);
+    assert_eq!(HumanAddr::from("liquidation"), config_res.liquidation_model);
+    assert_eq!("uusd".to_string(), config_res.stable_denom);
     assert_eq!(Decimal::permille(3), config_res.distribution_threshold);
     assert_eq!(Decimal::permille(5), config_res.target_deposit_rate);
     assert_eq!(Decimal::percent(20), config_res.buffer_distribution_rate);
@@ -60,7 +62,8 @@ fn update_config() {
         owner_addr: HumanAddr::from("owner"),
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
-        base_denom: "uusd".to_string(),
+        liquidation_model: HumanAddr::from("liquidation"),
+        stable_denom: "uusd".to_string(),
         distribution_threshold: Decimal::permille(3),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -73,6 +76,8 @@ fn update_config() {
     let env = mock_env("owner", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner_addr: Some(HumanAddr("owner1".to_string())),
+        oracle_contract: None,
+        liquidation_model: None,
         distribution_threshold: None,
         target_deposit_rate: None,
         buffer_distribution_rate: None,
@@ -90,6 +95,8 @@ fn update_config() {
     let env = mock_env("owner1", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner_addr: None,
+        oracle_contract: Some(HumanAddr("oracle1".to_string())),
+        liquidation_model: Some(HumanAddr("liquidation1".to_string())),
         distribution_threshold: Some(Decimal::permille(1)),
         target_deposit_rate: Some(Decimal::permille(2)),
         buffer_distribution_rate: Some(Decimal::percent(10)),
@@ -102,6 +109,11 @@ fn update_config() {
     let res = query(&deps, QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!(HumanAddr::from("owner1"), config_res.owner_addr);
+    assert_eq!(HumanAddr::from("oracle1"), config_res.oracle_contract);
+    assert_eq!(
+        HumanAddr::from("liquidation1"),
+        config_res.liquidation_model
+    );
     assert_eq!(Decimal::permille(1), config_res.distribution_threshold);
     assert_eq!(Decimal::permille(2), config_res.target_deposit_rate);
     assert_eq!(Decimal::percent(10), config_res.buffer_distribution_rate);
@@ -110,6 +122,8 @@ fn update_config() {
     let env = mock_env("owner", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner_addr: None,
+        oracle_contract: None,
+        liquidation_model: None,
         distribution_threshold: None,
         target_deposit_rate: None,
         buffer_distribution_rate: None,
@@ -131,7 +145,8 @@ fn whitelist() {
         owner_addr: HumanAddr::from("owner"),
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
-        base_denom: "uusd".to_string(),
+        liquidation_model: HumanAddr::from("liquidation"),
+        stable_denom: "uusd".to_string(),
         distribution_threshold: Decimal::permille(3),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -161,7 +176,7 @@ fn whitelist() {
             log("action", "register_whitelist"),
             log("collateral_token", "bluna"),
             log("custody_contract", "custody"),
-            log("LTV", "0.6")
+            log("LTV", "0.6"),
         ]
     );
 
@@ -181,7 +196,7 @@ fn whitelist() {
             elems: vec![WhitelistResponseElem {
                 collateral_token: HumanAddr::from("bluna"),
                 custody_contract: HumanAddr::from("custody"),
-                ltv: Decimal::percent(60)
+                ltv: Decimal::percent(60),
             }]
         }
     );
@@ -202,7 +217,8 @@ fn execute_epoch_operations() {
         owner_addr: HumanAddr::from("owner"),
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
-        base_denom: "uusd".to_string(),
+        liquidation_model: HumanAddr::from("liquidation"),
+        stable_denom: "uusd".to_string(),
         distribution_threshold: Decimal::from_ratio(1u128, 1000000u128),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -338,7 +354,8 @@ fn lock_collateral() {
         owner_addr: HumanAddr::from("owner"),
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
-        base_denom: "uusd".to_string(),
+        liquidation_model: HumanAddr::from("liquidation"),
+        stable_denom: "uusd".to_string(),
         distribution_threshold: Decimal::permille(3),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -456,7 +473,8 @@ fn unlock_collateral() {
         owner_addr: HumanAddr::from("owner"),
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
-        base_denom: "uusd".to_string(),
+        liquidation_model: HumanAddr::from("liquidation"),
+        stable_denom: "uusd".to_string(),
         distribution_threshold: Decimal::permille(3),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -612,5 +630,148 @@ fn unlock_collateral() {
             log("borrower", "addr0000"),
             log("collaterals", "1bluna"),
         ]
+    );
+}
+
+#[test]
+fn liquidate_collateral() {
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier
+        .with_liquidation_percent(&[(&HumanAddr::from("liquidation"), &Decimal::percent(1))]);
+
+    let env = mock_env("owner", &[]);
+    let msg = InitMsg {
+        owner_addr: HumanAddr::from("owner"),
+        oracle_contract: HumanAddr::from("oracle"),
+        market_contract: HumanAddr::from("market"),
+        liquidation_model: HumanAddr::from("liquidation"),
+        stable_denom: "uusd".to_string(),
+        distribution_threshold: Decimal::permille(3),
+        target_deposit_rate: Decimal::permille(5),
+        buffer_distribution_rate: Decimal::percent(20),
+    };
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // store whitelist elems
+    let msg = HandleMsg::Whitelist {
+        collateral_token: HumanAddr::from("bluna"),
+        custody_contract: HumanAddr::from("custody_bluna"),
+        ltv: Decimal::percent(60),
+    };
+
+    let _res = handle(&mut deps, env.clone(), msg);
+
+    let msg = HandleMsg::Whitelist {
+        collateral_token: HumanAddr::from("batom"),
+        custody_contract: HumanAddr::from("custody_batom"),
+        ltv: Decimal::percent(60),
+    };
+
+    let _res = handle(&mut deps, env.clone(), msg);
+
+    let msg = HandleMsg::LockCollateral {
+        collaterals: vec![
+            (HumanAddr::from("bluna"), Uint128::from(1000000u128)),
+            (HumanAddr::from("batom"), Uint128::from(10000000u128)),
+        ],
+    };
+    let env = mock_env("addr0000", &[]);
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    deps.querier.with_oracle_price(&[
+        (
+            &("uusd".to_string(), "bluna".to_string()),
+            &(
+                Decimal::from_ratio(1000u128, 1u128),
+                env.block.time,
+                env.block.time,
+            ),
+        ),
+        (
+            &("uusd".to_string(), "batom".to_string()),
+            &(
+                Decimal::from_ratio(2000u128, 1u128),
+                env.block.time,
+                env.block.time,
+            ),
+        ),
+    ]);
+
+    // borrow_limit = 1000 * 1000000 * 0.6 + 2000 * 10000000 * 0.6
+    // = 12,600,000,000 uusd
+    deps.querier.with_loan_amount(&[(
+        &HumanAddr::from("addr0000"),
+        &Uint128::from(12600000000u128),
+    )]);
+
+    let msg = HandleMsg::LiquidiateCollateral {
+        borrower: HumanAddr::from("addr0000"),
+    };
+    let env = mock_env("addr0001", &[]);
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Cannot liquidate safely collateralized borrower")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    deps.querier.with_loan_amount(&[(
+        &HumanAddr::from("addr0000"),
+        &Uint128::from(12600000001u128),
+    )]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("custody_batom"),
+                send: vec![],
+                msg: to_binary(&CustodyHandleMsg::LiquidateCollateral {
+                    borrower: HumanAddr::from("addr0000"),
+                    amount: Uint128::from(100000u128),
+                })
+                .unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("custody_bluna"),
+                send: vec![],
+                msg: to_binary(&CustodyHandleMsg::LiquidateCollateral {
+                    borrower: HumanAddr::from("addr0000"),
+                    amount: Uint128::from(10000u128),
+                })
+                .unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("market"),
+                send: vec![],
+                msg: to_binary(&MarketHandleMsg::RepayStableFromLiquidation {
+                    borrower: HumanAddr::from("addr0000"),
+                    prev_balance: Uint128::zero(),
+                })
+                .unwrap(),
+            })
+        ]
+    );
+
+    let res = query(
+        &deps,
+        QueryMsg::Collaterals {
+            borrower: HumanAddr::from("addr0000"),
+        },
+    )
+    .unwrap();
+    let collaterals_res: CollateralsResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        collaterals_res,
+        CollateralsResponse {
+            borrower: HumanAddr::from("addr0000"),
+            collaterals: vec![
+                (HumanAddr::from("batom"), Uint128::from(9900000u128)),
+                (HumanAddr::from("bluna"), Uint128::from(990000u128)),
+            ]
+        }
     );
 }

@@ -1,12 +1,14 @@
-use crate::msg::{CollateralsResponse, WhitelistResponseElem};
-use crate::tokens::Tokens;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
 use cosmwasm_std::{
     Api, CanonicalAddr, Decimal, Extern, HumanAddr, Order, Querier, StdError, StdResult, Storage,
     Uint128,
 };
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use moneymarket::Tokens;
+
+use crate::msg::{CollateralsResponse, WhitelistResponseElem};
 
 const KEY_CONFIG: &[u8] = b"config";
 const KEY_EPOCH_STATE: &[u8] = b"epoch_state";
@@ -19,7 +21,8 @@ pub struct Config {
     pub owner_addr: CanonicalAddr,
     pub oracle_contract: CanonicalAddr,
     pub market_contract: CanonicalAddr,
-    pub base_denom: String,
+    pub liquidation_model: CanonicalAddr,
+    pub stable_denom: String,
     pub distribution_threshold: Decimal,
     pub target_deposit_rate: Decimal,
     pub buffer_distribution_rate: Decimal,
@@ -105,6 +108,7 @@ pub fn read_whitelist<S: Storage, A: Api, Q: Querier>(
         .collect()
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn store_collaterals<S: Storage>(
     storage: &mut S,
     borrower: &CanonicalAddr,

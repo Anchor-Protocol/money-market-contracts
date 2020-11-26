@@ -1,16 +1,16 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr,
-    Querier, QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Api, Coin, Decimal, Extern, HumanAddr, Querier,
+    QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
-use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
 
 use crate::querier::{
     BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse, EpochStateResponse,
-    LoanAmountResponse, PriceResponse, QueryMsg,
+    LiquidationAmountResponse, LoanAmountResponse, PriceResponse, QueryMsg,
 };
-use cw20::TokenInfoResponse;
+use crate::tokens::TokensHuman;
+
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -22,7 +22,6 @@ pub fn mock_dependencies(
     let contract_addr = HumanAddr::from(MOCK_CONTRACT_ADDR);
     let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
         MockQuerier::new(&[(&contract_addr, contract_balance)]),
-        canonical_length,
         MockApi::new(canonical_length),
     );
 
@@ -35,7 +34,6 @@ pub fn mock_dependencies(
 
 pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
-    token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
     distribution_params_querier: DistributionParamsQuerier,
     epoch_state_querier: EpochStateQuerier,
@@ -43,36 +41,7 @@ pub struct WasmMockQuerier {
     loan_amount_querier: LoanAmountQuerier,
     borrow_rate_querier: BorrowRateQuerier,
     borrow_limit_querier: BorrowLimitQuerier,
-    canonical_length: usize,
-}
-
-#[derive(Clone, Default)]
-pub struct TokenQuerier {
-    // this lets us iterate over all pairs that match the first string
-    balances: HashMap<HumanAddr, HashMap<HumanAddr, Uint128>>,
-}
-
-impl TokenQuerier {
-    pub fn new(balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])]) -> Self {
-        TokenQuerier {
-            balances: balances_to_map(balances),
-        }
-    }
-}
-
-pub(crate) fn balances_to_map(
-    balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])],
-) -> HashMap<HumanAddr, HashMap<HumanAddr, Uint128>> {
-    let mut balances_map: HashMap<HumanAddr, HashMap<HumanAddr, Uint128>> = HashMap::new();
-    for (contract_addr, balances) in balances.iter() {
-        let mut contract_balances_map: HashMap<HumanAddr, Uint128> = HashMap::new();
-        for (addr, balance) in balances.iter() {
-            contract_balances_map.insert(HumanAddr::from(addr), **balance);
-        }
-
-        balances_map.insert(HumanAddr::from(contract_addr), contract_balances_map);
-    }
-    balances_map
+    liquidation_percent_querier: LiquidationPercentQuerier,
 }
 
 #[derive(Clone, Default)]
@@ -244,6 +213,30 @@ pub(crate) fn borrow_limit_to_map(
     borrow_limit_map
 }
 
+#[derive(Clone, Default)]
+pub struct LiquidationPercentQuerier {
+    // this lets us iterate over all pairs that match the first string
+    liquidation_percent: HashMap<HumanAddr, Decimal>,
+}
+
+impl LiquidationPercentQuerier {
+    pub fn new(liquidation_percent: &[(&HumanAddr, &Decimal)]) -> Self {
+        LiquidationPercentQuerier {
+            liquidation_percent: liquidation_percent_to_map(liquidation_percent),
+        }
+    }
+}
+
+pub(crate) fn liquidation_percent_to_map(
+    liquidation_percent: &[(&HumanAddr, &Decimal)],
+) -> HashMap<HumanAddr, Decimal> {
+    let mut liquidation_percent_map: HashMap<HumanAddr, Decimal> = HashMap::new();
+    for (liquidation_model, liquidation_percent) in liquidation_percent.iter() {
+        liquidation_percent_map.insert((*liquidation_model).clone(), **liquidation_percent);
+    }
+    liquidation_percent_map
+}
+
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
@@ -363,69 +356,39 @@ impl WasmMockQuerier {
                             }),
                         }
                     }
-                }
-            }
-            QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
-                let key: &[u8] = key.as_slice();
-
-                let prefix_token_info = to_length_prefixed(b"token_info").to_vec();
-                let prefix_balance = to_length_prefixed(b"balance").to_vec();
-
-                let balances: &HashMap<HumanAddr, Uint128> =
-                    match self.token_querier.balances.get(contract_addr) {
-                        Some(balances) => balances,
-                        None => {
-                            return Err(SystemError::InvalidRequest {
-                                error: format!(
-                                    "No balance info exists for the contract {}",
-                                    contract_addr
-                                ),
-                                request: key.into(),
-                            })
+                    QueryMsg::LiquidationAmount {
+                        borrow_amount,
+                        borrow_limit,
+                        stable_denom: _,
+                        collaterals,
+                        collateral_prices: _,
+                    } => {
+                        match self
+                            .liquidation_percent_querier
+                            .liquidation_percent
+                            .get(&contract_addr)
+                        {
+                            Some(v) => {
+                                if borrow_amount > borrow_limit {
+                                    Ok(to_binary(&LiquidationAmountResponse {
+                                        collaterals: collaterals
+                                            .iter()
+                                            .map(|x| (x.0.clone(), x.1 * *v))
+                                            .collect::<TokensHuman>()
+                                            .to_vec(),
+                                    }))
+                                } else {
+                                    Ok(to_binary(&LiquidationAmountResponse {
+                                        collaterals: vec![],
+                                    }))
+                                }
+                            }
+                            None => Err(SystemError::InvalidRequest {
+                                error: "No liquidation percent exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
                         }
-                    };
-
-                if key.to_vec() == prefix_token_info {
-                    let mut total_supply = Uint128::zero();
-
-                    for balance in balances {
-                        total_supply += *balance.1;
                     }
-
-                    Ok(to_binary(
-                        &to_binary(&TokenInfoResponse {
-                            name: "mAPPL".to_string(),
-                            symbol: "mAPPL".to_string(),
-                            decimals: 6,
-                            total_supply: total_supply,
-                        })
-                        .unwrap(),
-                    ))
-                } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
-                    let key_address: &[u8] = &key[prefix_balance.len()..];
-                    let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
-                    let api: MockApi = MockApi::new(self.canonical_length);
-                    let address: HumanAddr = match api.human_address(&address_raw) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            return Err(SystemError::InvalidRequest {
-                                error: format!("Parsing query request: {}", e),
-                                request: key.into(),
-                            })
-                        }
-                    };
-                    let balance = match balances.get(&address) {
-                        Some(v) => v,
-                        None => {
-                            return Err(SystemError::InvalidRequest {
-                                error: "Balance not found".to_string(),
-                                request: key.into(),
-                            })
-                        }
-                    };
-                    Ok(to_binary(&to_binary(&balance).unwrap()))
-                } else {
-                    panic!("DO NOT ENTER HERE")
                 }
             }
             _ => self.base.handle_query(request),
@@ -434,14 +397,9 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new<A: Api>(
-        base: MockQuerier<TerraQueryWrapper>,
-        canonical_length: usize,
-        _api: A,
-    ) -> Self {
+    pub fn new<A: Api>(base: MockQuerier<TerraQueryWrapper>, _api: A) -> Self {
         WasmMockQuerier {
             base,
-            token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
             distribution_params_querier: DistributionParamsQuerier::default(),
             epoch_state_querier: EpochStateQuerier::default(),
@@ -449,13 +407,8 @@ impl WasmMockQuerier {
             loan_amount_querier: LoanAmountQuerier::default(),
             borrow_rate_querier: BorrowRateQuerier::default(),
             borrow_limit_querier: BorrowLimitQuerier::default(),
-            canonical_length,
+            liquidation_percent_querier: LiquidationPercentQuerier::default(),
         }
-    }
-
-    // configure the mint whitelist mock querier
-    pub fn with_token_balances(&mut self, balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])]) {
-        self.token_querier = TokenQuerier::new(balances);
     }
 
     // configure the tax mock querier
@@ -492,5 +445,9 @@ impl WasmMockQuerier {
 
     pub fn with_borrow_limit(&mut self, borrow_limit: &[(&HumanAddr, &Uint128)]) {
         self.borrow_limit_querier = BorrowLimitQuerier::new(borrow_limit);
+    }
+
+    pub fn with_liquidation_percent(&mut self, liquidation_percent: &[(&HumanAddr, &Decimal)]) {
+        self.liquidation_percent_querier = LiquidationPercentQuerier::new(liquidation_percent);
     }
 }

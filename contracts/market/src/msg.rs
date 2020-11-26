@@ -17,7 +17,7 @@ pub struct InitMsg {
     /// of Anchor borrow interest rate
     pub interest_model: HumanAddr,
     /// stable coin denom used to borrow & repay
-    pub base_denom: String,
+    pub stable_denom: String,
     /// reserve ratio applied to interest
     pub reserve_factor: Decimal,
     /// Anchor token code ID used to instantiate
@@ -46,6 +46,15 @@ pub enum HandleMsg {
         owner_addr: Option<HumanAddr>,
         reserve_factor: Option<Decimal>,
         interest_model: Option<HumanAddr>,
+    },
+
+    ////////////////////
+    /// Overseer operations
+    ////////////////////
+    /// Repay stable with liquidated collaterals
+    RepayStableFromLiquidation {
+        borrower: HumanAddr,
+        prev_balance: Uint128,
     },
 
     ////////////////////
@@ -80,7 +89,7 @@ pub enum QueryMsg {
     Liability {
         borrower: HumanAddr,
     },
-    Liabilitys {
+    Liabilities {
         start_after: Option<HumanAddr>,
         limit: Option<u32>,
     },
@@ -97,7 +106,7 @@ pub struct ConfigResponse {
     pub anchor_token: HumanAddr,
     pub interest_model: HumanAddr,
     pub overseer_contract: HumanAddr,
-    pub base_denom: String,
+    pub stable_denom: String,
     pub reserve_factor: Decimal,
 }
 
@@ -111,8 +120,8 @@ pub struct LiabilityResponse {
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LiabilitysResponse {
-    pub liabilitys: Vec<LiabilityResponse>,
+pub struct LiabilitiesResponse {
+    pub liabilities: Vec<LiabilityResponse>,
 }
 
 // We define a custom struct for each query response

@@ -9,7 +9,7 @@ use crate::state::{read_config, read_state, store_state, Config, State};
 
 use cw20::Cw20HandleMsg;
 use moneymarket::deduct_tax;
-use terraswap::{load_balance, load_supply};
+use terraswap::{query_balance, query_supply};
 
 pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -22,7 +22,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
         .message
         .sent_funds
         .iter()
-        .find(|c| c.denom == config.base_denom)
+        .find(|c| c.denom == config.stable_denom)
         .map(|c| c.amount)
         .unwrap_or_else(Uint128::zero);
 
@@ -91,7 +91,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
                 amount: vec![deduct_tax(
                     &deps,
                     Coin {
-                        denom: config.base_denom,
+                        denom: config.stable_denom,
                         amount: redeem_amount,
                     },
                 )?],
@@ -113,11 +113,14 @@ fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
     state: &State,
     deposit_amount: Option<Uint128>,
 ) -> StdResult<Decimal> {
-    let anchor_token_supply = load_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
-    let balance = (load_balance(&deps, &env.contract.address, config.base_denom.to_string())?
-        - deposit_amount.unwrap_or_else(Uint128::zero))?;
+    let anchor_token_supply = query_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
+    let balance = (query_balance(
+        &deps,
+        &env.contract.address,
+        config.stable_denom.to_string(),
+    )? - deposit_amount.unwrap_or_else(Uint128::zero))?;
 
-    // (anchor_token / base_denom)
+    // (anchor_token / stable_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / anchor_token_supply
     Ok(decimal_division(
         decimal_subtraction(

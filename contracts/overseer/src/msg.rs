@@ -1,9 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::tokens::TokensHuman;
-
 use cosmwasm_std::{Decimal, HumanAddr, Uint128};
+use moneymarket::TokensHuman;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -14,9 +13,11 @@ pub struct InitMsg {
     pub oracle_contract: HumanAddr,
     /// Market contract address to receive missing interest buffer
     pub market_contract: HumanAddr,
+    /// Liquidation model contract address to compute liqudation amount
+    pub liquidation_model: HumanAddr,
     /// The base denomination used when fetching oracle price,
     /// reward distribution, and borrow
-    pub base_denom: String,
+    pub stable_denom: String,
     /// Distribute interest buffer to market contract,
     /// when deposit_rate < distribution_threshold
     pub distribution_threshold: Decimal,
@@ -38,6 +39,8 @@ pub enum HandleMsg {
     /// Update Configs
     UpdateConfig {
         owner_addr: Option<HumanAddr>,
+        oracle_contract: Option<HumanAddr>,
+        liquidation_model: Option<HumanAddr>,
         distribution_threshold: Option<Decimal>,
         target_deposit_rate: Option<Decimal>,
         buffer_distribution_rate: Option<Decimal>,
@@ -47,7 +50,7 @@ pub enum HandleMsg {
     Whitelist {
         collateral_token: HumanAddr, // bAsset token contract
         custody_contract: HumanAddr, // bAsset custody contract
-        ltv: Decimal,
+        ltv: Decimal,                // Loan To Value ratio
     },
 
     /// Claims all staking rewards from the bAsset contracts
@@ -101,7 +104,8 @@ pub struct ConfigResponse {
     pub owner_addr: HumanAddr,
     pub oracle_contract: HumanAddr,
     pub market_contract: HumanAddr,
-    pub base_denom: String,
+    pub liquidation_model: HumanAddr,
+    pub stable_denom: String,
     pub distribution_threshold: Decimal,
     pub target_deposit_rate: Decimal,
     pub buffer_distribution_rate: Decimal,

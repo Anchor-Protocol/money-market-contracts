@@ -1,87 +1,14 @@
 use crate::mock_querier::mock_dependencies;
 use crate::querier::{
-    compute_tax, deduct_tax, load_all_balances, load_balance, load_borrow_limit, load_borrow_rate,
-    load_distribution_params, load_epoch_state, load_loan_amount, load_price, load_supply,
-    load_token_balance, BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse,
-    EpochStateResponse, LoanAmountResponse, PriceResponse,
+    compute_tax, deduct_tax, query_borrow_limit, query_borrow_rate, query_distribution_params,
+    query_epoch_state, query_liquidation_amount, query_loan_amount, query_price,
+    BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse, EpochStateResponse,
+    LiquidationAmountResponse, LoanAmountResponse, PriceResponse,
 };
-use cosmwasm_std::testing::MOCK_CONTRACT_ADDR;
 use cosmwasm_std::{Coin, Decimal, HumanAddr, Uint128};
 
 #[test]
-fn token_balance_querier() {
-    let mut deps = mock_dependencies(20, &[]);
-
-    deps.querier.with_token_balances(&[(
-        &HumanAddr::from("liquidity0000"),
-        &[(&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(123u128))],
-    )]);
-
-    assert_eq!(
-        Uint128(123u128),
-        load_token_balance(
-            &deps,
-            &HumanAddr::from("liquidity0000"),
-            &HumanAddr::from(MOCK_CONTRACT_ADDR),
-        )
-        .unwrap()
-    );
-}
-
-#[test]
-fn balance_querier() {
-    let deps = mock_dependencies(
-        20,
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128(200u128),
-        }],
-    );
-
-    assert_eq!(
-        load_balance(
-            &deps,
-            &HumanAddr::from(MOCK_CONTRACT_ADDR),
-            "uusd".to_string()
-        )
-        .unwrap(),
-        Uint128(200u128)
-    );
-}
-
-#[test]
-fn all_balances_querier() {
-    let deps = mock_dependencies(
-        20,
-        &[
-            Coin {
-                denom: "uusd".to_string(),
-                amount: Uint128(200u128),
-            },
-            Coin {
-                denom: "ukrw".to_string(),
-                amount: Uint128(100u128),
-            },
-        ],
-    );
-
-    assert_eq!(
-        load_all_balances(&deps, &HumanAddr::from(MOCK_CONTRACT_ADDR),).unwrap(),
-        vec![
-            Coin {
-                denom: "uusd".to_string(),
-                amount: Uint128(200u128),
-            },
-            Coin {
-                denom: "ukrw".to_string(),
-                amount: Uint128(100u128),
-            }
-        ]
-    );
-}
-
-#[test]
-fn a_value_querier() {
+fn distribution_param_querier() {
     let mut deps = mock_dependencies(20, &[]);
 
     deps.querier.with_distribution_params(&[(
@@ -90,32 +17,12 @@ fn a_value_querier() {
     )]);
 
     assert_eq!(
-        load_distribution_params(&deps, &HumanAddr::from("overseer"),).unwrap(),
+        query_distribution_params(&deps, &HumanAddr::from("overseer"),).unwrap(),
         DistributionParamsResponse {
             deposit_rate: Decimal::percent(1),
             target_deposit_rate: Decimal::percent(2),
         }
     );
-}
-
-#[test]
-fn supply_querier() {
-    let mut deps = mock_dependencies(20, &[]);
-
-    deps.querier.with_token_balances(&[(
-        &HumanAddr::from("liquidity0000"),
-        &[
-            (&HumanAddr::from(MOCK_CONTRACT_ADDR), &Uint128(123u128)),
-            (&HumanAddr::from("addr00000"), &Uint128(123u128)),
-            (&HumanAddr::from("addr00001"), &Uint128(123u128)),
-            (&HumanAddr::from("addr00002"), &Uint128(123u128)),
-        ],
-    )]);
-
-    assert_eq!(
-        load_supply(&deps, &HumanAddr::from("liquidity0000")).unwrap(),
-        Uint128(492u128)
-    )
 }
 
 #[test]
@@ -177,7 +84,7 @@ fn epoch_state_querier() {
         &(Uint128::from(100u128), Decimal::percent(53)),
     )]);
 
-    let epoch_state = load_epoch_state(&deps, &HumanAddr::from("market")).unwrap();
+    let epoch_state = query_epoch_state(&deps, &HumanAddr::from("market")).unwrap();
     assert_eq!(
         epoch_state,
         EpochStateResponse {
@@ -194,7 +101,7 @@ fn borrow_amount_querier() {
     deps.querier
         .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint128::from(100u128))]);
 
-    let borrow_amount = load_loan_amount(
+    let borrow_amount = query_loan_amount(
         &deps,
         &HumanAddr::from("market"),
         &HumanAddr::from("addr0000"),
@@ -220,7 +127,7 @@ fn oracle_price_querier() {
         &(Decimal::from_ratio(131u128, 2u128), 123, 321),
     )]);
 
-    let oracle_price = load_price(
+    let oracle_price = query_price(
         &deps,
         &HumanAddr::from("oracle"),
         "uusd".to_string(),
@@ -237,7 +144,7 @@ fn oracle_price_querier() {
         }
     );
 
-    load_price(
+    query_price(
         &deps,
         &HumanAddr::from("oracle"),
         "ukrw".to_string(),
@@ -255,7 +162,7 @@ fn borrow_rate_querier() {
         &Decimal::from_ratio(100u128, 1u128),
     )]);
 
-    let borrow_rate = load_borrow_rate(&deps, &HumanAddr::from("interest")).unwrap();
+    let borrow_rate = query_borrow_rate(&deps, &HumanAddr::from("interest")).unwrap();
 
     assert_eq!(
         borrow_rate,
@@ -272,7 +179,7 @@ fn borrow_limit_querier() {
     deps.querier
         .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint128::from(1000u128))]);
 
-    let borrow_limit = load_borrow_limit(
+    let borrow_limit = query_borrow_limit(
         &deps,
         &HumanAddr::from("overseer"),
         &HumanAddr::from("addr0000"),
@@ -284,6 +191,67 @@ fn borrow_limit_querier() {
         BorrowLimitResponse {
             borrower: HumanAddr::from("addr0000"),
             borrow_limit: Uint128::from(1000u128),
+        }
+    );
+}
+
+#[test]
+fn liquidation_amount_querier() {
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier
+        .with_liquidation_percent(&[(&HumanAddr::from("model0000"), &Decimal::percent(1))]);
+
+    let liquidation_amount = query_liquidation_amount(
+        &deps,
+        &HumanAddr::from("model0000"),
+        Uint128::from(1000000u128),
+        Uint128::from(1000000u128),
+        "uusd".to_string(),
+        vec![
+            (HumanAddr::from("token0000"), Uint128::from(1000000u128)),
+            (HumanAddr::from("token0001"), Uint128::from(2000000u128)),
+            (HumanAddr::from("token0002"), Uint128::from(3000000u128)),
+        ],
+        vec![
+            Decimal::percent(1),
+            Decimal::percent(2),
+            Decimal::percent(3),
+        ],
+    )
+    .unwrap();
+    assert_eq!(
+        liquidation_amount,
+        LiquidationAmountResponse {
+            collaterals: vec![],
+        }
+    );
+
+    let liquidation_amount = query_liquidation_amount(
+        &deps,
+        &HumanAddr::from("model0000"),
+        Uint128::from(1000001u128),
+        Uint128::from(1000000u128),
+        "uusd".to_string(),
+        vec![
+            (HumanAddr::from("token0000"), Uint128::from(1000000u128)),
+            (HumanAddr::from("token0001"), Uint128::from(2000000u128)),
+            (HumanAddr::from("token0002"), Uint128::from(3000000u128)),
+        ],
+        vec![
+            Decimal::percent(1),
+            Decimal::percent(2),
+            Decimal::percent(3),
+        ],
+    )
+    .unwrap();
+    assert_eq!(
+        liquidation_amount,
+        LiquidationAmountResponse {
+            collaterals: vec![
+                (HumanAddr::from("token0000"), Uint128::from(10000u128)),
+                (HumanAddr::from("token0001"), Uint128::from(20000u128)),
+                (HumanAddr::from("token0002"), Uint128::from(30000u128)),
+            ]
         }
     );
 }

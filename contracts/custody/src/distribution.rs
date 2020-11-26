@@ -6,11 +6,10 @@ use cosmwasm_std::{
 use crate::external::handle::RewardContractHandleMsg;
 use crate::msg::HandleMsg;
 use crate::state::{read_config, Config};
-use moneymarket::{
-    deduct_tax, load_all_balances, load_balance, load_distribution_params,
-    DistributionParamsResponse,
-};
+
+use moneymarket::{deduct_tax, query_distribution_params, DistributionParamsResponse};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
+use terraswap::{query_all_balances, query_balance};
 
 /// Request withdraw reward operation to
 /// reward contract and execute `distribute_hook`
@@ -67,11 +66,11 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
 
     // reward_amount = (prev_balance + reward_amount) - prev_balance
     let reward_amount: Uint128 =
-        load_balance(&deps, &contract_addr, config.base_denom.to_string())?;
+        query_balance(&deps, &contract_addr, config.stable_denom.to_string())?;
 
     // load distribution params from the overseer contract
     let distribution_params: DistributionParamsResponse =
-        load_distribution_params(&deps, &overseer_contract)?;
+        query_distribution_params(&deps, &overseer_contract)?;
 
     // Compute interest buffer rewards.
     // Interest buffer is given only when deposit rates
@@ -96,7 +95,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
             amount: vec![deduct_tax(
                 deps,
                 Coin {
-                    denom: config.base_denom.to_string(),
+                    denom: config.stable_denom.to_string(),
                     amount: buffer_rewards,
                 },
             )?],
@@ -110,7 +109,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
         amount: vec![deduct_tax(
             deps,
             Coin {
-                denom: config.base_denom,
+                denom: config.stable_denom,
                 amount: depositor_subsidy,
             },
         )?],
@@ -127,10 +126,10 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-/// Swap all coins to base_denom
+/// Swap all coins to stable_denom
 /// and execute `swap_hook`
 /// Executor: itself
-pub fn swap_to_base_denom<S: Storage, A: Api, Q: Querier>(
+pub fn swap_to_stable_denom<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> HandleResult<TerraMsgWrapper> {
@@ -140,15 +139,15 @@ pub fn swap_to_base_denom<S: Storage, A: Api, Q: Querier>(
     }
 
     let contract_addr = env.contract.address;
-    let balances: Vec<Coin> = load_all_balances(&deps, &contract_addr)?;
+    let balances: Vec<Coin> = query_all_balances(&deps, &contract_addr)?;
     let messages: Vec<CosmosMsg<TerraMsgWrapper>> = balances
         .iter()
-        .filter(|x| x.denom != config.base_denom)
+        .filter(|x| x.denom != config.stable_denom)
         .map(|coin: &Coin| {
             create_swap_msg(
                 contract_addr.clone(),
                 coin.clone(),
-                config.base_denom.clone(),
+                config.stable_denom.clone(),
             )
         })
         .collect();

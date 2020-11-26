@@ -1,8 +1,9 @@
-use crate::asset::{Asset, AssetInfo};
+use crate::asset::{Asset, AssetInfo, PairInfo};
 use crate::mock_querier::mock_dependencies;
 use crate::querier::{
-    load_balance, load_liquidity_token, load_pair_contract, load_supply, load_token_balance,
+    query_all_balances, query_balance, query_pair_info, query_supply, query_token_balance,
 };
+
 use cosmwasm_std::testing::MOCK_CONTRACT_ADDR;
 use cosmwasm_std::{to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, Uint128, WasmMsg};
 use cw20::Cw20HandleMsg;
@@ -18,7 +19,7 @@ fn token_balance_querier() {
 
     assert_eq!(
         Uint128(123u128),
-        load_token_balance(
+        query_token_balance(
             &deps,
             &HumanAddr::from("liquidity0000"),
             &HumanAddr::from(MOCK_CONTRACT_ADDR),
@@ -38,13 +39,44 @@ fn balance_querier() {
     );
 
     assert_eq!(
-        load_balance(
+        query_balance(
             &deps,
             &HumanAddr::from(MOCK_CONTRACT_ADDR),
             "uusd".to_string()
         )
         .unwrap(),
         Uint128(200u128)
+    );
+}
+
+#[test]
+fn all_balances_querier() {
+    let deps = mock_dependencies(
+        20,
+        &[
+            Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128(200u128),
+            },
+            Coin {
+                denom: "ukrw".to_string(),
+                amount: Uint128(300u128),
+            },
+        ],
+    );
+
+    assert_eq!(
+        query_all_balances(&deps, &HumanAddr::from(MOCK_CONTRACT_ADDR),).unwrap(),
+        vec![
+            Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128(200u128),
+            },
+            Coin {
+                denom: "ukrw".to_string(),
+                amount: Uint128(300u128),
+            }
+        ]
     );
 }
 
@@ -63,7 +95,7 @@ fn supply_querier() {
     )]);
 
     assert_eq!(
-        load_supply(&deps, &HumanAddr::from("liquidity0000")).unwrap(),
+        query_supply(&deps, &HumanAddr::from("liquidity0000")).unwrap(),
         Uint128(492u128)
     )
 }
@@ -115,13 +147,13 @@ fn test_asset_info() {
 
     assert_eq!(
         token_info
-            .load_pool(&deps, &HumanAddr::from(MOCK_CONTRACT_ADDR))
+            .query_pool(&deps, &HumanAddr::from(MOCK_CONTRACT_ADDR))
             .unwrap(),
         Uint128(123u128)
     );
     assert_eq!(
         native_token_info
-            .load_pool(&deps, &HumanAddr::from(MOCK_CONTRACT_ADDR))
+            .query_pool(&deps, &HumanAddr::from(MOCK_CONTRACT_ADDR))
             .unwrap(),
         Uint128(123u128)
     );
@@ -223,35 +255,35 @@ fn query_terraswap_pair_contract() {
     let mut deps = mock_dependencies(20, &[]);
 
     deps.querier.with_terraswap_pairs(&[(
-        &"asset0000\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}uusd".to_string(),
-        (&HumanAddr::from("owner0000"), &HumanAddr::from("pair0000")),
+        &"asset0000uusd".to_string(),
+        &PairInfo {
+            asset_infos: [
+                AssetInfo::Token {
+                    contract_addr: HumanAddr::from("asset0000"),
+                },
+                AssetInfo::NativeToken {
+                    denom: "uusd".to_string(),
+                },
+            ],
+            contract_addr: HumanAddr::from("pair0000"),
+            liquidity_token: HumanAddr::from("liquidity0000"),
+        },
     )]);
 
-    let pair_contract = load_pair_contract(
+    let pair_info: PairInfo = query_pair_info(
         &deps,
         &HumanAddr::from(MOCK_CONTRACT_ADDR),
         &[
-            AssetInfo::NativeToken {
-                denom: "uusd".to_string(),
-            },
             AssetInfo::Token {
                 contract_addr: HumanAddr::from("asset0000"),
+            },
+            AssetInfo::NativeToken {
+                denom: "uusd".to_string(),
             },
         ],
     )
     .unwrap();
 
-    assert_eq!(pair_contract, HumanAddr::from("pair0000"),);
-}
-
-#[test]
-fn query_terraswap_lp_token() {
-    let mut deps = mock_dependencies(20, &[]);
-    deps.querier.with_terraswap_pair_lp_token(&[(
-        &HumanAddr::from("pair0000"),
-        &HumanAddr::from("LP0000"),
-    )]);
-
-    let liquidity_token = load_liquidity_token(&deps, &HumanAddr::from("pair0000")).unwrap();
-    assert_eq!(liquidity_token, HumanAddr::from("LP0000"));
+    assert_eq!(pair_info.contract_addr, HumanAddr::from("pair0000"),);
+    assert_eq!(pair_info.liquidity_token, HumanAddr::from("liquidity0000"),);
 }

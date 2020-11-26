@@ -4,8 +4,8 @@ use cosmwasm_std::{
     StdResult, Storage, WasmMsg,
 };
 
-use crate::borrow::{borrow_stable, repay_stable};
-use crate::borrow::{query_liability, query_liabilitys, query_loan_amount};
+use crate::borrow::{borrow_stable, repay_stable, repay_stable_from_liquidation};
+use crate::borrow::{query_liabilities, query_liability, query_loan_amount};
 use crate::deposit::{deposit_stable, redeem_stable};
 use crate::msg::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
@@ -25,7 +25,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             anchor_token: CanonicalAddr::default(),
             overseer_contract: CanonicalAddr::default(),
             interest_model: deps.api.canonical_address(&msg.interest_model)?,
-            base_denom: msg.base_denom.clone(),
+            stable_denom: msg.stable_denom.clone(),
             reserve_factor: msg.reserve_factor,
         },
     )?;
@@ -46,8 +46,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             send: vec![],
             label: None,
             msg: to_binary(&TokenInitMsg {
-                name: format!("Anchor Token for {}", msg.base_denom),
-                symbol: format!("AT-{}", msg.base_denom),
+                name: format!("Anchor Token for {}", msg.stable_denom),
+                symbol: format!("AT-{}", msg.stable_denom),
                 decimals: 6u8,
                 initial_balances: vec![],
                 mint: Some(MinterResponse {
@@ -85,6 +85,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             borrow_stable(deps, env, borrow_amount, to)
         }
         HandleMsg::RepayStable {} => repay_stable(deps, env),
+        HandleMsg::RepayStableFromLiquidation {
+            borrower,
+            prev_balance,
+        } => repay_stable_from_liquidation(deps, env, borrower, prev_balance),
     }
 }
 
@@ -187,8 +191,8 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State {} => to_binary(&query_state(deps)?),
         QueryMsg::Liability { borrower } => to_binary(&query_liability(deps, borrower)?),
-        QueryMsg::Liabilitys { start_after, limit } => {
-            to_binary(&query_liabilitys(deps, start_after, limit)?)
+        QueryMsg::Liabilities { start_after, limit } => {
+            to_binary(&query_liabilities(deps, start_after, limit)?)
         }
         QueryMsg::LoanAmount {
             borrower,
@@ -206,7 +210,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         anchor_token: deps.api.human_address(&config.anchor_token)?,
         interest_model: deps.api.human_address(&config.interest_model)?,
         overseer_contract: deps.api.human_address(&config.overseer_contract)?,
-        base_denom: config.base_denom,
+        stable_denom: config.stable_denom,
         reserve_factor: config.reserve_factor,
     })
 }

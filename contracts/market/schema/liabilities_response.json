@@ -1,12 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "LiabilitysResponse",
+  "title": "LiabilitiesResponse",
   "type": "object",
   "required": [
-    "liabilitys"
+    "liabilities"
   ],
   "properties": {
-    "liabilitys": {
+    "liabilities": {
       "type": "array",
       "items": {
         "$ref": "#/definitions/LiabilityResponse"

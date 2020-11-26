@@ -19,7 +19,7 @@ pub struct Config {
     pub anchor_token: CanonicalAddr,
     pub interest_model: CanonicalAddr,
     pub overseer_contract: CanonicalAddr,
-    pub base_denom: String,
+    pub stable_denom: String,
     pub reserve_factor: Decimal,
 }
 

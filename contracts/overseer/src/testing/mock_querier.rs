@@ -8,7 +8,9 @@ use cosmwasm_std::{
 };
 use std::collections::HashMap;
 
-use moneymarket::{EpochStateResponse, LoanAmountResponse, PriceResponse};
+use moneymarket::{
+    EpochStateResponse, LiquidationAmountResponse, LoanAmountResponse, PriceResponse, TokensHuman,
+};
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -23,6 +25,14 @@ pub enum QueryMsg {
     },
     /// Query oracle price to oracle contract
     Price { base: String, quote: String },
+    /// Query liquidation amount to liquidation model contract
+    LiquidationAmount {
+        borrow_amount: Uint128,
+        borrow_limit: Uint128,
+        stable_denom: String,
+        collaterals: TokensHuman,
+        collateral_prices: Vec<Decimal>,
+    },
 }
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -50,6 +60,7 @@ pub struct WasmMockQuerier {
     epoch_state_querier: EpochStateQuerier,
     oracle_price_querier: OraclePriceQuerier,
     loan_amount_querier: LoanAmountQuerier,
+    liquidation_percent_querier: LiquidationPercentQuerier,
 }
 
 #[derive(Clone, Default)]
@@ -165,6 +176,30 @@ impl Querier for WasmMockQuerier {
     }
 }
 
+#[derive(Clone, Default)]
+pub struct LiquidationPercentQuerier {
+    // this lets us iterate over all pairs that match the first string
+    liquidation_percent: HashMap<HumanAddr, Decimal>,
+}
+
+impl LiquidationPercentQuerier {
+    pub fn new(liquidation_percent: &[(&HumanAddr, &Decimal)]) -> Self {
+        LiquidationPercentQuerier {
+            liquidation_percent: liquidation_percent_to_map(liquidation_percent),
+        }
+    }
+}
+
+pub(crate) fn liquidation_percent_to_map(
+    liquidation_percent: &[(&HumanAddr, &Decimal)],
+) -> HashMap<HumanAddr, Decimal> {
+    let mut liquidation_percent_map: HashMap<HumanAddr, Decimal> = HashMap::new();
+    for (liquidation_model, liquidation_percent) in liquidation_percent.iter() {
+        liquidation_percent_map.insert((*liquidation_model).clone(), **liquidation_percent);
+    }
+    liquidation_percent_map
+}
+
 impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<TerraQueryWrapper>) -> QuerierResult {
         match &request {
@@ -233,6 +268,39 @@ impl WasmMockQuerier {
                             }),
                         }
                     }
+                    QueryMsg::LiquidationAmount {
+                        borrow_amount,
+                        borrow_limit,
+                        stable_denom: _,
+                        collaterals,
+                        collateral_prices: _,
+                    } => {
+                        match self
+                            .liquidation_percent_querier
+                            .liquidation_percent
+                            .get(&contract_addr)
+                        {
+                            Some(v) => {
+                                if borrow_amount > borrow_limit {
+                                    Ok(to_binary(&LiquidationAmountResponse {
+                                        collaterals: collaterals
+                                            .iter()
+                                            .map(|x| (x.0.clone(), x.1 * *v))
+                                            .collect::<TokensHuman>()
+                                            .to_vec(),
+                                    }))
+                                } else {
+                                    Ok(to_binary(&LiquidationAmountResponse {
+                                        collaterals: vec![],
+                                    }))
+                                }
+                            }
+                            None => Err(SystemError::InvalidRequest {
+                                error: "No liquidation percent exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
+                        }
+                    }
                 }
             }
             _ => self.base.handle_query(request),
@@ -248,6 +316,7 @@ impl WasmMockQuerier {
             epoch_state_querier: EpochStateQuerier::default(),
             oracle_price_querier: OraclePriceQuerier::default(),
             loan_amount_querier: LoanAmountQuerier::default(),
+            liquidation_percent_querier: LiquidationPercentQuerier::default(),
         }
     }
 
@@ -269,5 +338,9 @@ impl WasmMockQuerier {
 
     pub fn with_loan_amount(&mut self, loan_amount: &[(&HumanAddr, &Uint128)]) {
         self.loan_amount_querier = LoanAmountQuerier::new(loan_amount);
+    }
+
+    pub fn with_liquidation_percent(&mut self, liquidation_percent: &[(&HumanAddr, &Decimal)]) {
+        self.liquidation_percent_querier = LiquidationPercentQuerier::new(liquidation_percent);
     }
 }

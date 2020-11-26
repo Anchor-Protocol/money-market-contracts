@@ -4,10 +4,10 @@
   "type": "object",
   "required": [
     "anchor_token_code_id",
-    "base_denom",
     "interest_model",
     "owner_addr",
-    "reserve_factor"
+    "reserve_factor",
+    "stable_denom"
   ],
   "properties": {
     "anchor_token_code_id": {
@@ -15,10 +15,6 @@
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
-    },
-    "base_denom": {
-      "description": "stable coin denom used to borrow & repay",
-      "type": "string"
     },
     "interest_model": {
       "description": "The contract has the calculation logics of Anchor borrow interest rate",
@@ -43,6 +39,10 @@
           "$ref": "#/definitions/Decimal"
         }
       ]
+    },
+    "stable_denom": {
+      "description": "stable coin denom used to borrow & repay",
+      "type": "string"
     }
   },
   "definitions": {

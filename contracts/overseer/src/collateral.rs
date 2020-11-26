@@ -1,17 +1,19 @@
 use cosmwasm_std::{
-    log, to_binary, Api, CosmosMsg, Env, Extern, HandleResponse, HandleResult, HumanAddr, Querier,
-    StdError, StdResult, Storage, Uint128, WasmMsg,
+    log, to_binary, Api, CosmosMsg, Decimal, Env, Extern, HandleResponse, HandleResult, HumanAddr,
+    Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::msg::{AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse};
+use crate::querier::query_balance;
 use crate::state::{
     read_all_collaterals, read_collaterals, read_config, read_whitelist_elem, store_collaterals,
     Config, WhitelistElem,
 };
-use crate::tokens::{Tokens, TokensHuman, TokensMath, TokensToRaw};
 
 use moneymarket::{
-    load_loan_amount, load_price, CustodyHandleMsg, LoanAmountResponse, PriceResponse,
+    query_liquidation_amount, query_loan_amount, query_price, CustodyHandleMsg,
+    LiquidationAmountResponse, LoanAmountResponse, MarketHandleMsg, PriceResponse, Tokens,
+    TokensHuman, TokensMath, TokensToHuman, TokensToRaw,
 };
 
 pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
@@ -76,9 +78,9 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     }
 
     // Compute borrow limit with collaterals except unlock target collaterals
-    let borrow_limit = compute_borrow_limit(deps, &cur_collaterals)?;
+    let (borrow_limit, _) = compute_borrow_limit(deps, &cur_collaterals)?;
     let borrow_amount_res: LoanAmountResponse =
-        load_loan_amount(deps, &market, &borrower, env.block.height)?;
+        query_loan_amount(deps, &market, &borrower, env.block.height)?;
     if borrow_limit < borrow_amount_res.loan_amount {
         return Err(StdError::generic_err(
             "Cannot unlock collateral more than LTV",
@@ -116,13 +118,83 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn liquidiate_collateral<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    _borrower: HumanAddr,
+pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    borrower: HumanAddr,
 ) -> HandleResult {
-    // TODO - implement liquidation
-    Ok(HandleResponse::default())
+    let config: Config = read_config(&deps.storage)?;
+    let market = deps.api.human_address(&config.market_contract)?;
+
+    let borrower_raw = deps.api.canonical_address(&borrower)?;
+    let mut cur_collaterals: Tokens = read_collaterals(&deps.storage, &borrower_raw);
+
+    // Compute borrow limit with collaterals except unlock target collaterals
+    let (borrow_limit, collateral_prices) = compute_borrow_limit(deps, &cur_collaterals)?;
+    let borrow_amount_res: LoanAmountResponse =
+        query_loan_amount(deps, &market, &borrower, env.block.height)?;
+    let borrow_amount = borrow_amount_res.loan_amount;
+
+    // borrow limit is equal or bigger than loan amount
+    // cannot liquidation collaterals
+    if borrow_limit >= borrow_amount {
+        return Err(StdError::generic_err(
+            "Cannot liquidate safely collateralized borrower",
+        ));
+    }
+
+    let liquidation_amount_res: LiquidationAmountResponse = query_liquidation_amount(
+        &deps,
+        &deps.api.human_address(&config.liquidation_model)?,
+        borrow_amount,
+        borrow_limit,
+        config.stable_denom.to_string(),
+        &cur_collaterals.to_human(&deps)?,
+        collateral_prices,
+    )?;
+
+    let liquidation_amount = liquidation_amount_res.collaterals.to_raw(&deps)?;
+
+    // Store left collaterals
+    cur_collaterals.sub(liquidation_amount.clone())?;
+    store_collaterals(&mut deps.storage, &borrower_raw, &cur_collaterals)?;
+
+    let market_contract = deps.api.human_address(&config.market_contract)?;
+    let prev_balance: Uint128 = query_balance(&deps, &market_contract, config.stable_denom)?;
+
+    let liquidation_messages: Vec<CosmosMsg> = liquidation_amount
+        .iter()
+        .map(|collateral| {
+            let whitelist_elem: WhitelistElem = read_whitelist_elem(&deps.storage, &collateral.0)?;
+
+            Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.human_address(&whitelist_elem.custody_contract)?,
+                send: vec![],
+                msg: to_binary(&CustodyHandleMsg::LiquidateCollateral {
+                    borrower: borrower.clone(),
+                    amount: collateral.1,
+                })?,
+            }))
+        })
+        .filter(|msg| msg.is_ok())
+        .collect::<StdResult<Vec<CosmosMsg>>>()?;
+
+    Ok(HandleResponse {
+        messages: vec![
+            liquidation_messages,
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: market_contract,
+                send: vec![],
+                msg: to_binary(&MarketHandleMsg::RepayStableFromLiquidation {
+                    borrower,
+                    prev_balance,
+                })?,
+            })],
+        ]
+        .concat(),
+        log: vec![],
+        data: None,
+    })
 }
 
 pub fn query_collaterals<S: Storage, A: Api, Q: Querier>(
@@ -158,32 +230,37 @@ pub fn query_all_collaterals<S: Storage, A: Api, Q: Querier>(
     Ok(AllCollateralsResponse { all_collaterals })
 }
 
+#[allow(clippy::ptr_arg)]
 fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collaterals: &Tokens,
-) -> StdResult<Uint128> {
+) -> StdResult<(Uint128, Vec<Decimal>)> {
     let config: Config = read_config(&deps.storage)?;
     let oracle_contract = deps.api.human_address(&config.oracle_contract)?;
 
     let mut borrow_limit: Uint128 = Uint128::zero();
+    let mut collateral_prices: Vec<Decimal> = vec![];
     for collateral in collaterals.iter() {
         let collateral_token = collateral.0.clone();
         let collateral_amount = collateral.1;
 
-        let price: PriceResponse = load_price(
+        let price: PriceResponse = query_price(
             &deps,
             &oracle_contract,
-            config.base_denom.to_string(),
+            config.stable_denom.to_string(),
             (deps.api.human_address(&collateral_token)?).to_string(),
         )?;
 
         // TODO check price last_updated
 
         let elem: WhitelistElem = read_whitelist_elem(&deps.storage, &collateral.0)?;
-        borrow_limit += collateral_amount * price.rate * elem.ltv;
+        let collateral_value = collateral_amount * price.rate;
+        borrow_limit += collateral_value * elem.ltv;
+        collateral_prices.push(price.rate);
     }
 
-    Ok(borrow_limit)
+    // returns borrow_limit with collaterals value in stable denom
+    Ok((borrow_limit, collateral_prices))
 }
 
 pub fn query_borrow_limit<S: Storage, A: Api, Q: Querier>(
@@ -193,7 +270,7 @@ pub fn query_borrow_limit<S: Storage, A: Api, Q: Querier>(
     let collaterals = read_collaterals(&deps.storage, &deps.api.canonical_address(&borrower)?);
 
     // Compute borrow limit with collaterals
-    let borrow_limit = compute_borrow_limit(deps, &collaterals)?;
+    let (borrow_limit, _) = compute_borrow_limit(deps, &collaterals)?;
 
     Ok(BorrowLimitResponse {
         borrower,

@@ -3,17 +3,14 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "base_denom",
     "collateral_token",
     "market_contract",
     "overseer_contract",
-    "reward_contract"
+    "reward_contract",
+    "stable_denom",
+    "terraswap_contract"
   ],
   "properties": {
-    "base_denom": {
-      "description": "Expected reward denom. If bAsset reward is not same with it, we try to convert the reward to the `base_denom`.",
-      "type": "string"
-    },
     "collateral_token": {
       "description": "bAsset token address",
       "allOf": [
@@ -40,6 +37,18 @@
     },
     "reward_contract": {
       "description": "bAsset rewrad contract",
+      "allOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        }
+      ]
+    },
+    "stable_denom": {
+      "description": "Expected reward denom. If bAsset reward is not same with it, we try to convert the reward to the `stable_denom`.",
+      "type": "string"
+    },
+    "terraswap_contract": {
+      "description": "terraswap pair contract address",
       "allOf": [
         {
           "$ref": "#/definitions/HumanAddr"

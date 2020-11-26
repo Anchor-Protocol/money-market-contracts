@@ -4,10 +4,10 @@ use cosmwasm_std::{
 };
 
 use crate::collateral::{
-    deposit_collateral, lock_collateral, query_borrower, query_borrowers, unlock_collateral,
-    withdraw_collateral,
+    deposit_collateral, liquidate_collateral, lock_collateral, query_borrower, query_borrowers,
+    unlock_collateral, withdraw_collateral,
 };
-use crate::distribution::{distribute_hook, distribute_rewards, swap_to_base_denom};
+use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
 use crate::msg::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{read_config, store_config, Config};
 
@@ -24,7 +24,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         collateral_token: deps.api.canonical_address(&msg.collateral_token)?,
         market_contract: deps.api.canonical_address(&msg.market_contract)?,
         reward_contract: deps.api.canonical_address(&msg.reward_contract)?,
-        base_denom: msg.base_denom,
+        terraswap_contract: deps.api.canonical_address(&msg.terraswap_contract)?,
+        stable_denom: msg.stable_denom,
     };
 
     store_config(&mut deps.storage, &config)?;
@@ -47,8 +48,11 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         }
         HandleMsg::DistributeRewards {} => distribute_rewards(deps, env),
         HandleMsg::DistributeHook {} => distribute_hook(deps, env),
-        HandleMsg::SwapToRewardDenom {} => swap_to_base_denom(deps, env),
+        HandleMsg::SwapToRewardDenom {} => swap_to_stable_denom(deps, env),
         HandleMsg::WithdrawCollateral { amount } => withdraw_collateral(deps, env, amount),
+        HandleMsg::LiquidateCollateral { borrower, amount } => {
+            liquidate_collateral(deps, env, borrower, amount)
+        }
     }
 }
 
@@ -97,6 +101,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         overseer_contract: deps.api.human_address(&config.overseer_contract)?,
         market_contract: deps.api.human_address(&config.market_contract)?,
         reward_contract: deps.api.human_address(&config.reward_contract)?,
-        base_denom: config.base_denom,
+        terraswap_contract: deps.api.human_address(&config.terraswap_contract)?,
+        stable_denom: config.stable_denom,
     })
 }

@@ -305,6 +305,15 @@ impl WasmMockQuerier {
         }
     }
 
+    // set a new balance for the given address and return the old balance
+    pub fn update_balance<U: Into<HumanAddr>>(
+        &mut self,
+        addr: U,
+        balance: Vec<Coin>,
+    ) -> Option<Vec<Coin>> {
+        self.base.update_balance(addr, balance)
+    }
+
     // configure the mint whitelist mock querier
     pub fn with_token_balances(&mut self, balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])]) {
         self.token_querier = TokenQuerier::new(balances);

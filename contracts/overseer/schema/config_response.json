@@ -3,23 +3,24 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
-    "base_denom",
     "buffer_distribution_rate",
     "distribution_threshold",
+    "liquidation_model",
     "market_contract",
     "oracle_contract",
     "owner_addr",
+    "stable_denom",
     "target_deposit_rate"
   ],
   "properties": {
-    "base_denom": {
-      "type": "string"
-    },
     "buffer_distribution_rate": {
       "$ref": "#/definitions/Decimal"
     },
     "distribution_threshold": {
       "$ref": "#/definitions/Decimal"
+    },
+    "liquidation_model": {
+      "$ref": "#/definitions/HumanAddr"
     },
     "market_contract": {
       "$ref": "#/definitions/HumanAddr"
@@ -29,6 +30,9 @@
     },
     "owner_addr": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "stable_denom": {
+      "type": "string"
     },
     "target_deposit_rate": {
       "$ref": "#/definitions/Decimal"

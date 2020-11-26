@@ -90,6 +90,30 @@
       }
     },
     {
+      "description": "Overseer operations Repay stable with liquidated collaterals",
+      "type": "object",
+      "required": [
+        "repay_stable_from_liquidation"
+      ],
+      "properties": {
+        "repay_stable_from_liquidation": {
+          "type": "object",
+          "required": [
+            "borrower",
+            "prev_balance"
+          ],
+          "properties": {
+            "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "prev_balance": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        }
+      }
+    },
+    {
       "description": "User operations Deposit stable asset to get interest",
       "type": "object",
       "required": [

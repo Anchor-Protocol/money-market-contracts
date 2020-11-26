@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 
 use crate::collateral::{
-    liquidiate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
+    liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
     query_collaterals, unlock_collateral,
 };
 use crate::math::{decimal_division, decimal_subtraction};
@@ -13,14 +13,13 @@ use crate::msg::{
     ConfigResponse, DistributionParamsResponse, HandleMsg, InitMsg, QueryMsg, WhitelistResponse,
     WhitelistResponseElem,
 };
+use crate::querier::query_balance;
 use crate::state::{
     read_config, read_epoch_state, read_whitelist, read_whitelist_elem, store_config,
     store_epoch_state, store_whitelist_elem, Config, EpochState, WhitelistElem,
 };
 
-use moneymarket::{
-    deduct_tax, load_balance, load_epoch_state, CustodyHandleMsg, EpochStateResponse,
-};
+use moneymarket::{deduct_tax, query_epoch_state, CustodyHandleMsg, EpochStateResponse};
 
 /// # of blocks per epoch period
 const EPOCH_PERIOD: u64 = 86400u64;
@@ -34,12 +33,13 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &Config {
             owner_addr: deps.api.canonical_address(&msg.owner_addr)?,
+            oracle_contract: deps.api.canonical_address(&msg.oracle_contract)?,
+            market_contract: deps.api.canonical_address(&msg.market_contract)?,
+            liquidation_model: deps.api.canonical_address(&msg.liquidation_model)?,
+            stable_denom: msg.stable_denom,
             distribution_threshold: msg.distribution_threshold,
             target_deposit_rate: msg.target_deposit_rate,
             buffer_distribution_rate: msg.buffer_distribution_rate,
-            oracle_contract: deps.api.canonical_address(&msg.oracle_contract)?,
-            market_contract: deps.api.canonical_address(&msg.market_contract)?,
-            base_denom: msg.base_denom,
         },
     )?;
 
@@ -64,6 +64,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     match msg {
         HandleMsg::UpdateConfig {
             owner_addr,
+            oracle_contract,
+            liquidation_model,
             distribution_threshold,
             target_deposit_rate,
             buffer_distribution_rate,
@@ -71,6 +73,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             deps,
             env,
             owner_addr,
+            oracle_contract,
+            liquidation_model,
             distribution_threshold,
             target_deposit_rate,
             buffer_distribution_rate,
@@ -83,14 +87,17 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
         HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
         HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
-        HandleMsg::LiquidiateCollateral { borrower } => liquidiate_collateral(deps, env, borrower),
+        HandleMsg::LiquidiateCollateral { borrower } => liquidate_collateral(deps, env, borrower),
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_config<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     owner_addr: Option<HumanAddr>,
+    oracle_contract: Option<HumanAddr>,
+    liquidation_model: Option<HumanAddr>,
     distribution_threshold: Option<Decimal>,
     target_deposit_rate: Option<Decimal>,
     buffer_distribution_rate: Option<Decimal>,
@@ -103,6 +110,14 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(owner_addr) = owner_addr {
         config.owner_addr = deps.api.canonical_address(&owner_addr)?;
+    }
+
+    if let Some(oracle_contract) = oracle_contract {
+        config.oracle_contract = deps.api.canonical_address(&oracle_contract)?;
+    }
+
+    if let Some(liquidation_model) = liquidation_model {
+        config.liquidation_model = deps.api.canonical_address(&liquidation_model)?;
     }
 
     if let Some(distribution_threshold) = distribution_threshold {
@@ -181,7 +196,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
 
     // Compute next epoch state
     let market_contract: HumanAddr = deps.api.human_address(&config.market_contract)?;
-    let epoch_state: EpochStateResponse = load_epoch_state(&deps, &market_contract)?;
+    let epoch_state: EpochStateResponse = query_epoch_state(&deps, &market_contract)?;
 
     // effective_deposit_rate = cur_exchange_rate / prev_exchange_rate
     // deposit_rate = (effective_deposit_rate - 1) / blocks
@@ -204,8 +219,11 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
 
         // missing_deposits = prev_deposits * missing_deposit_rate(_per_block) * blocks
         let missing_deposits = Uint128(prev_deposits.u128() * blocks.u128()) * missing_deposit_rate;
-        let interest_buffer =
-            load_balance(&deps, &env.contract.address, config.base_denom.to_string())?;
+        let interest_buffer = query_balance(
+            &deps,
+            &env.contract.address,
+            config.stable_denom.to_string(),
+        )?;
         let distribution_buffer = interest_buffer * config.buffer_distribution_rate;
 
         // When there was not enough deposits happens,
@@ -219,7 +237,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
             amount: vec![deduct_tax(
                 &deps,
                 Coin {
-                    denom: config.base_denom,
+                    denom: config.stable_denom,
                     amount: distributed_interest,
                 },
             )?],
@@ -294,7 +312,8 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         owner_addr: deps.api.human_address(&config.owner_addr)?,
         oracle_contract: deps.api.human_address(&config.oracle_contract)?,
         market_contract: deps.api.human_address(&config.market_contract)?,
-        base_denom: config.base_denom,
+        liquidation_model: deps.api.human_address(&config.liquidation_model)?,
+        stable_denom: config.stable_denom,
         distribution_threshold: config.distribution_threshold,
         target_deposit_rate: config.target_deposit_rate,
         buffer_distribution_rate: config.buffer_distribution_rate,
