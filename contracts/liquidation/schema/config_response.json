@@ -3,10 +3,18 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
+    "liquidation_threshold",
+    "min_liquidation",
     "owner",
     "safe_ratio"
   ],
   "properties": {
+    "liquidation_threshold": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "min_liquidation": {
+      "$ref": "#/definitions/Uint128"
+    },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
     },
@@ -20,6 +28,9 @@
       "type": "string"
     },
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }

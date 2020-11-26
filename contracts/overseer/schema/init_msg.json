@@ -3,19 +3,16 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "stable_denom",
     "buffer_distribution_rate",
     "distribution_threshold",
+    "liquidation_model",
     "market_contract",
     "oracle_contract",
     "owner_addr",
+    "stable_denom",
     "target_deposit_rate"
   ],
   "properties": {
-    "stable_denom": {
-      "description": "The base denomination used when fetching oracle price, reward distribution, and borrow",
-      "type": "string"
-    },
     "buffer_distribution_rate": {
       "description": "Ratio to be distributed from the interest buffer",
       "allOf": [
@@ -29,6 +26,14 @@
       "allOf": [
         {
           "$ref": "#/definitions/Decimal"
+        }
+      ]
+    },
+    "liquidation_model": {
+      "description": "Liquidation model contract address to compute liqudation amount",
+      "allOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
         }
       ]
     },
@@ -55,6 +60,10 @@
           "$ref": "#/definitions/HumanAddr"
         }
       ]
+    },
+    "stable_denom": {
+      "description": "The base denomination used when fetching oracle price, reward distribution, and borrow",
+      "type": "string"
     },
     "target_deposit_rate": {
       "description": "Target deposit rate. When current deposit rate is bigger than this, Custody contracts send rewards to interest buffer",

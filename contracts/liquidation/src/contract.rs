@@ -18,6 +18,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &Config {
             owner: deps.api.canonical_address(&msg.owner)?,
             safe_ratio: msg.safe_ratio,
+            min_liquidation: msg.min_liquidation,
+            liquidation_threshold: msg.liquidation_threshold,
         },
     )?;
 
@@ -30,9 +32,19 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> HandleResult {
     match msg {
-        HandleMsg::UpdateConfig { owner, safe_ratio } => {
-            update_config(deps, env, owner, safe_ratio)
-        }
+        HandleMsg::UpdateConfig {
+            owner,
+            safe_ratio,
+            min_liquidation,
+            liquidation_threshold,
+        } => update_config(
+            deps,
+            env,
+            owner,
+            safe_ratio,
+            min_liquidation,
+            liquidation_threshold,
+        ),
     }
 }
 
@@ -41,6 +53,8 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     env: Env,
     owner: Option<HumanAddr>,
     safe_ratio: Option<Decimal>,
+    min_liquidation: Option<Uint128>,
+    liquidation_threshold: Option<Uint128>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.owner {
@@ -53,6 +67,14 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(safe_ratio) = safe_ratio {
         config.safe_ratio = safe_ratio;
+    }
+
+    if let Some(min_liquidation) = min_liquidation {
+        config.min_liquidation = min_liquidation;
+    }
+
+    if let Some(liquidation_threshold) = liquidation_threshold {
+        config.liquidation_threshold = liquidation_threshold;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -70,14 +92,14 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             borrow_limit,
             stable_denom,
             collaterals,
-            collaterals_amount,
+            collateral_prices,
         } => to_binary(&query_liquidation_amount(
             deps,
             borrow_amount,
             borrow_limit,
             stable_denom,
             collaterals,
-            collaterals_amount,
+            collateral_prices,
         )?),
     }
 }
@@ -89,6 +111,8 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
     let resp = ConfigResponse {
         owner: deps.api.human_address(&state.owner)?,
         safe_ratio: state.safe_ratio,
+        min_liquidation: state.min_liquidation,
+        liquidation_threshold: state.liquidation_threshold,
     };
 
     Ok(resp)
@@ -100,7 +124,7 @@ fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     borrow_limit: Uint128,
     _stable_denom: String,
     collaterals: TokensHuman,
-    collaterals_amount: Uint128,
+    collateral_prices: Vec<Decimal>,
 ) -> StdResult<LiquidationAmountResponse> {
     let config: Config = read_config(&deps.storage)?;
     let safe_borrow_limit = borrow_limit * config.safe_ratio;
@@ -112,25 +136,47 @@ fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
         });
     }
 
-    // Check one of borrow_limit, collaterals_amount, safe_ratio
-    if collaterals_amount <= safe_borrow_limit {
+    let mut collaterals_value = Uint128::zero();
+    for c in collaterals.iter().zip(collateral_prices.iter()) {
+        let (collateral, price) = c;
+        let collateral_value = collateral.1 * *price;
+        collaterals_value += collateral_value;
+    }
+
+    // collaterals_value must be bigger than safe_borrow_limit
+    if collaterals_value <= safe_borrow_limit {
         return Err(StdError::generic_err(
             "safe_borrow_limit cannot be smaller than collaterals value",
         ));
     }
 
-    let liquidation_ratio = Decimal::from_ratio(
-        (borrow_amount - safe_borrow_limit).unwrap(),
-        (collaterals_amount - safe_borrow_limit).unwrap(),
-    );
+    // When collaterals_value is smaller than liquidation_threshold,
+    // liquidate all collaterals
+    let liquidation_ratio = if collaterals_value < config.liquidation_threshold {
+        Decimal::one()
+    } else {
+        Decimal::from_ratio(
+            (borrow_amount - safe_borrow_limit).unwrap(),
+            (collaterals_value - safe_borrow_limit).unwrap(),
+        )
+    };
 
     Ok(LiquidationAmountResponse {
         collaterals: collaterals
             .iter()
+            .zip(collateral_prices.iter())
             .map(|c| {
-                let mut c = c.clone();
-                c.1 = c.1 * liquidation_ratio;
-                c
+                let (collateral, price) = c;
+                let mut collateral = collateral.clone();
+
+                // When target liquidation amount is smaller than `min_liquidation`
+                // except from the liquidation
+                collateral.1 = collateral.1 * liquidation_ratio;
+                if config.min_liquidation > collateral.1 * *price {
+                    collateral.1 = Uint128::zero();
+                }
+
+                collateral
             })
             .filter(|c| c.1 > Uint128::zero())
             .collect::<TokensHuman>(),
@@ -150,6 +196,8 @@ mod tests {
         let msg = InitMsg {
             owner: HumanAddr("owner0000".to_string()),
             safe_ratio: Decimal::percent(10),
+            min_liquidation: Uint128(1000000u128),
+            liquidation_threshold: Uint128(100000000u128),
         };
 
         let env = mock_env("addr0000", &[]);
@@ -160,8 +208,15 @@ mod tests {
 
         // it worked, let's query the state
         let value = query_config(&deps).unwrap();
-        assert_eq!("owner0000", value.owner.as_str());
-        assert_eq!("0.1", &value.safe_ratio.to_string());
+        assert_eq!(
+            value,
+            ConfigResponse {
+                owner: HumanAddr::from("owner0000"),
+                safe_ratio: Decimal::percent(10),
+                min_liquidation: Uint128(1000000u128),
+                liquidation_threshold: Uint128(100000000u128),
+            }
+        );
     }
 
     #[test]
@@ -171,6 +226,8 @@ mod tests {
         let msg = InitMsg {
             owner: HumanAddr("owner0000".to_string()),
             safe_ratio: Decimal::percent(10),
+            min_liquidation: Uint128(1000000u128),
+            liquidation_threshold: Uint128(100000000u128),
         };
 
         let env = mock_env("addr0000", &[]);
@@ -181,6 +238,8 @@ mod tests {
         let msg = HandleMsg::UpdateConfig {
             owner: Some(HumanAddr("owner0001".to_string())),
             safe_ratio: None,
+            min_liquidation: None,
+            liquidation_threshold: None,
         };
 
         let res = handle(&mut deps, env, msg).unwrap();
@@ -188,14 +247,23 @@ mod tests {
 
         // it worked, let's query the state
         let value = query_config(&deps).unwrap();
-        assert_eq!("owner0001", value.owner.as_str());
-        assert_eq!("0.1", &value.safe_ratio.to_string());
+        assert_eq!(
+            value,
+            ConfigResponse {
+                owner: HumanAddr::from("owner0001"),
+                safe_ratio: Decimal::percent(10),
+                min_liquidation: Uint128(1000000u128),
+                liquidation_threshold: Uint128(100000000u128),
+            }
+        );
 
         // Unauthorzied err
         let env = mock_env("owner0000", &[]);
         let msg = HandleMsg::UpdateConfig {
             owner: None,
             safe_ratio: Some(Decimal::percent(1)),
+            min_liquidation: Some(Uint128(10000000u128)),
+            liquidation_threshold: Some(Uint128(1000000000u128)),
         };
 
         let res = handle(&mut deps, env, msg);
@@ -212,6 +280,8 @@ mod tests {
         let msg = InitMsg {
             owner: HumanAddr("owner0000".to_string()),
             safe_ratio: Decimal::percent(10),
+            min_liquidation: Uint128(100000u128),
+            liquidation_threshold: Uint128(1000000u128),
         };
 
         let env = mock_env("addr0000", &[]);
@@ -221,8 +291,8 @@ mod tests {
             borrow_amount: Uint128(1000000u128),
             borrow_limit: Uint128(1000000u128),
             stable_denom: "uusd".to_string(),
-            collaterals: vec![],
-            collaterals_amount: Uint128(100000u128),
+            collaterals: vec![(HumanAddr::from("token0000"), Uint128(1000000u128))],
+            collateral_prices: vec![Decimal::percent(10)],
         };
 
         let res = query(&mut deps, msg);
@@ -238,8 +308,8 @@ mod tests {
             borrow_amount: Uint128(100000u128),
             borrow_limit: Uint128(1000000u128),
             stable_denom: "uusd".to_string(),
-            collaterals: vec![],
-            collaterals_amount: Uint128(1000000u128),
+            collaterals: vec![(HumanAddr::from("token0000"), Uint128(1000000u128))],
+            collateral_prices: vec![Decimal::one()],
         };
 
         let res = query(&mut deps, msg).unwrap();
@@ -251,7 +321,7 @@ mod tests {
             }
         );
 
-        let msg = QueryMsg::LiquidationAmount {
+        let query_msg = QueryMsg::LiquidationAmount {
             borrow_amount: Uint128(1000000u128),
             borrow_limit: Uint128(1000000u128),
             stable_denom: "uusd".to_string(),
@@ -260,19 +330,70 @@ mod tests {
                 (HumanAddr::from("token0001"), Uint128::from(2000000u128)),
                 (HumanAddr::from("token0002"), Uint128::from(3000000u128)),
             ],
-            collaterals_amount: Uint128(2000000u128),
+            collateral_prices: vec![
+                Decimal::percent(50),
+                Decimal::percent(50),
+                Decimal::percent(50),
+            ],
         };
 
-        // liquidation_ratio = 0.4736842105
-        let res = query(&mut deps, msg).unwrap();
+        // liquidation_ratio = 0.3103448276
+        let res = query(&mut deps, query_msg.clone()).unwrap();
         let res: LiquidationAmountResponse = from_binary(&res).unwrap();
         assert_eq!(
             res,
             LiquidationAmountResponse {
                 collaterals: vec![
-                    (HumanAddr::from("token0000"), Uint128::from(473684u128)),
-                    (HumanAddr::from("token0001"), Uint128::from(947368u128)),
-                    (HumanAddr::from("token0002"), Uint128::from(1421052u128)),
+                    (HumanAddr::from("token0000"), Uint128::from(310344u128)),
+                    (HumanAddr::from("token0001"), Uint128::from(620689u128)),
+                    (HumanAddr::from("token0002"), Uint128::from(931034u128)),
+                ],
+            }
+        );
+
+        // increase min_liquidation
+        let env = mock_env("owner0000", &[]);
+        let msg = HandleMsg::UpdateConfig {
+            owner: None,
+            safe_ratio: None,
+            min_liquidation: Some(Uint128(200000u128)),
+            liquidation_threshold: None,
+        };
+        let _res = handle(&mut deps, env, msg).unwrap();
+
+        // token0000 excluded due to min_liquidation
+        let res = query(&mut deps, query_msg.clone()).unwrap();
+        let res: LiquidationAmountResponse = from_binary(&res).unwrap();
+        assert_eq!(
+            res,
+            LiquidationAmountResponse {
+                collaterals: vec![
+                    (HumanAddr::from("token0001"), Uint128::from(620689u128)),
+                    (HumanAddr::from("token0002"), Uint128::from(931034u128)),
+                ],
+            }
+        );
+
+        // increase min_liquidation
+        let env = mock_env("owner0000", &[]);
+        let msg = HandleMsg::UpdateConfig {
+            owner: None,
+            safe_ratio: None,
+            min_liquidation: None,
+            liquidation_threshold: Some(Uint128(10000000u128)),
+        };
+        let _res = handle(&mut deps, env, msg).unwrap();
+
+        // token0000 excluded due to min_liquidation
+        let res = query(&mut deps, query_msg.clone()).unwrap();
+        let res: LiquidationAmountResponse = from_binary(&res).unwrap();
+        assert_eq!(
+            res,
+            LiquidationAmountResponse {
+                collaterals: vec![
+                    (HumanAddr::from("token0000"), Uint128::from(1000000u128)),
+                    (HumanAddr::from("token0001"), Uint128::from(2000000u128)),
+                    (HumanAddr::from("token0002"), Uint128::from(3000000u128)),
                 ],
             }
         );

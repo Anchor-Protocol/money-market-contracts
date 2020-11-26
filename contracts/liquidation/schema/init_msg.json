@@ -3,15 +3,38 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
+    "liquidation_threshold",
+    "min_liquidation",
     "owner",
     "safe_ratio"
   ],
   "properties": {
+    "liquidation_threshold": {
+      "description": "Liquidation threshold amount in stable denom. When the current collaterals value is smaller than the threshold, all callterals will be liquidated",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Uint128"
+        }
+      ]
+    },
+    "min_liquidation": {
+      "description": "Minimum liquidation amount. If a liquidation amount is below than this value, exclude the asset from the liquidation process",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Uint128"
+        }
+      ]
+    },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
     },
     "safe_ratio": {
-      "$ref": "#/definitions/Decimal"
+      "description": "borrow_amount / borrow_limit must always be bigger than safe_ratio.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal"
+        }
+      ]
     }
   },
   "definitions": {
@@ -20,6 +43,9 @@
       "type": "string"
     },
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }

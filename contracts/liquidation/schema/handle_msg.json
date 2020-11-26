@@ -11,6 +11,26 @@
         "update_config": {
           "type": "object",
           "properties": {
+            "liquidation_threshold": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "min_liquidation": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "owner": {
               "anyOf": [
                 {
@@ -42,6 +62,9 @@
       "type": "string"
     },
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }

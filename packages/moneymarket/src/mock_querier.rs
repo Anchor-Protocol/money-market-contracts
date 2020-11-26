@@ -361,7 +361,7 @@ impl WasmMockQuerier {
                         borrow_limit,
                         stable_denom: _,
                         collaterals,
-                        collaterals_amount: _,
+                        collateral_prices: _,
                     } => {
                         match self
                             .liquidation_percent_querier

@@ -32,6 +32,26 @@
                 }
               ]
             },
+            "liquidation_model": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "oracle_contract": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "owner_addr": {
               "anyOf": [
                 {
@@ -165,10 +185,10 @@
       "description": "Permissionless operations",
       "type": "object",
       "required": [
-        "liquidate_collateral"
+        "liquidiate_collateral"
       ],
       "properties": {
-        "liquidate_collateral": {
+        "liquidiate_collateral": {
           "type": "object",
           "required": [
             "borrower"

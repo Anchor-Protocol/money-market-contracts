@@ -31,7 +31,7 @@ pub enum QueryMsg {
         borrow_limit: Uint128,
         stable_denom: String,
         collaterals: TokensHuman,
-        collaterals_amount: Uint128,
+        collateral_prices: Vec<Decimal>,
     },
 }
 
@@ -273,7 +273,7 @@ impl WasmMockQuerier {
                         borrow_limit,
                         stable_denom: _,
                         collaterals,
-                        collaterals_amount: _,
+                        collateral_prices: _,
                     } => {
                         match self
                             .liquidation_percent_querier
