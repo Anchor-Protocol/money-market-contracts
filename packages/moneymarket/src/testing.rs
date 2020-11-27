@@ -123,15 +123,15 @@ fn oracle_price_querier() {
     let mut deps = mock_dependencies(20, &[]);
 
     deps.querier.with_oracle_price(&[(
-        &("uusd".to_string(), "terra123123".to_string()),
+        &("terra123123".to_string(), "uusd".to_string()),
         &(Decimal::from_ratio(131u128, 2u128), 123, 321),
     )]);
 
     let oracle_price = query_price(
         &deps,
         &HumanAddr::from("oracle"),
-        "uusd".to_string(),
         "terra123123".to_string(),
+        "uusd".to_string(),
     )
     .unwrap();
 
@@ -147,8 +147,8 @@ fn oracle_price_querier() {
     query_price(
         &deps,
         &HumanAddr::from("oracle"),
-        "ukrw".to_string(),
         "terra123123".to_string(),
+        "ukrw".to_string(),
     )
     .unwrap_err();
 }
@@ -207,7 +207,7 @@ fn liquidation_amount_querier() {
         Uint128::from(1000000u128),
         Uint128::from(1000000u128),
         "uusd".to_string(),
-        vec![
+        &vec![
             (HumanAddr::from("token0000"), Uint128::from(1000000u128)),
             (HumanAddr::from("token0001"), Uint128::from(2000000u128)),
             (HumanAddr::from("token0002"), Uint128::from(3000000u128)),
@@ -232,7 +232,7 @@ fn liquidation_amount_querier() {
         Uint128::from(1000001u128),
         Uint128::from(1000000u128),
         "uusd".to_string(),
-        vec![
+        &vec![
             (HumanAddr::from("token0000"), Uint128::from(1000000u128)),
             (HumanAddr::from("token0001"), Uint128::from(2000000u128)),
             (HumanAddr::from("token0002"), Uint128::from(3000000u128)),

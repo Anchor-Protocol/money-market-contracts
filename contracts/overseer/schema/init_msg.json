@@ -5,6 +5,7 @@
   "required": [
     "buffer_distribution_rate",
     "distribution_threshold",
+    "epoch_period",
     "liquidation_model",
     "market_contract",
     "oracle_contract",
@@ -28,6 +29,12 @@
           "$ref": "#/definitions/Decimal"
         }
       ]
+    },
+    "epoch_period": {
+      "title": "of blocks per epoch period",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "liquidation_model": {
       "description": "Liquidation model contract address to compute liqudation amount",

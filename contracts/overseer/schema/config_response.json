@@ -5,6 +5,7 @@
   "required": [
     "buffer_distribution_rate",
     "distribution_threshold",
+    "epoch_period",
     "liquidation_model",
     "market_contract",
     "oracle_contract",
@@ -18,6 +19,11 @@
     },
     "distribution_threshold": {
       "$ref": "#/definitions/Decimal"
+    },
+    "epoch_period": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "liquidation_model": {
       "$ref": "#/definitions/HumanAddr"

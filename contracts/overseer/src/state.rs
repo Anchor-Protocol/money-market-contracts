@@ -23,6 +23,7 @@ pub struct Config {
     pub market_contract: CanonicalAddr,
     pub liquidation_model: CanonicalAddr,
     pub stable_denom: String,
+    pub epoch_period: u64,
     pub distribution_threshold: Decimal,
     pub target_deposit_rate: Decimal,
     pub buffer_distribution_rate: Decimal,

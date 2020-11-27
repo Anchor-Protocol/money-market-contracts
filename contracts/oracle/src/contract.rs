@@ -124,18 +124,26 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
     quote: String,
 ) -> StdResult<PriceResponse> {
     let config: Config = read_config(&deps.storage)?;
-    let quote_price: PriceInfo = read_price(&deps.storage, &quote)?;
+    let quote_price = if config.base_asset == quote {
+        PriceInfo {
+            price: Decimal::one(),
+            last_updated_time: 9999999999,
+        }
+    } else {
+        read_price(&deps.storage, &quote.to_string())?
+    };
+
     let base_price = if config.base_asset == base {
         PriceInfo {
             price: Decimal::one(),
-            last_updated_time: quote_price.last_updated_time,
+            last_updated_time: 9999999999,
         }
     } else {
-        read_price(&deps.storage, &base)?
+        read_price(&deps.storage, &base.to_string())?
     };
 
     Ok(PriceResponse {
-        rate: decimal_division(quote_price.price, base_price.price),
+        rate: decimal_division(base_price.price, quote_price.price),
         last_updated_base: base_price.last_updated_time,
         last_updated_quote: quote_price.last_updated_time,
     })
@@ -236,18 +244,18 @@ mod tests {
         let env = mock_env("owner0000", &[]);
         let _res = handle(&mut deps, env.clone(), msg).unwrap();
         let value: PriceResponse =
-            query_price(&deps, "base0000".to_string(), "mAPPL".to_string()).unwrap();
+            query_price(&deps, "mAPPL".to_string(), "base0000".to_string()).unwrap();
         assert_eq!(
             value,
             PriceResponse {
                 rate: Decimal::from_str("1.2").unwrap(),
                 last_updated_base: env.block.time,
-                last_updated_quote: env.block.time,
+                last_updated_quote: 9999999999,
             }
         );
 
         let value: PriceResponse =
-            query_price(&deps, "mAPPL".to_string(), "mGOGL".to_string()).unwrap();
+            query_price(&deps, "mGOGL".to_string(), "mAPPL".to_string()).unwrap();
         assert_eq!(
             value,
             PriceResponse {

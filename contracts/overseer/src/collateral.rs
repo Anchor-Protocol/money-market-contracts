@@ -247,8 +247,8 @@ fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
         let price: PriceResponse = query_price(
             &deps,
             &oracle_contract,
-            config.stable_denom.to_string(),
             (deps.api.human_address(&collateral_token)?).to_string(),
+            config.stable_denom.to_string(),
         )?;
 
         // TODO check price last_updated

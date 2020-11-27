@@ -32,6 +32,14 @@
                 }
               ]
             },
+            "epoch_period": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
             "liquidation_model": {
               "anyOf": [
                 {
@@ -185,10 +193,10 @@
       "description": "Permissionless operations",
       "type": "object",
       "required": [
-        "liquidiate_collateral"
+        "liquidate_collateral"
       ],
       "properties": {
-        "liquidiate_collateral": {
+        "liquidate_collateral": {
           "type": "object",
           "required": [
             "borrower"

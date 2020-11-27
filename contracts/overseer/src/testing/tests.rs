@@ -24,6 +24,7 @@ fn proper_initialization() {
         market_contract: HumanAddr::from("market"),
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        epoch_period: 86400u64,
         distribution_threshold: Decimal::permille(3),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -41,6 +42,7 @@ fn proper_initialization() {
     assert_eq!(HumanAddr::from("market"), config_res.market_contract);
     assert_eq!(HumanAddr::from("liquidation"), config_res.liquidation_model);
     assert_eq!("uusd".to_string(), config_res.stable_denom);
+    assert_eq!(86400u64, config_res.epoch_period);
     assert_eq!(Decimal::permille(3), config_res.distribution_threshold);
     assert_eq!(Decimal::permille(5), config_res.target_deposit_rate);
     assert_eq!(Decimal::percent(20), config_res.buffer_distribution_rate);
@@ -64,6 +66,7 @@ fn update_config() {
         market_contract: HumanAddr::from("market"),
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        epoch_period: 86400u64,
         distribution_threshold: Decimal::permille(3),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -81,6 +84,7 @@ fn update_config() {
         distribution_threshold: None,
         target_deposit_rate: None,
         buffer_distribution_rate: None,
+        epoch_period: None,
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -100,6 +104,7 @@ fn update_config() {
         distribution_threshold: Some(Decimal::permille(1)),
         target_deposit_rate: Some(Decimal::permille(2)),
         buffer_distribution_rate: Some(Decimal::percent(10)),
+        epoch_period: Some(100000u64),
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -117,6 +122,7 @@ fn update_config() {
     assert_eq!(Decimal::permille(1), config_res.distribution_threshold);
     assert_eq!(Decimal::permille(2), config_res.target_deposit_rate);
     assert_eq!(Decimal::percent(10), config_res.buffer_distribution_rate);
+    assert_eq!(100000u64, config_res.epoch_period);
 
     // Unauthorzied err
     let env = mock_env("owner", &[]);
@@ -127,6 +133,7 @@ fn update_config() {
         distribution_threshold: None,
         target_deposit_rate: None,
         buffer_distribution_rate: None,
+        epoch_period: None,
     };
 
     let res = handle(&mut deps, env, msg);
@@ -147,6 +154,7 @@ fn whitelist() {
         market_contract: HumanAddr::from("market"),
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        epoch_period: 86400u64,
         distribution_threshold: Decimal::permille(3),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -219,6 +227,7 @@ fn execute_epoch_operations() {
         market_contract: HumanAddr::from("market"),
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        epoch_period: 86400u64,
         distribution_threshold: Decimal::from_ratio(1u128, 1000000u128),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -356,6 +365,7 @@ fn lock_collateral() {
         market_contract: HumanAddr::from("market"),
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        epoch_period: 86400u64,
         distribution_threshold: Decimal::permille(3),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -475,6 +485,7 @@ fn unlock_collateral() {
         market_contract: HumanAddr::from("market"),
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        epoch_period: 86400u64,
         distribution_threshold: Decimal::permille(3),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -526,7 +537,7 @@ fn unlock_collateral() {
 
     deps.querier.with_oracle_price(&[
         (
-            &("uusd".to_string(), "bluna".to_string()),
+            &("bluna".to_string(), "uusd".to_string()),
             &(
                 Decimal::from_ratio(1000u128, 1u128),
                 env.block.time,
@@ -534,7 +545,7 @@ fn unlock_collateral() {
             ),
         ),
         (
-            &("uusd".to_string(), "batom".to_string()),
+            &("batom".to_string(), "uusd".to_string()),
             &(
                 Decimal::from_ratio(2000u128, 1u128),
                 env.block.time,
@@ -646,6 +657,7 @@ fn liquidate_collateral() {
         market_contract: HumanAddr::from("market"),
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        epoch_period: 86400u64,
         distribution_threshold: Decimal::permille(3),
         target_deposit_rate: Decimal::permille(5),
         buffer_distribution_rate: Decimal::percent(20),
@@ -682,7 +694,7 @@ fn liquidate_collateral() {
 
     deps.querier.with_oracle_price(&[
         (
-            &("uusd".to_string(), "bluna".to_string()),
+            &("bluna".to_string(), "uusd".to_string()),
             &(
                 Decimal::from_ratio(1000u128, 1u128),
                 env.block.time,
@@ -690,7 +702,7 @@ fn liquidate_collateral() {
             ),
         ),
         (
-            &("uusd".to_string(), "batom".to_string()),
+            &("batom".to_string(), "uusd".to_string()),
             &(
                 Decimal::from_ratio(2000u128, 1u128),
                 env.block.time,
@@ -706,7 +718,7 @@ fn liquidate_collateral() {
         &Uint128::from(12600000000u128),
     )]);
 
-    let msg = HandleMsg::LiquidiateCollateral {
+    let msg = HandleMsg::LiquidateCollateral {
         borrower: HumanAddr::from("addr0000"),
     };
     let env = mock_env("addr0001", &[]);

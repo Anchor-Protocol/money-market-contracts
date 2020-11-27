@@ -21,9 +21,6 @@ use crate::state::{
 
 use moneymarket::{deduct_tax, query_epoch_state, CustodyHandleMsg, EpochStateResponse};
 
-/// # of blocks per epoch period
-const EPOCH_PERIOD: u64 = 86400u64;
-
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -37,6 +34,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             market_contract: deps.api.canonical_address(&msg.market_contract)?,
             liquidation_model: deps.api.canonical_address(&msg.liquidation_model)?,
             stable_denom: msg.stable_denom,
+            epoch_period: msg.epoch_period,
             distribution_threshold: msg.distribution_threshold,
             target_deposit_rate: msg.target_deposit_rate,
             buffer_distribution_rate: msg.buffer_distribution_rate,
@@ -69,6 +67,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             distribution_threshold,
             target_deposit_rate,
             buffer_distribution_rate,
+            epoch_period,
         } => update_config(
             deps,
             env,
@@ -78,6 +77,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             distribution_threshold,
             target_deposit_rate,
             buffer_distribution_rate,
+            epoch_period,
         ),
         HandleMsg::Whitelist {
             collateral_token,
@@ -87,7 +87,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
         HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
         HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
-        HandleMsg::LiquidiateCollateral { borrower } => liquidate_collateral(deps, env, borrower),
+        HandleMsg::LiquidateCollateral { borrower } => liquidate_collateral(deps, env, borrower),
     }
 }
 
@@ -101,6 +101,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     distribution_threshold: Option<Decimal>,
     target_deposit_rate: Option<Decimal>,
     buffer_distribution_rate: Option<Decimal>,
+    epoch_period: Option<u64>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
 
@@ -130,6 +131,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(target_deposit_rate) = target_deposit_rate {
         config.target_deposit_rate = target_deposit_rate;
+    }
+
+    if let Some(epoch_period) = epoch_period {
+        config.epoch_period = epoch_period;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -187,7 +192,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let state: EpochState = read_epoch_state(&deps.storage)?;
-    if env.block.height < state.last_executed_height + EPOCH_PERIOD {
+    if env.block.height < state.last_executed_height + config.epoch_period {
         return Err(StdError::generic_err("Epoch period is not passed"));
     }
 
@@ -314,6 +319,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         market_contract: deps.api.human_address(&config.market_contract)?,
         liquidation_model: deps.api.human_address(&config.liquidation_model)?,
         stable_denom: config.stable_denom,
+        epoch_period: config.epoch_period,
         distribution_threshold: config.distribution_threshold,
         target_deposit_rate: config.target_deposit_rate,
         buffer_distribution_rate: config.buffer_distribution_rate,

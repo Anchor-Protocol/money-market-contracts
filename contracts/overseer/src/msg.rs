@@ -18,6 +18,8 @@ pub struct InitMsg {
     /// The base denomination used when fetching oracle price,
     /// reward distribution, and borrow
     pub stable_denom: String,
+    /// # of blocks per epoch period
+    pub epoch_period: u64,
     /// Distribute interest buffer to market contract,
     /// when deposit_rate < distribution_threshold
     pub distribution_threshold: Decimal,
@@ -44,6 +46,7 @@ pub enum HandleMsg {
         distribution_threshold: Option<Decimal>,
         target_deposit_rate: Option<Decimal>,
         buffer_distribution_rate: Option<Decimal>,
+        epoch_period: Option<u64>,
     },
 
     /// Create new custody contract for the given collateral token
@@ -72,7 +75,7 @@ pub enum HandleMsg {
     /////////////////////////////
     /// Permissionless operations
     /////////////////////////////
-    LiquidiateCollateral { borrower: HumanAddr },
+    LiquidateCollateral { borrower: HumanAddr },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -106,6 +109,7 @@ pub struct ConfigResponse {
     pub market_contract: HumanAddr,
     pub liquidation_model: HumanAddr,
     pub stable_denom: String,
+    pub epoch_period: u64,
     pub distribution_threshold: Decimal,
     pub target_deposit_rate: Decimal,
     pub buffer_distribution_rate: Decimal,
