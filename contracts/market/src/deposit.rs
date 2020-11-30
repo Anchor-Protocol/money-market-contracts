@@ -114,6 +114,10 @@ fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
     deposit_amount: Option<Uint128>,
 ) -> StdResult<Decimal> {
     let anchor_token_supply = query_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
+    if anchor_token_supply.is_zero() {
+        return Ok(Decimal::one());
+    }
+
     let balance = (query_balance(
         &deps,
         &env.contract.address,

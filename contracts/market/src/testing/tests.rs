@@ -236,10 +236,7 @@ fn deposit_stable() {
         .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal::percent(1))]);
     deps.querier.with_token_balances(&[(
         &HumanAddr::from("AT-uusd"),
-        &[(
-            &HumanAddr::from(MOCK_CONTRACT_ADDR),
-            &Uint128::from(1000000u128),
-        )],
+        &[],
     )]);
 
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
@@ -277,6 +274,14 @@ fn deposit_stable() {
         },
     )
     .unwrap();
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("AT-uusd"),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128::from(1000000u128),
+        )],
+    )]);
 
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
