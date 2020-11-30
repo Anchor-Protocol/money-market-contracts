@@ -55,7 +55,11 @@ pub enum QueryMsg {
     /// Query oracle price to oracle contract
     Price { base: String, quote: String },
     /// Query borrow rate to interest model contract
-    BorrowRate {},
+    BorrowRate {
+        market_balance: Uint128,
+        total_liabilities: Decimal,
+        total_reserve: Decimal,
+    },
     /// Query borrow limit to overseer contract
     BorrowLimit { borrower: HumanAddr },
     /// Query liquidation amount to liquidation model contract
@@ -73,6 +77,7 @@ pub enum QueryMsg {
 pub struct DistributionParamsResponse {
     pub deposit_rate: Decimal,
     pub target_deposit_rate: Decimal,
+    pub distribution_threshold: Decimal,
 }
 
 pub fn query_distribution_params<S: Storage, A: Api, Q: Querier>(
@@ -96,6 +101,13 @@ pub fn query_distribution_params<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err(format!(
             "Invalid target_deposit_rate {:?}",
             distribution_params.target_deposit_rate
+        )));
+    }
+
+    if distribution_params.distribution_threshold > Decimal::one() {
+        return Err(StdError::generic_err(format!(
+            "Invalid distribution_threshold {:?}",
+            distribution_params.distribution_threshold
         )));
     }
 
@@ -179,11 +191,18 @@ pub struct BorrowRateResponse {
 pub fn query_borrow_rate<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     interest_model: &HumanAddr,
+    market_balance: Uint128,
+    total_liabilities: Decimal,
+    total_reserve: Decimal,
 ) -> StdResult<BorrowRateResponse> {
     let borrow_rate: BorrowRateResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(interest_model),
-            msg: to_binary(&QueryMsg::BorrowRate {})?,
+            msg: to_binary(&QueryMsg::BorrowRate {
+                market_balance,
+                total_liabilities,
+                total_reserve,
+            })?,
         }))?;
 
     Ok(borrow_rate)

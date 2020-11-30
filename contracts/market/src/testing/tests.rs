@@ -234,10 +234,8 @@ fn deposit_stable() {
 
     deps.querier
         .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal::percent(1))]);
-    deps.querier.with_token_balances(&[(
-        &HumanAddr::from("AT-uusd"),
-        &[],
-    )]);
+    deps.querier
+        .with_token_balances(&[(&HumanAddr::from("AT-uusd"), &[])]);
 
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
     assert_eq!(
@@ -622,7 +620,13 @@ fn borrow_stable() {
 
 #[test]
 fn repay_stable() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(2000000u128),
+        }],
+    );
     deps.querier.with_tax(
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],

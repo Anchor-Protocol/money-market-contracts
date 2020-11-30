@@ -13,7 +13,11 @@ fn distribution_param_querier() {
 
     deps.querier.with_distribution_params(&[(
         &HumanAddr::from("overseer"),
-        &(Decimal::percent(1), Decimal::percent(2)),
+        &(
+            Decimal::percent(1),
+            Decimal::percent(2),
+            Decimal::percent(3),
+        ),
     )]);
 
     assert_eq!(
@@ -21,6 +25,7 @@ fn distribution_param_querier() {
         DistributionParamsResponse {
             deposit_rate: Decimal::percent(1),
             target_deposit_rate: Decimal::percent(2),
+            distribution_threshold: Decimal::percent(3)
         }
     );
 }
@@ -162,7 +167,14 @@ fn borrow_rate_querier() {
         &Decimal::from_ratio(100u128, 1u128),
     )]);
 
-    let borrow_rate = query_borrow_rate(&deps, &HumanAddr::from("interest")).unwrap();
+    let borrow_rate = query_borrow_rate(
+        &deps,
+        &HumanAddr::from("interest"),
+        Uint128::zero(),
+        Decimal::zero(),
+        Decimal::zero(),
+    )
+    .unwrap();
 
     assert_eq!(
         borrow_rate,

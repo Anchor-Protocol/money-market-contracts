@@ -17,7 +17,11 @@ use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrap
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     /// Query borrow rate to interest model contract
-    BorrowRate {},
+    BorrowRate {
+        market_balance: Uint128,
+        total_liabilities: Decimal,
+        total_reserve: Decimal,
+    },
     /// Query borrow limit to overseer contract
     BorrowLimit { borrower: HumanAddr },
 }
@@ -198,15 +202,17 @@ impl WasmMockQuerier {
             }
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
                 match from_binary(&msg).unwrap() {
-                    QueryMsg::BorrowRate {} => {
-                        match self.borrow_rate_querier.borrower_rate.get(&contract_addr) {
-                            Some(v) => Ok(to_binary(&BorrowRateResponse { rate: *v })),
-                            None => Err(SystemError::InvalidRequest {
-                                error: "No borrow rate exists".to_string(),
-                                request: msg.as_slice().into(),
-                            }),
-                        }
-                    }
+                    QueryMsg::BorrowRate {
+                        market_balance: _,
+                        total_liabilities: _,
+                        total_reserve: _,
+                    } => match self.borrow_rate_querier.borrower_rate.get(&contract_addr) {
+                        Some(v) => Ok(to_binary(&BorrowRateResponse { rate: *v })),
+                        None => Err(SystemError::InvalidRequest {
+                            error: "No borrow rate exists".to_string(),
+                            request: msg.as_slice().into(),
+                        }),
+                    },
                     QueryMsg::BorrowLimit { borrower } => {
                         match self.borrow_limit_querier.borrow_limit.get(&borrower) {
                             Some(v) => Ok(to_binary(&BorrowLimitResponse {

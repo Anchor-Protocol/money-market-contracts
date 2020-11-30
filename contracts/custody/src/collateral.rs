@@ -183,7 +183,7 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
             contract_addr: deps.api.human_address(&config.collateral_token)?,
             send: vec![],
             msg: to_binary(&Cw20HandleMsg::Send {
-                contract: deps.api.human_address(&config.terraswap_contract)?,
+                contract: deps.api.human_address(&config.liquidation_contract)?,
                 amount,
                 msg: Some(to_binary(&PairCw20HookMsg::Swap {
                     belief_price: None,

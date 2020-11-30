@@ -24,7 +24,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         collateral_token: deps.api.canonical_address(&msg.collateral_token)?,
         market_contract: deps.api.canonical_address(&msg.market_contract)?,
         reward_contract: deps.api.canonical_address(&msg.reward_contract)?,
-        terraswap_contract: deps.api.canonical_address(&msg.terraswap_contract)?,
+        liquidation_contract: deps.api.canonical_address(&msg.liquidation_contract)?,
         stable_denom: msg.stable_denom,
     };
 
@@ -101,7 +101,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         overseer_contract: deps.api.human_address(&config.overseer_contract)?,
         market_contract: deps.api.human_address(&config.market_contract)?,
         reward_contract: deps.api.human_address(&config.reward_contract)?,
-        terraswap_contract: deps.api.human_address(&config.terraswap_contract)?,
+        liquidation_contract: deps.api.human_address(&config.liquidation_contract)?,
         stable_denom: config.stable_denom,
     })
 }

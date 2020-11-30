@@ -11,7 +11,17 @@
         "update_config": {
           "type": "object",
           "properties": {
-            "borrow_rate": {
+            "base_rate": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "interest_multiplier": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal"

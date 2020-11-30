@@ -4,14 +4,17 @@
   "type": "object",
   "required": [
     "collateral_token",
+    "liquidation_contract",
     "market_contract",
     "overseer_contract",
     "reward_contract",
-    "stable_denom",
-    "terraswap_contract"
+    "stable_denom"
   ],
   "properties": {
     "collateral_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "liquidation_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
     "market_contract": {
@@ -25,9 +28,6 @@
     },
     "stable_denom": {
       "type": "string"
-    },
-    "terraswap_contract": {
-      "$ref": "#/definitions/HumanAddr"
     }
   },
   "definitions": {

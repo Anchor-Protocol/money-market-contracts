@@ -15,6 +15,7 @@ const PREFIX_LIABILITY: &[u8] = b"liability";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
+    pub contract_addr: CanonicalAddr,
     pub owner_addr: CanonicalAddr,
     pub anchor_token: CanonicalAddr,
     pub interest_model: CanonicalAddr,

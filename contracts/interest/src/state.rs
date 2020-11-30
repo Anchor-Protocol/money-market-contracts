@@ -9,7 +9,8 @@ static KEY_CONFIG: &[u8] = b"config";
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub owner: CanonicalAddr,
-    pub borrow_rate: Decimal,
+    pub base_rate: Decimal,
+    pub interest_multiplier: Decimal,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {

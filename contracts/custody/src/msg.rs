@@ -15,8 +15,8 @@ pub struct InitMsg {
     pub market_contract: HumanAddr,
     /// bAsset rewrad contract
     pub reward_contract: HumanAddr,
-    /// terraswap pair contract address
-    pub terraswap_contract: HumanAddr,
+    /// liquidation contract address
+    pub liquidation_contract: HumanAddr,
     /// Expected reward denom. If bAsset reward is not same with
     /// it, we try to convert the reward to the `stable_denom`.
     pub stable_denom: String,
@@ -95,7 +95,7 @@ pub struct ConfigResponse {
     pub overseer_contract: HumanAddr,
     pub market_contract: HumanAddr,
     pub reward_contract: HumanAddr,
-    pub terraswap_contract: HumanAddr,
+    pub liquidation_contract: HumanAddr,
     pub stable_denom: String,
 }
 

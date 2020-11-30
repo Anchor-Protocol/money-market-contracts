@@ -1,12 +1,13 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr};
+use cosmwasm_std::{Decimal, HumanAddr, Uint128};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
     pub owner: HumanAddr,
-    pub borrow_rate: Decimal,
+    pub base_rate: Decimal,
+    pub interest_multiplier: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -14,7 +15,8 @@ pub struct InitMsg {
 pub enum HandleMsg {
     UpdateConfig {
         owner: Option<HumanAddr>,
-        borrow_rate: Option<Decimal>,
+        base_rate: Option<Decimal>,
+        interest_multiplier: Option<Decimal>,
     },
 }
 
@@ -22,14 +24,19 @@ pub enum HandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    BorrowRate {},
+    BorrowRate {
+        market_balance: Uint128,
+        total_liabilities: Decimal,
+        total_reserve: Decimal,
+    },
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
     pub owner: HumanAddr,
-    pub borrow_rate: Decimal,
+    pub base_rate: Decimal,
+    pub interest_multiplier: Decimal,
 }
 
 // We define a custom struct for each query response

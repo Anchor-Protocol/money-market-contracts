@@ -95,11 +95,11 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 #[derive(Clone, Default)]
 pub struct DistributionParamsQuerier {
     // this lets us iterate over all pairs that match the first string
-    distribution_params: HashMap<HumanAddr, (Decimal, Decimal)>,
+    distribution_params: HashMap<HumanAddr, (Decimal, Decimal, Decimal)>,
 }
 
 impl DistributionParamsQuerier {
-    pub fn new(distribution_params: &[(&HumanAddr, &(Decimal, Decimal))]) -> Self {
+    pub fn new(distribution_params: &[(&HumanAddr, &(Decimal, Decimal, Decimal))]) -> Self {
         DistributionParamsQuerier {
             distribution_params: distribution_params_to_map(distribution_params),
         }
@@ -107,9 +107,10 @@ impl DistributionParamsQuerier {
 }
 
 pub(crate) fn distribution_params_to_map(
-    caps: &[(&HumanAddr, &(Decimal, Decimal))],
-) -> HashMap<HumanAddr, (Decimal, Decimal)> {
-    let mut distribution_params_map: HashMap<HumanAddr, (Decimal, Decimal)> = HashMap::new();
+    caps: &[(&HumanAddr, &(Decimal, Decimal, Decimal))],
+) -> HashMap<HumanAddr, (Decimal, Decimal, Decimal)> {
+    let mut distribution_params_map: HashMap<HumanAddr, (Decimal, Decimal, Decimal)> =
+        HashMap::new();
     for (collateral_token, distribution_params) in caps.iter() {
         distribution_params_map.insert((*collateral_token).clone(), **distribution_params);
     }
@@ -170,6 +171,7 @@ impl WasmMockQuerier {
                         Some(v) => Ok(to_binary(&DistributionParamsResponse {
                             deposit_rate: v.0.clone(),
                             target_deposit_rate: v.1.clone(),
+                            distribution_threshold: v.2.clone(),
                         })),
                         None => Err(SystemError::InvalidRequest {
                             error: format!("No distribution_params exists in {}", contract_addr),
@@ -275,7 +277,7 @@ impl WasmMockQuerier {
     // configure the effective distribution_params mock querier
     pub fn with_distribution_params(
         &mut self,
-        distribution_params: &[(&HumanAddr, &(Decimal, Decimal))],
+        distribution_params: &[(&HumanAddr, &(Decimal, Decimal, Decimal))],
     ) {
         self.distribution_params_querier = DistributionParamsQuerier::new(distribution_params);
     }

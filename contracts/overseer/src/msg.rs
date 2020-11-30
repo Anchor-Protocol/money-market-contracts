@@ -147,6 +147,7 @@ pub struct AllCollateralsResponse {
 pub struct DistributionParamsResponse {
     pub deposit_rate: Decimal,
     pub target_deposit_rate: Decimal,
+    pub distribution_threshold: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

@@ -25,7 +25,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
 
     // Update interest related state
     let mut state: State = read_state(&deps.storage)?;
-    compute_interest(&deps, &config, &mut state, env.block.height)?;
+    compute_interest(&deps, &config, &mut state, env.block.height, None)?;
 
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
@@ -100,7 +100,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
 
-    // Check base denom deposit
+    // Check stable denom deposit
     let amount: Uint128 = env
         .message
         .sent_funds
@@ -116,7 +116,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
 
     // Update interest related state
     let mut state: State = read_state(&deps.storage)?;
-    compute_interest(&deps, &config, &mut state, env.block.height)?;
+    compute_interest(&deps, &config, &mut state, env.block.height, Some(amount))?;
 
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
@@ -172,9 +172,21 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
     config: &Config,
     state: &mut State,
     block_height: u64,
+    deposit_amount: Option<Uint128>,
 ) -> StdResult<()> {
-    let borrow_rate_res: BorrowRateResponse =
-        query_borrow_rate(&deps, &deps.api.human_address(&config.interest_model)?)?;
+    let balance: Uint128 = (query_balance(
+        &deps,
+        &deps.api.human_address(&config.contract_addr)?,
+        config.stable_denom.to_string(),
+    )? - deposit_amount.unwrap_or_else(Uint128::zero))?;
+
+    let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
+        &deps,
+        &deps.api.human_address(&config.interest_model)?,
+        balance,
+        state.total_liabilities,
+        state.total_reserves,
+    )?;
 
     let passed_blocks = block_height - state.last_interest_updated;
     let interest_factor: Decimal = decimal_multiplication(
@@ -242,7 +254,7 @@ pub fn query_loan_amount<S: Storage, A: Api, Q: Querier>(
     let mut liability: Liability =
         read_liability(&deps.storage, &deps.api.canonical_address(&borrower)?);
 
-    compute_interest(&deps, &config, &mut state, block_height)?;
+    compute_interest(&deps, &config, &mut state, block_height, None)?;
     compute_loan(&state, &mut liability);
 
     Ok(LoanAmountResponse {

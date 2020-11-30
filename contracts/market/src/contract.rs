@@ -21,6 +21,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     store_config(
         &mut deps.storage,
         &Config {
+            contract_addr: deps.api.canonical_address(&env.contract.address)?,
             owner_addr: deps.api.canonical_address(&msg.owner_addr)?,
             anchor_token: CanonicalAddr::default(),
             overseer_contract: CanonicalAddr::default(),

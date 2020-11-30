@@ -1,8 +1,9 @@
 use cosmwasm_std::{
     to_binary, Api, Binary, Decimal, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, Querier, StdError, StdResult, Storage,
+    InitResponse, Querier, StdError, StdResult, Storage, Uint128,
 };
 
+use crate::math::{decimal_division, decimal_multiplication, decimal_subtraction};
 use crate::msg::{BorrowRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{read_config, store_config, Config};
 
@@ -15,7 +16,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &Config {
             owner: deps.api.canonical_address(&msg.owner)?,
-            borrow_rate: msg.borrow_rate,
+            base_rate: msg.base_rate,
+            interest_multiplier: msg.interest_multiplier,
         },
     )?;
 
@@ -28,9 +30,11 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> HandleResult {
     match msg {
-        HandleMsg::UpdateConfig { owner, borrow_rate } => {
-            update_config(deps, env, owner, borrow_rate)
-        }
+        HandleMsg::UpdateConfig {
+            owner,
+            base_rate,
+            interest_multiplier,
+        } => update_config(deps, env, owner, base_rate, interest_multiplier),
     }
 }
 
@@ -38,7 +42,8 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     owner: Option<HumanAddr>,
-    borrow_rate: Option<Decimal>,
+    base_rate: Option<Decimal>,
+    interest_multiplier: Option<Decimal>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.owner {
@@ -49,8 +54,12 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.owner = deps.api.canonical_address(&owner)?;
     }
 
-    if let Some(borrow_rate) = borrow_rate {
-        config.borrow_rate = borrow_rate;
+    if let Some(base_rate) = base_rate {
+        config.base_rate = base_rate;
+    }
+
+    if let Some(interest_multiplier) = interest_multiplier {
+        config.interest_multiplier = interest_multiplier;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -63,7 +72,16 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::BorrowRate {} => to_binary(&query_borrow_rate(deps)?),
+        QueryMsg::BorrowRate {
+            market_balance,
+            total_liabilities,
+            total_reserve,
+        } => to_binary(&query_borrow_rate(
+            deps,
+            market_balance,
+            total_liabilities,
+            total_reserve,
+        )?),
     }
 }
 
@@ -73,7 +91,8 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
     let state = read_config(&deps.storage)?;
     let resp = ConfigResponse {
         owner: deps.api.human_address(&state.owner)?,
-        borrow_rate: state.borrow_rate,
+        base_rate: state.base_rate,
+        interest_multiplier: state.interest_multiplier,
     };
 
     Ok(resp)
@@ -81,10 +100,25 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
 
 fn query_borrow_rate<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
+    market_balance: Uint128,
+    total_liabilities: Decimal,
+    total_reserve: Decimal,
 ) -> StdResult<BorrowRateResponse> {
     let config: Config = read_config(&deps.storage)?;
+    let total_value_in_market = decimal_subtraction(
+        Decimal::from_ratio(market_balance, 1u128) + total_liabilities,
+        total_reserve,
+    );
+
+    let utilization_ratio = if total_value_in_market.is_zero() {
+        Decimal::zero()
+    } else {
+        decimal_division(total_liabilities, total_value_in_market)
+    };
+
     Ok(BorrowRateResponse {
-        rate: config.borrow_rate,
+        rate: decimal_multiplication(utilization_ratio, config.interest_multiplier)
+            + config.base_rate,
     })
 }
 
@@ -100,7 +134,8 @@ mod tests {
 
         let msg = InitMsg {
             owner: HumanAddr("owner0000".to_string()),
-            borrow_rate: Decimal::percent(10),
+            base_rate: Decimal::percent(10),
+            interest_multiplier: Decimal::percent(10),
         };
 
         let env = mock_env("addr0000", &[]);
@@ -112,9 +147,22 @@ mod tests {
         // it worked, let's query the state
         let value = query_config(&deps).unwrap();
         assert_eq!("owner0000", value.owner.as_str());
-        assert_eq!("0.1", &value.borrow_rate.to_string());
+        assert_eq!("0.1", &value.base_rate.to_string());
+        assert_eq!("0.1", &value.interest_multiplier.to_string());
 
-        let value = query_borrow_rate(&deps).unwrap();
+        let value = query_borrow_rate(
+            &deps,
+            Uint128::from(1000000u128),
+            Decimal::from_ratio(500000u128, 1u128),
+            Decimal::from_ratio(100000u128, 1u128),
+        )
+        .unwrap();
+        // utilization_ratio = 0.35714285
+        // borrow_rate = 0.035714285 + 0.1
+        assert_eq!("0.135714285", &value.rate.to_string());
+
+        let value =
+            query_borrow_rate(&deps, Uint128::zero(), Decimal::zero(), Decimal::zero()).unwrap();
         assert_eq!("0.1", &value.rate.to_string());
     }
 
@@ -124,7 +172,8 @@ mod tests {
 
         let msg = InitMsg {
             owner: HumanAddr("owner0000".to_string()),
-            borrow_rate: Decimal::percent(10),
+            base_rate: Decimal::percent(10),
+            interest_multiplier: Decimal::percent(10),
         };
 
         let env = mock_env("addr0000", &[]);
@@ -134,7 +183,8 @@ mod tests {
         let env = mock_env("owner0000", &[]);
         let msg = HandleMsg::UpdateConfig {
             owner: Some(HumanAddr("owner0001".to_string())),
-            borrow_rate: None,
+            base_rate: None,
+            interest_multiplier: None,
         };
 
         let res = handle(&mut deps, env, msg).unwrap();
@@ -143,13 +193,15 @@ mod tests {
         // it worked, let's query the state
         let value = query_config(&deps).unwrap();
         assert_eq!("owner0001", value.owner.as_str());
-        assert_eq!("0.1", &value.borrow_rate.to_string());
+        assert_eq!("0.1", &value.base_rate.to_string());
+        assert_eq!("0.1", &value.interest_multiplier.to_string());
 
         // Unauthorzied err
         let env = mock_env("owner0000", &[]);
         let msg = HandleMsg::UpdateConfig {
             owner: None,
-            borrow_rate: Some(Decimal::percent(1)),
+            base_rate: Some(Decimal::percent(1)),
+            interest_multiplier: Some(Decimal::percent(1)),
         };
 
         let res = handle(&mut deps, env, msg);

@@ -22,7 +22,7 @@ fn proper_initialization() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        terraswap_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("terraswap"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -37,7 +37,10 @@ fn proper_initialization() {
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
     assert_eq!(HumanAddr::from("market"), config_res.market_contract);
     assert_eq!(HumanAddr::from("reward"), config_res.reward_contract);
-    assert_eq!(HumanAddr::from("terraswap"), config_res.terraswap_contract);
+    assert_eq!(
+        HumanAddr::from("terraswap"),
+        config_res.liquidation_contract
+    );
     assert_eq!("uusd".to_string(), config_res.stable_denom);
 }
 
@@ -50,7 +53,7 @@ fn deposit_collateral() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        terraswap_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("terraswap"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -138,7 +141,7 @@ fn withdraw_collateral() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        terraswap_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("terraswap"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -233,7 +236,7 @@ fn lock_collateral() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        terraswap_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("terraswap"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -384,7 +387,7 @@ fn distribute_rewards() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        terraswap_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("terraswap"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -437,7 +440,11 @@ fn distribute_hook() {
 
     deps.querier.with_distribution_params(&[(
         &HumanAddr::from("overseer"),
-        &(Decimal::percent(30), Decimal::percent(20)),
+        &(
+            Decimal::percent(30),
+            Decimal::percent(20),
+            Decimal::percent(30),
+        ),
     )]);
 
     deps.querier.with_token_balances(&[(
@@ -458,7 +465,7 @@ fn distribute_hook() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        terraswap_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("terraswap"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -532,7 +539,7 @@ fn swap_to_stable_denom() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        terraswap_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("terraswap"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -580,7 +587,7 @@ fn liquidate_collateral() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        terraswap_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("terraswap"),
         stable_denom: "uusd".to_string(),
     };
 

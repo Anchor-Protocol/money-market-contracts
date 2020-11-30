@@ -371,5 +371,6 @@ pub fn query_distribution_params<S: Storage, A: Api, Q: Querier>(
     Ok(DistributionParamsResponse {
         target_deposit_rate: config.target_deposit_rate,
         deposit_rate: epoch_state.deposit_rate,
+        distribution_threshold: config.distribution_threshold,
     })
 }

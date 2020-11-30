@@ -16,7 +16,7 @@ pub struct Config {
     pub overseer_contract: CanonicalAddr,
     pub market_contract: CanonicalAddr,
     pub reward_contract: CanonicalAddr,
-    pub terraswap_contract: CanonicalAddr,
+    pub liquidation_contract: CanonicalAddr,
     pub stable_denom: String,
 }
 
