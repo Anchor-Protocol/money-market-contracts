@@ -1,7 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr, Uint128};
+use cosmwasm_bignumber::Decimal256;
+use cosmwasm_std::{HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -19,7 +20,7 @@ pub struct InitMsg {
     /// stable coin denom used to borrow & repay
     pub stable_denom: String,
     /// reserve ratio applied to interest
-    pub reserve_factor: Decimal,
+    pub reserve_factor: Decimal256,
     /// Anchor token code ID used to instantiate
     pub anchor_token_code_id: u64,
 }
@@ -44,7 +45,7 @@ pub enum HandleMsg {
     /// Update config values
     UpdateConfig {
         owner_addr: Option<HumanAddr>,
-        reserve_factor: Option<Decimal>,
+        reserve_factor: Option<Decimal256>,
         interest_model: Option<HumanAddr>,
     },
 
@@ -107,14 +108,14 @@ pub struct ConfigResponse {
     pub interest_model: HumanAddr,
     pub overseer_contract: HumanAddr,
     pub stable_denom: String,
-    pub reserve_factor: Decimal,
+    pub reserve_factor: Decimal256,
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LiabilityResponse {
     pub borrower: HumanAddr,
-    pub interest_index: Decimal,
+    pub interest_index: Decimal256,
     pub loan_amount: Uint128,
 }
 

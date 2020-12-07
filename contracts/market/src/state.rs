@@ -1,8 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::{
-    Api, CanonicalAddr, Decimal, Extern, HumanAddr, Order, Querier, StdResult, Storage, Uint128,
+    Api, CanonicalAddr, Extern, HumanAddr, Order, Querier, StdResult, Storage, Uint128,
 };
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
 
@@ -21,20 +22,20 @@ pub struct Config {
     pub interest_model: CanonicalAddr,
     pub overseer_contract: CanonicalAddr,
     pub stable_denom: String,
-    pub reserve_factor: Decimal,
+    pub reserve_factor: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
-    pub total_liabilities: Decimal,
-    pub total_reserves: Decimal,
+    pub total_liabilities: Decimal256,
+    pub total_reserves: Decimal256,
     pub last_interest_updated: u64,
-    pub global_interest_index: Decimal,
+    pub global_interest_index: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Liability {
-    pub interest_index: Decimal,
+    pub interest_index: Decimal256,
     pub loan_amount: Uint128,
 }
 
@@ -71,7 +72,7 @@ pub fn read_liability<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> Liab
     match liability_bucket.load(&borrower.as_slice()) {
         Ok(v) => v,
         _ => Liability {
-            interest_index: Decimal::one(),
+            interest_index: Decimal256::one(),
             loan_amount: Uint128::zero(),
         },
     }

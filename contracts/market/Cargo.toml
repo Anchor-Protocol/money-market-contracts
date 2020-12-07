@@ -38,6 +38,7 @@ singlepass = ["cosmwasm-vm/default-singlepass"]
 
 [dependencies]
 cw20 = { version = "0.2" }
+cosmwasm-bignumber = { path = "../../packages/bignumber", default-features = false, version = "0.1.0"}
 moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.1.0"}
 terraswap = { path = "../../packages/terraswap", default-features = false, version = "0.1.0"}
 cosmwasm-std = { version = "0.10.1", features = ["iterator"] }

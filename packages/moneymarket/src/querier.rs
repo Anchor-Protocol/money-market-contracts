@@ -1,6 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::{
     to_binary, Api, Coin, Decimal, Extern, HumanAddr, Querier, QueryRequest, StdError, StdResult,
     Storage, Uint128, WasmQuery,
@@ -57,8 +58,8 @@ pub enum QueryMsg {
     /// Query borrow rate to interest model contract
     BorrowRate {
         market_balance: Uint128,
-        total_liabilities: Decimal,
-        total_reserve: Decimal,
+        total_liabilities: Decimal256,
+        total_reserve: Decimal256,
     },
     /// Query borrow limit to overseer contract
     BorrowLimit { borrower: HumanAddr },
@@ -185,15 +186,15 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BorrowRateResponse {
-    pub rate: Decimal,
+    pub rate: Decimal256,
 }
 
 pub fn query_borrow_rate<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     interest_model: &HumanAddr,
     market_balance: Uint128,
-    total_liabilities: Decimal,
-    total_reserve: Decimal,
+    total_liabilities: Decimal256,
+    total_reserve: Decimal256,
 ) -> StdResult<BorrowRateResponse> {
     let borrow_rate: BorrowRateResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
