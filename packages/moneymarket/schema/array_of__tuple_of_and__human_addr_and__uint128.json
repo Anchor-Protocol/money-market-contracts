@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Array_of_Tuple_of_and_HumanAddr_and_Uint128",
+  "type": "array",
+  "items": {
+    "type": "array",
+    "items": [
+      {
+        "$ref": "#/definitions/HumanAddr"
+      },
+      {
+        "$ref": "#/definitions/Uint128"
+      }
+    ],
+    "maxItems": 2,
+    "minItems": 2
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}
