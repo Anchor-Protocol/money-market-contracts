@@ -1,8 +1,3 @@
-use cosmwasm_std::{
-    from_binary, log, to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
-    WasmMsg,
-};
-
 use crate::contract::{handle, init, query};
 use crate::msg::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LiabilityResponse, LoanAmountResponse,
@@ -11,7 +6,12 @@ use crate::msg::{
 use crate::state::{store_state, State};
 use crate::testing::mock_querier::mock_dependencies;
 
+use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::{
+    from_binary, log, to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
+    WasmMsg,
+};
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg, MinterResponse};
 use moneymarket::deduct_tax;
 use terraswap::{InitHook, TokenInitMsg};
@@ -24,7 +24,7 @@ fn proper_initialization() {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal::permille(3),
+        reserve_factor: Decimal256::permille(3),
         anchor_token_code_id: 123u64,
     };
 
@@ -87,14 +87,14 @@ fn proper_initialization() {
     assert_eq!(HumanAddr::from("interest"), config_res.interest_model);
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
     assert_eq!("uusd".to_string(), config_res.stable_denom);
-    assert_eq!(Decimal::permille(3), config_res.reserve_factor);
+    assert_eq!(Decimal256::permille(3), config_res.reserve_factor);
 
     let query_res = query(&deps, QueryMsg::State {}).unwrap();
     let state: State = from_binary(&query_res).unwrap();
-    assert_eq!(Decimal::zero(), state.total_liabilities);
-    assert_eq!(Decimal::zero(), state.total_reserves);
+    assert_eq!(Decimal256::zero(), state.total_liabilities);
+    assert_eq!(Decimal256::zero(), state.total_reserves);
     assert_eq!(env.block.height, state.last_interest_updated);
-    assert_eq!(Decimal::one(), state.global_interest_index);
+    assert_eq!(Decimal256::one(), state.global_interest_index);
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn update_config() {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal::permille(3),
+        reserve_factor: Decimal256::permille(3),
         anchor_token_code_id: 123u64,
     };
 
@@ -145,7 +145,7 @@ fn update_config() {
     let env = mock_env("owner1", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner_addr: None,
-        reserve_factor: Some(Decimal::percent(1)),
+        reserve_factor: Some(Decimal256::percent(1)),
         interest_model: Some(HumanAddr::from("interest2")),
     };
 
@@ -156,7 +156,7 @@ fn update_config() {
     let res = query(&deps, QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!(HumanAddr::from("owner1"), config_res.owner_addr);
-    assert_eq!(Decimal::percent(1), config_res.reserve_factor);
+    assert_eq!(Decimal256::percent(1), config_res.reserve_factor);
     assert_eq!(HumanAddr::from("interest2"), config_res.interest_model);
 
     // Unauthorzied err
@@ -175,6 +175,135 @@ fn update_config() {
 }
 
 #[test]
+fn deposit_stable_huge_amount() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    let msg = InitMsg {
+        owner_addr: HumanAddr::from("owner"),
+        interest_model: HumanAddr::from("interest"),
+        stable_denom: "uusd".to_string(),
+        reserve_factor: Decimal256::permille(3),
+        anchor_token_code_id: 123u64,
+    };
+
+    let env = mock_env("addr0000", &[]);
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    // Register anchor token contract
+    let msg = HandleMsg::RegisterAnchorToken {};
+    let env = mock_env("AT-uusd", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // Register overseer contract
+    let msg = HandleMsg::RegisterOverseer {
+        overseer_contract: HumanAddr::from("overseer"),
+    };
+    let env = mock_env("addr0000", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // Must deposit stable_denom
+    let msg = HandleMsg::DepositStable {};
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "ukrw".to_string(),
+            amount: Uint128::from(123u128),
+        }],
+    );
+
+    let res = handle(&mut deps, env, msg.clone());
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot deposit zero coins"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(55_555_555_000_000u128),
+        }],
+    );
+
+    deps.querier
+        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
+    deps.querier
+        .with_token_balances(&[(&HumanAddr::from("AT-uusd"), &[])]);
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(55_555_555_000_000u128),
+        }],
+    );
+
+    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "deposit_stable"),
+            log("depositor", "addr0000"),
+            log("mint_amount", "55555555000000"),
+            log("deposit_amount", "55555555000000"),
+        ]
+    );
+
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("AT-uusd"),
+            send: vec![],
+            msg: to_binary(&Cw20HandleMsg::Mint {
+                recipient: HumanAddr::from("addr0000"),
+                amount: Uint128::from(55_555_555_000_000u128),
+            })
+            .unwrap(),
+        })]
+    );
+
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(111_111_110_000_000u128),
+        }],
+    );
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("AT-uusd"),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128::from(55_555_555_000_000u128),
+        )],
+    )]);
+
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "deposit_stable"),
+            log("depositor", "addr0000"),
+            log("mint_amount", "55555555000000"),
+            log("deposit_amount", "55555555000000"),
+        ]
+    );
+
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("AT-uusd"),
+            send: vec![],
+            msg: to_binary(&Cw20HandleMsg::Mint {
+                recipient: HumanAddr::from("addr0000"),
+                amount: Uint128::from(55_555_555_000_000u128),
+            })
+            .unwrap(),
+        })]
+    );
+}
+
+#[test]
 fn deposit_stable() {
     let mut deps = mock_dependencies(
         20,
@@ -188,7 +317,7 @@ fn deposit_stable() {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal::permille(3),
+        reserve_factor: Decimal256::permille(3),
         anchor_token_code_id: 123u64,
     };
 
@@ -233,7 +362,7 @@ fn deposit_stable() {
     );
 
     deps.querier
-        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal::percent(1))]);
+        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
     deps.querier
         .with_token_balances(&[(&HumanAddr::from("AT-uusd"), &[])]);
 
@@ -265,10 +394,10 @@ fn deposit_stable() {
     store_state(
         &mut deps.storage,
         &State {
-            total_liabilities: Decimal::from_ratio(50000u128, 1u128),
-            total_reserves: Decimal::from_ratio(550000u128, 1u128),
+            total_liabilities: Decimal256::from_uint256(50000u128),
+            total_reserves: Decimal256::from_uint256(550000u128),
             last_interest_updated: env.block.height,
-            global_interest_index: Decimal::one(),
+            global_interest_index: Decimal256::one(),
         },
     )
     .unwrap();
@@ -320,7 +449,7 @@ fn redeem_stable() {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal::permille(3),
+        reserve_factor: Decimal256::permille(3),
         anchor_token_code_id: 123u64,
     };
 
@@ -351,7 +480,7 @@ fn redeem_stable() {
     );
 
     deps.querier
-        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal::percent(1))]);
+        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
     deps.querier.with_token_balances(&[(
         &HumanAddr::from("AT-uusd"),
         &[(
@@ -415,10 +544,10 @@ fn redeem_stable() {
     store_state(
         &mut deps.storage,
         &State {
-            total_liabilities: Decimal::from_ratio(500000u128, 1u128),
-            total_reserves: Decimal::from_ratio(1500000u128, 1u128),
+            total_liabilities: Decimal256::from_uint256(500000u128),
+            total_reserves: Decimal256::from_uint256(1500000u128),
             last_interest_updated: env.block.height,
-            global_interest_index: Decimal::one(),
+            global_interest_index: Decimal256::one(),
         },
     )
     .unwrap();
@@ -463,7 +592,7 @@ fn borrow_stable() {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal::permille(3),
+        reserve_factor: Decimal256::permille(3),
         anchor_token_code_id: 123u64,
     };
 
@@ -484,17 +613,17 @@ fn borrow_stable() {
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
     deps.querier
-        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal::percent(1))]);
+        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
     deps.querier
         .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint128::from(1000000u128))]);
 
     store_state(
         &mut deps.storage,
         &State {
-            total_liabilities: Decimal::from_ratio(1000000u128, 1u128),
-            total_reserves: Decimal::zero(),
+            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
-            global_interest_index: Decimal::one(),
+            global_interest_index: Decimal256::one(),
         },
     )
     .unwrap();
@@ -543,10 +672,10 @@ fn borrow_stable() {
     assert_eq!(
         state,
         State {
-            total_liabilities: Decimal::from_ratio(2500000u128, 1u128),
-            total_reserves: Decimal::from_ratio(3000u128, 1u128),
+            total_liabilities: Decimal256::from_uint256(2500000u128),
+            total_reserves: Decimal256::from_uint256(3000u128),
             last_interest_updated: env.block.height,
-            global_interest_index: Decimal::from_ratio(2u128, 1u128),
+            global_interest_index: Decimal256::from_uint256(2u128),
         }
     );
 
@@ -563,7 +692,7 @@ fn borrow_stable() {
         liability,
         LiabilityResponse {
             borrower: HumanAddr::from("addr0000"),
-            interest_index: Decimal::from_ratio(2u128, 1u128),
+            interest_index: Decimal256::from_uint256(2u128),
             loan_amount: Uint128::from(500000u128),
         }
     );
@@ -636,7 +765,7 @@ fn repay_stable() {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal::permille(3),
+        reserve_factor: Decimal256::permille(3),
         anchor_token_code_id: 123u64,
     };
 
@@ -657,17 +786,17 @@ fn repay_stable() {
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
     deps.querier
-        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal::percent(1))]);
+        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
     deps.querier
         .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint128::from(1000000u128))]);
 
     store_state(
         &mut deps.storage,
         &State {
-            total_liabilities: Decimal::from_ratio(1000000u128, 1u128),
-            total_reserves: Decimal::zero(),
+            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
-            global_interest_index: Decimal::one(),
+            global_interest_index: Decimal256::one(),
         },
     )
     .unwrap();
@@ -749,7 +878,7 @@ fn repay_stable_from_liquidation() {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal::permille(3),
+        reserve_factor: Decimal256::permille(3),
         anchor_token_code_id: 123u64,
     };
 
@@ -770,17 +899,17 @@ fn repay_stable_from_liquidation() {
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
     deps.querier
-        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal::percent(1))]);
+        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
     deps.querier
         .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint128::from(1000000u128))]);
 
     store_state(
         &mut deps.storage,
         &State {
-            total_liabilities: Decimal::from_ratio(1000000u128, 1u128),
-            total_reserves: Decimal::zero(),
+            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
-            global_interest_index: Decimal::one(),
+            global_interest_index: Decimal256::one(),
         },
     )
     .unwrap();

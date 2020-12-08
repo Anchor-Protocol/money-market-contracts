@@ -5,6 +5,8 @@ use crate::querier::{
     BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse, EpochStateResponse,
     LiquidationAmountResponse, LoanAmountResponse, PriceResponse,
 };
+
+use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::{Coin, Decimal, HumanAddr, Uint128};
 
 #[test]
@@ -164,22 +166,22 @@ fn borrow_rate_querier() {
 
     deps.querier.with_borrow_rate(&[(
         &HumanAddr::from("interest"),
-        &Decimal::from_ratio(100u128, 1u128),
+        &Decimal256::from_uint256(100u128),
     )]);
 
     let borrow_rate = query_borrow_rate(
         &deps,
         &HumanAddr::from("interest"),
         Uint128::zero(),
-        Decimal::zero(),
-        Decimal::zero(),
+        Decimal256::zero(),
+        Decimal256::zero(),
     )
     .unwrap();
 
     assert_eq!(
         borrow_rate,
         BorrowRateResponse {
-            rate: Decimal::from_ratio(100u128, 1u128),
+            rate: Decimal256::from_uint256(100u128),
         }
     );
 }

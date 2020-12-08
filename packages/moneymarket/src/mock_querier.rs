@@ -1,3 +1,4 @@
+use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, from_slice, to_binary, Api, Coin, Decimal, Extern, HumanAddr, Querier,
@@ -169,11 +170,11 @@ pub(crate) fn loan_amount_to_map(
 #[derive(Clone, Default)]
 pub struct BorrowRateQuerier {
     // this lets us iterate over all pairs that match the first string
-    borrower_rate: HashMap<HumanAddr, Decimal>,
+    borrower_rate: HashMap<HumanAddr, Decimal256>,
 }
 
 impl BorrowRateQuerier {
-    pub fn new(borrower_rate: &[(&HumanAddr, &Decimal)]) -> Self {
+    pub fn new(borrower_rate: &[(&HumanAddr, &Decimal256)]) -> Self {
         BorrowRateQuerier {
             borrower_rate: borrower_rate_to_map(borrower_rate),
         }
@@ -181,9 +182,9 @@ impl BorrowRateQuerier {
 }
 
 pub(crate) fn borrower_rate_to_map(
-    borrower_rate: &[(&HumanAddr, &Decimal)],
-) -> HashMap<HumanAddr, Decimal> {
-    let mut borrower_rate_map: HashMap<HumanAddr, Decimal> = HashMap::new();
+    borrower_rate: &[(&HumanAddr, &Decimal256)],
+) -> HashMap<HumanAddr, Decimal256> {
+    let mut borrower_rate_map: HashMap<HumanAddr, Decimal256> = HashMap::new();
     for (market_contract, borrower_rate) in borrower_rate.iter() {
         borrower_rate_map.insert((*market_contract).clone(), **borrower_rate);
     }
@@ -443,7 +444,7 @@ impl WasmMockQuerier {
         self.loan_amount_querier = LoanAmountQuerier::new(loan_amount);
     }
 
-    pub fn with_borrow_rate(&mut self, borrow_rate: &[(&HumanAddr, &Decimal)]) {
+    pub fn with_borrow_rate(&mut self, borrow_rate: &[(&HumanAddr, &Decimal256)]) {
         self.borrow_rate_querier = BorrowRateQuerier::new(borrow_rate);
     }
 

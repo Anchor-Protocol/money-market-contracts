@@ -1,12 +1,12 @@
 use cosmwasm_std::{
-    log, to_binary, Api, BankMsg, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    log, to_binary, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
+    HumanAddr, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
 use crate::borrow::compute_interest;
-use crate::math::{decimal_division, decimal_subtraction, reverse_decimal};
 use crate::state::{read_config, read_state, store_state, Config, State};
 
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cw20::Cw20HandleMsg;
 use moneymarket::deduct_tax;
 use terraswap::{query_balance, query_supply};
@@ -44,7 +44,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
 
     // Load anchor token exchange rate with updated state
     let exchange_rate = compute_exchange_rate(deps, &env, &config, &state, Some(deposit_amount))?;
-    let mint_amount = deposit_amount * reverse_decimal(exchange_rate);
+    let mint_amount = Uint256::from(deposit_amount) / exchange_rate;
 
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
@@ -52,7 +52,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
             send: vec![],
             msg: to_binary(&Cw20HandleMsg::Mint {
                 recipient: env.message.sender.clone(),
-                amount: mint_amount,
+                amount: mint_amount.into(),
             })?,
         })],
         log: vec![
@@ -80,7 +80,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
 
     // Load anchor token exchange rate with updated state
     let exchange_rate = compute_exchange_rate(deps, &env, &config, &state, None)?;
-    let redeem_amount = burn_amount * exchange_rate;
+    let redeem_amount = Uint256::from(burn_amount) * exchange_rate;
 
     Ok(HandleResponse {
         messages: vec![
@@ -98,7 +98,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
                     &deps,
                     Coin {
                         denom: config.stable_denom,
-                        amount: redeem_amount,
+                        amount: redeem_amount.into(),
                     },
                 )?],
             }),
@@ -118,10 +118,10 @@ fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
     config: &Config,
     state: &State,
     deposit_amount: Option<Uint128>,
-) -> StdResult<Decimal> {
+) -> StdResult<Decimal256> {
     let anchor_token_supply = query_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
     if anchor_token_supply.is_zero() {
-        return Ok(Decimal::one());
+        return Ok(Decimal256::one());
     }
 
     let balance = (query_balance(
@@ -132,11 +132,8 @@ fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
 
     // (anchor_token / stable_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / anchor_token_supply
-    Ok(decimal_division(
-        decimal_subtraction(
-            Decimal::from_ratio(balance, 1u128) + state.total_liabilities,
-            state.total_reserves,
-        ),
-        Decimal::from_ratio(anchor_token_supply, 1u128),
-    ))
+    Ok(
+        (Decimal256::from_uint256(balance.u128()) + state.total_liabilities - state.total_reserves)
+            / Decimal256::from_uint256(anchor_token_supply.u128()),
+    )
 }

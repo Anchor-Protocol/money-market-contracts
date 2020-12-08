@@ -1,19 +1,18 @@
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    log, Api, BankMsg, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, Querier, StdError, StdResult, Storage, Uint128,
+    log, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult, HumanAddr,
+    Querier, StdError, StdResult, Storage, Uint128,
 };
+use moneymarket::{
+    deduct_tax, query_borrow_limit, query_borrow_rate, BorrowLimitResponse, BorrowRateResponse,
+};
+use terraswap::query_balance;
 
-use crate::math::{decimal_division, decimal_multiplication, decimal_subtraction};
 use crate::msg::{LiabilitiesResponse, LiabilityResponse, LoanAmountResponse};
 use crate::state::{
     read_config, read_liabilities, read_liability, read_state, store_liability, store_state,
     Config, Liability, State,
 };
-
-use moneymarket::{
-    deduct_tax, query_borrow_limit, query_borrow_rate, BorrowLimitResponse, BorrowRateResponse,
-};
-use terraswap::query_balance;
 
 pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -40,7 +39,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     }
 
     liability.loan_amount += borrow_amount;
-    state.total_liabilities = state.total_liabilities + Decimal::from_ratio(borrow_amount, 1u128);
+    state.total_liabilities = state.total_liabilities + Decimal256::from_uint256(borrow_amount);
     store_state(&mut deps.storage, &state)?;
     store_liability(&mut deps.storage, &borrower_raw, &liability)?;
 
@@ -146,10 +145,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
         liability.loan_amount = (liability.loan_amount - repay_amount)?;
     }
 
-    state.total_liabilities = decimal_subtraction(
-        state.total_liabilities,
-        Decimal::from_ratio(repay_amount, 1u128),
-    );
+    state.total_liabilities = state.total_liabilities - Decimal256::from_uint256(repay_amount);
 
     store_liability(&mut deps.storage, &borrower_raw, &liability)?;
     store_state(&mut deps.storage, &state)?;
@@ -189,20 +185,14 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
     )?;
 
     let passed_blocks = block_height - state.last_interest_updated;
-    let interest_factor: Decimal = decimal_multiplication(
-        Decimal::from_ratio(passed_blocks, 1u128),
-        borrow_rate_res.rate,
-    );
+    let interest_factor = Decimal256::from_uint256(passed_blocks) * borrow_rate_res.rate;
 
-    let interest_accrued = decimal_multiplication(state.total_liabilities, interest_factor);
+    let interest_accrued = state.total_liabilities * interest_factor;
 
-    state.global_interest_index = decimal_multiplication(
-        state.global_interest_index,
-        Decimal::one() + interest_factor,
-    );
+    state.global_interest_index =
+        state.global_interest_index * (Decimal256::one() + interest_factor);
     state.total_liabilities = state.total_liabilities + interest_accrued;
-    state.total_reserves =
-        state.total_reserves + decimal_multiplication(interest_accrued, config.reserve_factor);
+    state.total_reserves = state.total_reserves + interest_accrued * config.reserve_factor;
     state.last_interest_updated = block_height;
 
     Ok(())
@@ -210,8 +200,9 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
 
 /// Compute new interest and apply to liability
 fn compute_loan(state: &State, liability: &mut Liability) {
-    liability.loan_amount = liability.loan_amount
-        * decimal_division(state.global_interest_index, liability.interest_index);
+    liability.loan_amount = (Uint256::from(liability.loan_amount) * state.global_interest_index
+        / liability.interest_index)
+        .into();
     liability.interest_index = state.global_interest_index;
 }
 

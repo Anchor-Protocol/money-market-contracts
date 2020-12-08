@@ -4,8 +4,6 @@ pub mod deposit;
 pub mod msg;
 pub mod state;
 
-mod math;
-
 #[cfg(test)]
 mod testing;
 

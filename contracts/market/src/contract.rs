@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Decimal, Env, Extern,
+    from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Env, Extern,
     HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError,
     StdResult, Storage, WasmMsg,
 };
@@ -10,6 +10,7 @@ use crate::deposit::{deposit_stable, redeem_stable};
 use crate::msg::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
 
+use cosmwasm_bignumber::Decimal256;
 use cw20::{Cw20ReceiveMsg, MinterResponse};
 use terraswap::{InitHook, TokenInitMsg};
 
@@ -34,10 +35,10 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     store_state(
         &mut deps.storage,
         &State {
-            total_liabilities: Decimal::zero(),
-            total_reserves: Decimal::zero(),
+            total_liabilities: Decimal256::zero(),
+            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
-            global_interest_index: Decimal::one(),
+            global_interest_index: Decimal256::one(),
         },
     )?;
 
@@ -155,7 +156,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     env: Env,
     owner_addr: Option<HumanAddr>,
     interest_model: Option<HumanAddr>,
-    reserve_factor: Option<Decimal>,
+    reserve_factor: Option<Decimal256>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
 
