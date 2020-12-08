@@ -39,7 +39,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     }
 
     liability.loan_amount += borrow_amount;
-    state.total_liabilities = state.total_liabilities + Decimal256::from_uint256(borrow_amount);
+    state.total_liabilities += Decimal256::from_uint256(borrow_amount);
     store_state(&mut deps.storage, &state)?;
     store_liability(&mut deps.storage, &borrower_raw, &liability)?;
 
@@ -191,8 +191,8 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
 
     state.global_interest_index =
         state.global_interest_index * (Decimal256::one() + interest_factor);
-    state.total_liabilities = state.total_liabilities + interest_accrued;
-    state.total_reserves = state.total_reserves + interest_accrued * config.reserve_factor;
+    state.total_liabilities += interest_accrued;
+    state.total_reserves += interest_accrued * config.reserve_factor;
     state.last_interest_updated = block_height;
 
     Ok(())
