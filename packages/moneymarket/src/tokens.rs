@@ -9,8 +9,8 @@ pub type Tokens = Vec<Token>;
 pub type TokensHuman = Vec<TokenHuman>;
 
 pub trait TokensMath {
-    fn sub(self: &mut Self, collaterals: Tokens) -> StdResult<()>;
-    fn add(self: &mut Self, collaterals: Tokens);
+    fn sub(&mut self, collaterals: Tokens) -> StdResult<()>;
+    fn add(&mut self, collaterals: Tokens);
 }
 
 pub trait TokensToHuman {
@@ -28,7 +28,7 @@ pub trait TokensToRaw {
 }
 
 impl TokensMath for Tokens {
-    fn sub(self: &mut Self, tokens: Tokens) -> StdResult<()> {
+    fn sub(&mut self, tokens: Tokens) -> StdResult<()> {
         self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
 
         let mut tokens = tokens;
@@ -58,7 +58,7 @@ impl TokensMath for Tokens {
         Ok(())
     }
 
-    fn add(self: &mut Self, tokens: Tokens) {
+    fn add(&mut self, tokens: Tokens) {
         self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
 
         let mut tokens = tokens;
