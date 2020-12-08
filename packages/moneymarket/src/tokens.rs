@@ -15,14 +15,14 @@ pub trait TokensMath {
 
 pub trait TokensToHuman {
     fn to_human<S: Storage, A: Api, Q: Querier>(
-        self: &Self,
+        &self,
         deps: &Extern<S, A, Q>,
     ) -> StdResult<TokensHuman>;
 }
 
 pub trait TokensToRaw {
     fn to_raw<S: Storage, A: Api, Q: Querier>(
-        self: &Self,
+        &self,
         deps: &Extern<S, A, Q>,
     ) -> StdResult<Tokens>;
 }
@@ -90,7 +90,7 @@ impl TokensMath for Tokens {
 
 impl TokensToHuman for Tokens {
     fn to_human<S: Storage, A: Api, Q: Querier>(
-        self: &Self,
+        &self,
         deps: &Extern<S, A, Q>,
     ) -> StdResult<TokensHuman> {
         let collaterals: TokensHuman = self
@@ -103,7 +103,7 @@ impl TokensToHuman for Tokens {
 
 impl TokensToRaw for TokensHuman {
     fn to_raw<S: Storage, A: Api, Q: Querier>(
-        self: &Self,
+        &self,
         deps: &Extern<S, A, Q>,
     ) -> StdResult<Tokens> {
         let collaterals: Tokens = self
