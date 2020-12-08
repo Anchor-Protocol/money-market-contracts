@@ -28,11 +28,7 @@ pub struct PriceInfo {
     pub last_updated_time: u64,
 }
 
-pub fn store_price<S: Storage>(
-    storage: &mut S,
-    asset: &str,
-    price: &PriceInfo,
-) -> StdResult<()> {
+pub fn store_price<S: Storage>(storage: &mut S, asset: &str, price: &PriceInfo) -> StdResult<()> {
     let mut price_bucket: Bucket<S, PriceInfo> = Bucket::new(PREFIX_PRICE, storage);
     price_bucket.save(asset.as_bytes(), &price)
 }

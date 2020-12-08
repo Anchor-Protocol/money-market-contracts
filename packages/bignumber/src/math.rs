@@ -134,7 +134,7 @@ impl ops::Sub for Decimal256 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
-        assert!(self.0 > rhs.0);
+        assert!(self.0 >= rhs.0);
         Decimal256(self.0 - rhs.0)
     }
 }
@@ -315,7 +315,7 @@ impl ops::Sub for Uint256 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        assert!(self.0 > rhs.0);
+        assert!(self.0 >= rhs.0);
         Uint256(self.0 - rhs.0)
     }
 }

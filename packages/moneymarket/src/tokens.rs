@@ -9,26 +9,26 @@ pub type Tokens = Vec<Token>;
 pub type TokensHuman = Vec<TokenHuman>;
 
 pub trait TokensMath {
-    fn sub(self: &mut Self, collaterals: Tokens) -> StdResult<()>;
-    fn add(self: &mut Self, collaterals: Tokens);
+    fn sub(&mut self, collaterals: Tokens) -> StdResult<()>;
+    fn add(&mut self, collaterals: Tokens);
 }
 
 pub trait TokensToHuman {
     fn to_human<S: Storage, A: Api, Q: Querier>(
-        self: &Self,
+        &self,
         deps: &Extern<S, A, Q>,
     ) -> StdResult<TokensHuman>;
 }
 
 pub trait TokensToRaw {
     fn to_raw<S: Storage, A: Api, Q: Querier>(
-        self: &Self,
+        &self,
         deps: &Extern<S, A, Q>,
     ) -> StdResult<Tokens>;
 }
 
 impl TokensMath for Tokens {
-    fn sub(self: &mut Self, tokens: Tokens) -> StdResult<()> {
+    fn sub(&mut self, tokens: Tokens) -> StdResult<()> {
         self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
 
         let mut tokens = tokens;
@@ -58,7 +58,7 @@ impl TokensMath for Tokens {
         Ok(())
     }
 
-    fn add(self: &mut Self, tokens: Tokens) {
+    fn add(&mut self, tokens: Tokens) {
         self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
 
         let mut tokens = tokens;
@@ -90,7 +90,7 @@ impl TokensMath for Tokens {
 
 impl TokensToHuman for Tokens {
     fn to_human<S: Storage, A: Api, Q: Querier>(
-        self: &Self,
+        &self,
         deps: &Extern<S, A, Q>,
     ) -> StdResult<TokensHuman> {
         let collaterals: TokensHuman = self
@@ -103,7 +103,7 @@ impl TokensToHuman for Tokens {
 
 impl TokensToRaw for TokensHuman {
     fn to_raw<S: Storage, A: Api, Q: Querier>(
-        self: &Self,
+        &self,
         deps: &Extern<S, A, Q>,
     ) -> StdResult<Tokens> {
         let collaterals: Tokens = self

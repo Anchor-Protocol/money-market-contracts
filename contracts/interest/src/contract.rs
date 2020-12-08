@@ -156,9 +156,9 @@ mod tests {
             Decimal256::from_uint256(100000u128),
         )
         .unwrap();
-        // utilization_ratio = 0.35714285
+        // utilization_ratio = 0.35714285714285714
         // borrow_rate = 0.035714285 + 0.1
-        assert_eq!("0.135714285", &value.rate.to_string());
+        assert_eq!("0.135714285714285714", &value.rate.to_string());
 
         let value = query_borrow_rate(
             &deps,

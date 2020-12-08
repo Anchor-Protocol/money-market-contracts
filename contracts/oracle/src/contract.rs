@@ -130,7 +130,7 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
             last_updated_time: 9999999999,
         }
     } else {
-        read_price(&deps.storage, &quote.to_string())?
+        read_price(&deps.storage, &quote)?
     };
 
     let base_price = if config.base_asset == base {
@@ -139,7 +139,7 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
             last_updated_time: 9999999999,
         }
     } else {
-        read_price(&deps.storage, &base.to_string())?
+        read_price(&deps.storage, &base)?
     };
 
     Ok(PriceResponse {
