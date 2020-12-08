@@ -50,7 +50,7 @@ pub enum HandleMsg {
     DistributeHook {},
 
     /// (internal) Swap all coins to stable_denom
-    SwapToRewardDenom {},
+    SwapToStableDenom {},
 
     /// Liquidate colalteral and send liquidated collateral to `to` address
     LiquidateCollateral {

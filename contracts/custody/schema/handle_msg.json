@@ -90,10 +90,10 @@
       "description": "(internal) Swap all coins to stable_denom",
       "type": "object",
       "required": [
-        "swap_to_reward_denom"
+        "swap_to_stable_denom"
       ],
       "properties": {
-        "swap_to_reward_denom": {
+        "swap_to_stable_denom": {
           "type": "object"
         }
       }

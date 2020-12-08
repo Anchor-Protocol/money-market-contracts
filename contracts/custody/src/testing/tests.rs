@@ -417,7 +417,7 @@ fn distribute_rewards() {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
                 send: vec![],
-                msg: to_binary(&HandleMsg::SwapToRewardDenom {}).unwrap(),
+                msg: to_binary(&HandleMsg::SwapToStableDenom {}).unwrap(),
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
@@ -546,7 +546,7 @@ fn swap_to_stable_denom() {
     let env = mock_env("addr0000", &[]);
     let _res = init(&mut deps, env.clone(), msg).unwrap();
 
-    let msg = HandleMsg::SwapToRewardDenom {};
+    let msg = HandleMsg::SwapToStableDenom {};
     let res = handle(&mut deps, env, msg.clone());
     match res {
         Err(StdError::Unauthorized { .. }) => {}
