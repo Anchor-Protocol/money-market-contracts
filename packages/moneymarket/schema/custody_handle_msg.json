@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CustodyHandleMsg",
+  "anyOf": [
+    {
+      "description": "Owner operations Make specified amount of tokens unspendable",
+      "type": "object",
+      "required": [
+        "lock_collateral"
+      ],
+      "properties": {
+        "lock_collateral": {
+          "type": "object",
+          "required": [
+            "amount",
+            "borrower"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Make specified amount of collateral tokens spendable",
+      "type": "object",
+      "required": [
+        "unlock_collateral"
+      ],
+      "properties": {
+        "unlock_collateral": {
+          "type": "object",
+          "required": [
+            "amount",
+            "borrower"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Claim bAsset rewards and distribute claimed rewards to market and overseer contracts",
+      "type": "object",
+      "required": [
+        "distribute_rewards"
+      ],
+      "properties": {
+        "distribute_rewards": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "description": "Liquidate colalteral and send liquidated collateral to `to` address",
+      "type": "object",
+      "required": [
+        "liquidate_collateral"
+      ],
+      "properties": {
+        "liquidate_collateral": {
+          "type": "object",
+          "required": [
+            "amount",
+            "borrower"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "User operations Withdraw spendable collateral token. If the amount is not given, return all spendable collateral",
+      "type": "object",
+      "required": [
+        "withdraw_collateral"
+      ],
+      "properties": {
+        "withdraw_collateral": {
+          "type": "object",
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}

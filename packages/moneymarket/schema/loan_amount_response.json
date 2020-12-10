@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LoanAmountResponse",
+  "type": "object",
+  "required": [
+    "borrower",
+    "loan_amount"
+  ],
+  "properties": {
+    "borrower": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "loan_amount": {
+      "$ref": "#/definitions/Uint128"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}
