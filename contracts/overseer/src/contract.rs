@@ -84,6 +84,11 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             custody_contract,
             ltv,
         } => register_whitelist(deps, env, collateral_token, custody_contract, ltv),
+        HandleMsg::UpdateWhitelist {
+            collateral_token,
+            custody_contract,
+            ltv,
+        } => update_whitelist(deps, env, collateral_token, custody_contract, ltv),
         HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
         HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
         HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
@@ -181,6 +186,47 @@ pub fn register_whitelist<S: Storage, A: Api, Q: Querier>(
             log("collateral_token", collateral_token),
             log("custody_contract", custody_contract),
             log("LTV", ltv),
+        ],
+        data: None,
+    })
+}
+
+pub fn update_whitelist<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    collateral_token: HumanAddr,
+    custody_contract: Option<HumanAddr>,
+    ltv: Option<Decimal>,
+) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
+    if deps.api.canonical_address(&env.message.sender)? != config.owner_addr {
+        return Err(StdError::unauthorized());
+    }
+
+    let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
+    let mut whitelist_elem: WhitelistElem =
+        read_whitelist_elem(&deps.storage, &collateral_token_raw)?;
+
+    if let Some(custody_contract) = custody_contract {
+        whitelist_elem.custody_contract = deps.api.canonical_address(&custody_contract)?;
+    }
+
+    if let Some(ltv) = ltv {
+        whitelist_elem.ltv = ltv;
+    }
+
+    store_whitelist_elem(&mut deps.storage, &collateral_token_raw, &whitelist_elem)?;
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![
+            log("action", "update_whitelist"),
+            log("collateral_token", collateral_token),
+            log(
+                "custody_contract",
+                deps.api.human_address(&whitelist_elem.custody_contract)?,
+            ),
+            log("LTV", whitelist_elem.ltv),
         ],
         data: None,
     })

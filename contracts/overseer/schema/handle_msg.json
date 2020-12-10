@@ -113,6 +113,46 @@
       }
     },
     {
+      "description": "Update registered whitelist info",
+      "type": "object",
+      "required": [
+        "update_whitelist"
+      ],
+      "properties": {
+        "update_whitelist": {
+          "type": "object",
+          "required": [
+            "collateral_token"
+          ],
+          "properties": {
+            "collateral_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "custody_contract": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "ltv": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
       "description": "Claims all staking rewards from the bAsset contracts and also do a epoch basis updates 1. Distribute interest buffers to depositors 2. Invoke [Custody] DistributeRewards",
       "type": "object",
       "required": [
@@ -212,7 +252,7 @@
   ],
   "definitions": {
     "Decimal": {
-      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"
     },
     "HumanAddr": {
