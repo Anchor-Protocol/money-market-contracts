@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MarketHandleMsg",
+  "anyOf": [
+    {
+      "description": "Overseer operations Repay stable with liquidated collaterals",
+      "type": "object",
+      "required": [
+        "repay_stable_from_liquidation"
+      ],
+      "properties": {
+        "repay_stable_from_liquidation": {
+          "type": "object",
+          "required": [
+            "borrower",
+            "prev_balance"
+          ],
+          "properties": {
+            "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "prev_balance": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "User operations Deposit stable asset to get interest",
+      "type": "object",
+      "required": [
+        "deposit_stable"
+      ],
+      "properties": {
+        "deposit_stable": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "description": "Borrow stable asset with collaterals in overseer contract",
+      "type": "object",
+      "required": [
+        "borrow_stable"
+      ],
+      "properties": {
+        "borrow_stable": {
+          "type": "object",
+          "required": [
+            "borrow_amount"
+          ],
+          "properties": {
+            "borrow_amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "to": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Repay stable asset to decrease liability",
+      "type": "object",
+      "required": [
+        "repay_stable"
+      ],
+      "properties": {
+        "repay_stable": {
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}

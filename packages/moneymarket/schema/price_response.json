@@ -1,20 +1,24 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "DistributionParamsResponse",
+  "title": "PriceResponse",
   "type": "object",
   "required": [
-    "deposit_rate",
-    "distribution_threshold",
-    "target_deposit_rate"
+    "last_updated_base",
+    "last_updated_quote",
+    "rate"
   ],
   "properties": {
-    "deposit_rate": {
-      "$ref": "#/definitions/Decimal"
+    "last_updated_base": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
-    "distribution_threshold": {
-      "$ref": "#/definitions/Decimal"
+    "last_updated_quote": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
-    "target_deposit_rate": {
+    "rate": {
       "$ref": "#/definitions/Decimal"
     }
   },
