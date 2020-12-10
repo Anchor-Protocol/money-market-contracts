@@ -208,6 +208,52 @@ fn whitelist() {
             }]
         }
     );
+
+    let msg = HandleMsg::UpdateWhitelist {
+        collateral_token: HumanAddr::from("bluna"),
+        custody_contract: Some(HumanAddr::from("custody2")),
+        ltv: Some(Decimal::percent(30)),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let res = handle(&mut deps, env, msg.clone());
+    match res {
+        Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    };
+
+    let env = mock_env("owner", &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "update_whitelist"),
+            log("collateral_token", "bluna"),
+            log("custody_contract", "custody2"),
+            log("LTV", "0.3"),
+        ]
+    );
+
+    let res = query(
+        &deps,
+        QueryMsg::Whitelist {
+            collateral_token: Some(HumanAddr::from("bluna")),
+            start_after: None,
+            limit: None,
+        },
+    )
+    .unwrap();
+    let whitelist_res: WhitelistResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        whitelist_res,
+        WhitelistResponse {
+            elems: vec![WhitelistResponseElem {
+                collateral_token: HumanAddr::from("bluna"),
+                custody_contract: HumanAddr::from("custody2"),
+                ltv: Decimal::percent(30),
+            }]
+        }
+    );
 }
 
 #[test]

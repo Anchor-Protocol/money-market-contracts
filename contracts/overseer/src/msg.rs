@@ -55,6 +55,12 @@ pub enum HandleMsg {
         custody_contract: HumanAddr, // bAsset custody contract
         ltv: Decimal,                // Loan To Value ratio
     },
+    /// Update registered whitelist info
+    UpdateWhitelist {
+        collateral_token: HumanAddr,         // bAsset token contract
+        custody_contract: Option<HumanAddr>, // bAsset custody contract
+        ltv: Option<Decimal>,                // Loan To Value ratio
+    },
 
     /// Claims all staking rewards from the bAsset contracts
     /// and also do a epoch basis updates
