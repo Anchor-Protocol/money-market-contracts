@@ -232,7 +232,7 @@ pub fn query_all_collaterals<S: Storage, A: Api, Q: Querier>(
 }
 
 #[allow(clippy::ptr_arg)]
-fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
+pub(crate) fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collaterals: &Tokens,
 ) -> StdResult<(Uint256, Vec<Decimal256>)> {
