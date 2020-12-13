@@ -1,7 +1,7 @@
 use crate::deposit::compute_exchange_rate;
 use crate::state::{Config, State};
 use crate::testing::mock_querier::mock_dependencies;
-use cosmwasm_bignumber::Decimal256;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{Api, Coin, HumanAddr, Uint128};
 
@@ -53,9 +53,9 @@ fn proper_compute_exchange_rate() {
         last_interest_updated: env.block.height,
         global_interest_index: Decimal256::one(),
     };
-    let mock_deposit_amount = Some(Uint128::from(1000000u128));
+    let mock_deposit_amount = Some(Uint256::from(1000000u128));
 
     let exchange_rate =
-        compute_exchange_rate(&deps, &env, &mock_config, &mock_state, mock_deposit_amount).unwrap();
+        compute_exchange_rate(&deps, &mock_config, &mock_state, mock_deposit_amount).unwrap();
     assert_eq!(exchange_rate, Decimal256::percent(50));
 }

@@ -199,7 +199,7 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
 }
 
 /// Compute new interest and apply to liability
-fn compute_loan(state: &State, liability: &mut Liability) {
+pub(crate) fn compute_loan(state: &State, liability: &mut Liability) {
     liability.loan_amount =
         liability.loan_amount * state.global_interest_index / liability.interest_index;
     liability.interest_index = state.global_interest_index;
