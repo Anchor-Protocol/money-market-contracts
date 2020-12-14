@@ -3,7 +3,7 @@ use crate::msg::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LiabilityResponse, LoanAmountResponse,
     QueryMsg,
 };
-use crate::state::{store_state, State};
+use crate::state::{read_liabilities, read_state, store_state, State};
 use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
@@ -847,6 +847,17 @@ fn repay_stable() {
 
     env.message.sent_funds = vec![Coin {
         denom: "uusd".to_string(),
+        amount: Uint128::zero(),
+    }];
+
+    let res2 = handle(&mut deps, env.clone(), msg.clone());
+    match res2 {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot repay zero coins"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    env.message.sent_funds = vec![Coin {
+        denom: "uusd".to_string(),
         amount: Uint128(100000u128),
     }];
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
@@ -857,6 +868,18 @@ fn repay_stable() {
             log("borrower", "addr0000"),
             log("repay_amount", "100000"),
         ]
+    );
+
+    //Loan amount and Total liability have decreased according to the repayment
+    let res_loan = read_liabilities(&deps, None, None)
+        .unwrap()
+        .get(0)
+        .unwrap()
+        .loan_amount;
+    assert_eq!(res_loan, Uint128(400000));
+    assert_eq!(
+        read_state(&deps.storage).unwrap().total_liabilities,
+        Decimal256::from_uint256(2400000u128)
     );
 
     env.message.sent_funds = vec![Coin {
@@ -871,6 +894,18 @@ fn repay_stable() {
             log("borrower", "addr0000"),
             log("repay_amount", "400000"),
         ]
+    );
+
+    //Loan amount and Total liability have decreased according to the repayment
+    let res_loan = read_liabilities(&deps, None, None)
+        .unwrap()
+        .get(0)
+        .unwrap()
+        .loan_amount;
+    assert_eq!(res_loan, Uint128::zero());
+    assert_eq!(
+        read_state(&deps.storage).unwrap().total_liabilities,
+        Decimal256::from_uint256(2000000u128)
     );
 
     assert_eq!(
