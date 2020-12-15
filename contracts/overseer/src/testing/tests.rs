@@ -685,12 +685,12 @@ fn unlock_collateral() {
 
     //testing for unlocking more collaterals
     deps.querier
-        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint128::from(125999900u128))]);
+        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(125999900u128))]);
 
     let msg = HandleMsg::UnlockCollateral {
         collaterals: vec![
-            (HumanAddr::from("bluna"), Uint128::from(1u128)),
-            (HumanAddr::from("batom"), Uint128::from(1u128)),
+            (HumanAddr::from("bluna"), Uint256::from(1u128)),
+            (HumanAddr::from("batom"), Uint256::from(1u128)),
         ],
     };
     let res = handle(&mut deps, env.clone(), msg).unwrap();
@@ -698,20 +698,20 @@ fn unlock_collateral() {
         res.messages,
         vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("bluna"),
+                contract_addr: HumanAddr::from("custody_bluna"),
                 send: vec![],
                 msg: to_binary(&CustodyHandleMsg::UnlockCollateral {
                     borrower: HumanAddr::from("addr0000"),
-                    amount: Uint128::from(1u128),
+                    amount: Uint256::from(1u128),
                 })
                 .unwrap(),
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("batom"),
+                contract_addr: HumanAddr::from("custody_batom"),
                 send: vec![],
                 msg: to_binary(&CustodyHandleMsg::UnlockCollateral {
                     borrower: HumanAddr::from("addr0000"),
-                    amount: Uint128::from(1u128),
+                    amount: Uint256::from(1u128),
                 })
                 .unwrap(),
             })
