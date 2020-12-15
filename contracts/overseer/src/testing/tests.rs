@@ -210,6 +210,22 @@ fn whitelist() {
         }
     );
 
+    //Attempting to whitelist already whitelisted collaterals
+    let msg = HandleMsg::Whitelist {
+        collateral_token: HumanAddr::from("bluna"),
+        custody_contract: HumanAddr::from("custody"),
+        ltv: Decimal256::percent(60),
+    };
+
+    let env = mock_env("owner", &[]);
+    let res = handle(&mut deps, env, msg).unwrap_err();
+    match res {
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "The collateral token was already registered")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
     let msg = HandleMsg::UpdateWhitelist {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: Some(HumanAddr::from("custody2")),
