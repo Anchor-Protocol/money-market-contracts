@@ -876,7 +876,7 @@ fn repay_stable() {
         .get(0)
         .unwrap()
         .loan_amount;
-    assert_eq!(res_loan, Uint128(400000));
+    assert_eq!(res_loan, Uint256::from(400000u128));
     assert_eq!(
         read_state(&deps.storage).unwrap().total_liabilities,
         Decimal256::from_uint256(2400000u128)
@@ -902,7 +902,7 @@ fn repay_stable() {
         .get(0)
         .unwrap()
         .loan_amount;
-    assert_eq!(res_loan, Uint128::zero());
+    assert_eq!(res_loan, Uint256::zero());
     assert_eq!(
         read_state(&deps.storage).unwrap().total_liabilities,
         Decimal256::from_uint256(2000000u128)

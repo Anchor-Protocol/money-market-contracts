@@ -2,8 +2,9 @@ use crate::collateral::compute_borrow_limit;
 use crate::contract::{handle, init};
 use crate::msg::{HandleMsg, InitMsg};
 use crate::testing::mock_querier::mock_dependencies;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::mock_env;
-use cosmwasm_std::{Api, Decimal, HumanAddr, Uint128};
+use cosmwasm_std::{Api, HumanAddr};
 use moneymarket::{Token, Tokens};
 
 #[test]
@@ -18,9 +19,9 @@ fn proper_compute_borrow_limit() {
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal::permille(3),
-        target_deposit_rate: Decimal::permille(5),
-        buffer_distribution_rate: Decimal::percent(20),
+        distribution_threshold: Decimal256::permille(3),
+        target_deposit_rate: Decimal256::permille(5),
+        buffer_distribution_rate: Decimal256::percent(20),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -30,7 +31,7 @@ fn proper_compute_borrow_limit() {
     let msg = HandleMsg::Whitelist {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
-        ltv: Decimal::percent(60),
+        ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -38,7 +39,7 @@ fn proper_compute_borrow_limit() {
     let msg = HandleMsg::Whitelist {
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
-        ltv: Decimal::percent(60),
+        ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -47,7 +48,7 @@ fn proper_compute_borrow_limit() {
         (
             &("bluna".to_string(), "uusd".to_string()),
             &(
-                Decimal::from_ratio(1000u128, 1u128),
+                Decimal256::from_uint256(1000u128),
                 env.block.time,
                 env.block.time,
             ),
@@ -55,7 +56,7 @@ fn proper_compute_borrow_limit() {
         (
             &("batom".to_string(), "uusd".to_string()),
             &(
-                Decimal::from_ratio(2000u128, 1u128),
+                Decimal256::from_uint256(2000u128),
                 env.block.time,
                 env.block.time,
             ),
@@ -67,22 +68,22 @@ fn proper_compute_borrow_limit() {
         deps.api
             .canonical_address(&HumanAddr::from("bluna"))
             .unwrap(),
-        Uint128(1000),
+        Uint256::from(1000u128),
     );
     collaterals.push(token1);
     let token2: Token = (
         deps.api
             .canonical_address(&HumanAddr::from("batom"))
             .unwrap(),
-        Uint128(1000),
+        Uint256::from(1000u128),
     );
     collaterals.push(token2);
 
     let res = compute_borrow_limit(&deps, &collaterals).unwrap();
-    let mut vec: Vec<Decimal> = vec![];
-    vec.push(Decimal::from_ratio(Uint128(1000), Uint128(1)));
-    vec.push(Decimal::from_ratio(Uint128(2000), Uint128(1)));
+    let mut vec: Vec<Decimal256> = vec![];
+    vec.push(Decimal256::from_uint256(1000u128));
+    vec.push(Decimal256::from_uint256(2000u128));
 
-    let res2 = (Uint128(1800000), vec);
+    let res2 = (Uint256::from(1800000u128), vec);
     assert_eq!(res, res2);
 }
