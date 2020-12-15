@@ -70,9 +70,21 @@ fn deposit_collateral() {
 
     // failed; cannot directly execute receive message
     let env = mock_env("addr0000", &[]);
-    let res = handle(&mut deps, env, msg.clone());
+    let res = handle(&mut deps, env.clone(), msg.clone());
     match res {
         Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    //no messages sent
+    let msg2 = HandleMsg::Receive(Cw20ReceiveMsg {
+        sender: HumanAddr::from("addr0000"),
+        amount: Uint128::from(100u128),
+        msg: None,
+    });
+    let res2 = handle(&mut deps, env.clone(), msg2.clone());
+    match res2 {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "data should be given"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
