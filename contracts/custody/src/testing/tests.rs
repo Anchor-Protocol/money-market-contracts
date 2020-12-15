@@ -273,6 +273,19 @@ fn lock_collateral() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
+    //locking more than spendable
+    let env2 = mock_env("overseer", &[]);
+    let msg2 = HandleMsg::LockCollateral {
+        borrower: HumanAddr::from("addr0000"),
+        amount: Uint256::from(200u128),
+    };
+    let res2 = handle(&mut deps, env2, msg2.clone()).unwrap_err();
+
+    assert_eq!(
+        res2,
+        StdError::generic_err(format!("Cannot lock more than spendable 100"))
+    );
+
     let env = mock_env("overseer", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
@@ -283,6 +296,17 @@ fn lock_collateral() {
             log("amount", "50"),
         ]
     );
+
+    //directly checking if spendable is decreased by amount
+    let spend = read_borrower_info(
+        &deps.storage,
+        &deps
+            .api
+            .canonical_address(&HumanAddr::from("addr0000"))
+            .unwrap(),
+    )
+    .spendable;
+    assert_eq!(spend, Uint256::from(50u128));
 
     let msg = HandleMsg::WithdrawCollateral {
         amount: Some(Uint256::from(51u64)),
