@@ -9,11 +9,11 @@ use crate::msg::{
     AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse, ConfigResponse, HandleMsg,
     InitMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
-use crate::state::EpochState;
+use crate::state::{read_epoch_state, EpochState};
 use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
-use moneymarket::{deduct_tax, CustodyHandleMsg, MarketHandleMsg};
+use moneymarket::{deduct_tax, query_epoch_state, CustodyHandleMsg, MarketHandleMsg};
 
 #[test]
 fn proper_initialization() {
@@ -415,6 +415,24 @@ fn execute_epoch_operations() {
             log("a_token_supply", "1000000"),
         ]
     );
+
+    let epoch_state_response = query_epoch_state(&deps, &HumanAddr::from("market")).unwrap();
+    let epoch_state = read_epoch_state(&deps.storage).unwrap();
+
+    // deposit rate = 0.000000482253078703
+    assert_eq!(
+        epoch_state.deposit_rate,
+        Decimal256::from_ratio(482253086419u64, 1000000000000000000u64)
+    );
+    assert_eq!(
+        epoch_state.prev_a_token_supply,
+        epoch_state_response.a_token_supply
+    );
+    assert_eq!(
+        epoch_state.prev_exchange_rate,
+        epoch_state_response.exchange_rate
+    );
+    assert_eq!(epoch_state.last_executed_height, env.block.height);
 }
 
 #[test]

@@ -3,7 +3,10 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
-use moneymarket_liquidation::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg, BidResponse, BidsResponse, Cw20HookMsg, LiquidationAmountResponse};
+use moneymarket_liquidation::msg::{
+    BidResponse, BidsResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg,
+    LiquidationAmountResponse, QueryMsg,
+};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
