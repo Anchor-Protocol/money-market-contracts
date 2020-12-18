@@ -73,7 +73,7 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     let collaterals: Tokens = collaterals_human.to_raw(&deps)?;
 
     // Underflow check is done in sub_collateral
-    if cur_collaterals.sub(collaterals).is_err() {
+    if cur_collaterals.sub(collaterals.clone()).is_err() {
         return Err(StdError::generic_err("Cannot unlock more than you have"));
     }
 
@@ -90,9 +90,10 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     store_collaterals(&mut deps.storage, &borrower_raw, &cur_collaterals)?;
 
     let mut messages: Vec<CosmosMsg> = vec![];
-    for collateral in collaterals_human.clone() {
+    for collateral in collaterals.clone() {
+        let whitelist_elem: WhitelistElem = read_whitelist_elem(&deps.storage, &collateral.0)?;
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: collateral.0,
+            contract_addr: deps.api.human_address(&whitelist_elem.custody_contract)?,
             send: vec![],
             msg: to_binary(&CustodyHandleMsg::UnlockCollateral {
                 borrower: borrower.clone(),

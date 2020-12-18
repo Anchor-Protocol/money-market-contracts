@@ -664,7 +664,7 @@ fn unlock_collateral() {
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("bluna"),
+            contract_addr: HumanAddr::from("custody_bluna"),
             send: vec![],
             msg: to_binary(&CustodyHandleMsg::UnlockCollateral {
                 borrower: HumanAddr::from("addr0000"),
