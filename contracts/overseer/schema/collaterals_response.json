@@ -19,7 +19,7 @@
             "$ref": "#/definitions/HumanAddr"
           },
           {
-            "$ref": "#/definitions/Uint128"
+            "$ref": "#/definitions/Uint256"
           }
         ],
         "maxItems": 2,
@@ -31,7 +31,7 @@
     "HumanAddr": {
       "type": "string"
     },
-    "Uint128": {
+    "Uint256": {
       "type": "string"
     }
   }

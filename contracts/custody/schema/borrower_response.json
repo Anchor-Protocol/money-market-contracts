@@ -9,20 +9,20 @@
   ],
   "properties": {
     "balance": {
-      "$ref": "#/definitions/Uint128"
+      "$ref": "#/definitions/Uint256"
     },
     "borrower": {
       "$ref": "#/definitions/HumanAddr"
     },
     "spendable": {
-      "$ref": "#/definitions/Uint128"
+      "$ref": "#/definitions/Uint256"
     }
   },
   "definitions": {
     "HumanAddr": {
       "type": "string"
     },
-    "Uint128": {
+    "Uint256": {
       "type": "string"
     }
   }

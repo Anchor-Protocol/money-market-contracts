@@ -20,7 +20,7 @@
               "$ref": "#/definitions/HumanAddr"
             },
             "prev_balance": {
-              "$ref": "#/definitions/Uint128"
+              "$ref": "#/definitions/Uint256"
             }
           }
         }
@@ -52,7 +52,7 @@
           ],
           "properties": {
             "borrow_amount": {
-              "$ref": "#/definitions/Uint128"
+              "$ref": "#/definitions/Uint256"
             },
             "to": {
               "anyOf": [
@@ -85,7 +85,7 @@
     "HumanAddr": {
       "type": "string"
     },
-    "Uint128": {
+    "Uint256": {
       "type": "string"
     }
   }

@@ -27,6 +27,17 @@
     {
       "type": "object",
       "required": [
+        "epoch_state"
+      ],
+      "properties": {
+        "epoch_state": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "liability"
       ],
       "properties": {

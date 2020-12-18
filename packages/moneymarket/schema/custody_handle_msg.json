@@ -17,7 +17,7 @@
           ],
           "properties": {
             "amount": {
-              "$ref": "#/definitions/Uint128"
+              "$ref": "#/definitions/Uint256"
             },
             "borrower": {
               "$ref": "#/definitions/HumanAddr"
@@ -41,7 +41,7 @@
           ],
           "properties": {
             "amount": {
-              "$ref": "#/definitions/Uint128"
+              "$ref": "#/definitions/Uint256"
             },
             "borrower": {
               "$ref": "#/definitions/HumanAddr"
@@ -77,7 +77,7 @@
           ],
           "properties": {
             "amount": {
-              "$ref": "#/definitions/Uint128"
+              "$ref": "#/definitions/Uint256"
             },
             "borrower": {
               "$ref": "#/definitions/HumanAddr"
@@ -99,7 +99,7 @@
             "amount": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/Uint128"
+                  "$ref": "#/definitions/Uint256"
                 },
                 {
                   "type": "null"
@@ -115,7 +115,7 @@
     "HumanAddr": {
       "type": "string"
     },
-    "Uint128": {
+    "Uint256": {
       "type": "string"
     }
   }

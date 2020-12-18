@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Array_of_Tuple_of_and_CanonicalAddr_and_Uint128",
+  "title": "Array_of_Tuple_of_and_CanonicalAddr_and_Uint256",
   "type": "array",
   "items": {
     "type": "array",
@@ -9,7 +9,7 @@
         "$ref": "#/definitions/CanonicalAddr"
       },
       {
-        "$ref": "#/definitions/Uint128"
+        "$ref": "#/definitions/Uint256"
       }
     ],
     "maxItems": 2,
@@ -23,7 +23,7 @@
     "CanonicalAddr": {
       "$ref": "#/definitions/Binary"
     },
-    "Uint128": {
+    "Uint256": {
       "type": "string"
     }
   }
