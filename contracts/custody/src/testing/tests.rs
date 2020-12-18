@@ -222,6 +222,29 @@ fn withdraw_collateral() {
         }
     );
 
+    let msg = HandleMsg::WithdrawCollateral {
+        amount: Some(Uint256::from(40u128)),
+    };
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+    let query_res = query(
+        &deps,
+        QueryMsg::Borrower {
+            address: HumanAddr::from("addr0000"),
+        },
+    )
+    .unwrap();
+    let borrower_res: BorrowerResponse = from_binary(&query_res).unwrap();
+    assert_eq!(
+        borrower_res,
+        BorrowerResponse {
+            borrower: HumanAddr::from("addr0000"),
+            balance: Uint256::from(10u128),
+            spendable: Uint256::from(10u128),
+        }
+    );
+
+    //withdraw with "None" amount
+    let msg = HandleMsg::WithdrawCollateral { amount: None };
     let _res = handle(&mut deps, env, msg).unwrap();
     let query_res = query(
         &deps,
