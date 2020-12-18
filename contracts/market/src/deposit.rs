@@ -43,7 +43,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
 
     // Load anchor token exchange rate with updated state
     let exchange_rate = compute_exchange_rate(deps, &config, &state, Some(deposit_amount))?;
-    let mint_amount = Uint256::from(deposit_amount) / exchange_rate;
+    let mint_amount = deposit_amount / exchange_rate;
 
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
