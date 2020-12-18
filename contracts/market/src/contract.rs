@@ -4,14 +4,17 @@ use cosmwasm_std::{
     StdResult, Storage, WasmMsg,
 };
 
-use crate::borrow::{borrow_stable, repay_stable, repay_stable_from_liquidation};
-use crate::borrow::{query_liabilities, query_liability, query_loan_amount};
-use crate::deposit::{deposit_stable, redeem_stable};
-use crate::msg::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
+use crate::borrow::{
+    borrow_stable, query_liabilities, query_liability, query_loan_amount, repay_stable,
+    repay_stable_from_liquidation,
+};
+use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
+use crate::msg::{ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
 
 use cosmwasm_bignumber::Decimal256;
 use cw20::{Cw20ReceiveMsg, MinterResponse};
+use moneymarket::{query_balance, query_supply};
 use terraswap::{InitHook, TokenInitMsg};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -192,6 +195,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State {} => to_binary(&query_state(deps)?),
+        QueryMsg::EpochState {} => to_binary(&query_epoch_state(deps)?),
         QueryMsg::Liability { borrower } => to_binary(&query_liability(deps, borrower)?),
         QueryMsg::Liabilities { start_after, limit } => {
             to_binary(&query_liabilities(deps, start_after, limit)?)
@@ -220,4 +224,24 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
 pub fn query_state<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdResult<State> {
     let state: State = read_state(&deps.storage)?;
     Ok(state)
+}
+
+pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<EpochStateResponse> {
+    let config: Config = read_config(&deps.storage)?;
+    let state: State = read_state(&deps.storage)?;
+
+    let balance = query_balance(
+        &deps,
+        &deps.api.human_address(&config.contract_addr)?,
+        config.stable_denom.to_string(),
+    )?;
+    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
+    let exchange_rate = compute_exchange_rate_raw(&state, a_token_supply, balance)?;
+
+    Ok(EpochStateResponse {
+        exchange_rate,
+        a_token_supply,
+    })
 }

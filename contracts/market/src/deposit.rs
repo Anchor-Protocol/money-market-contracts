@@ -42,7 +42,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
     store_state(&mut deps.storage, &state)?;
 
     // Load anchor token exchange rate with updated state
-    let exchange_rate = compute_exchange_rate(deps, &env, &config, &state, Some(deposit_amount))?;
+    let exchange_rate = compute_exchange_rate(deps, &config, &state, Some(deposit_amount))?;
     let mint_amount = Uint256::from(deposit_amount) / exchange_rate;
 
     Ok(HandleResponse {
@@ -78,7 +78,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     store_state(&mut deps.storage, &state)?;
 
     // Load anchor token exchange rate with updated state
-    let exchange_rate = compute_exchange_rate(deps, &env, &config, &state, None)?;
+    let exchange_rate = compute_exchange_rate(deps, &config, &state, None)?;
     let redeem_amount = Uint256::from(burn_amount) * exchange_rate;
 
     Ok(HandleResponse {
@@ -113,26 +113,34 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
 
 fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    env: &Env,
     config: &Config,
     state: &State,
     deposit_amount: Option<Uint256>,
 ) -> StdResult<Decimal256> {
-    let anchor_token_supply = query_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
-    if anchor_token_supply.is_zero() {
+    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
+    if a_token_supply.is_zero() {
         return Ok(Decimal256::one());
     }
 
     let balance = query_balance(
         &deps,
-        &env.contract.address,
+        &deps.api.human_address(&config.contract_addr)?,
         config.stable_denom.to_string(),
     )? - deposit_amount.unwrap_or_else(Uint256::zero);
 
+    compute_exchange_rate_raw(state, a_token_supply, balance)
+}
+
+pub fn compute_exchange_rate_raw(
+    state: &State,
+    a_token_supply: Uint256,
+    contract_balance: Uint256,
+) -> StdResult<Decimal256> {
     // (anchor_token / stable_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / anchor_token_supply
     Ok(
-        (Decimal256::from_uint256(balance) + state.total_liabilities - state.total_reserves)
-            / Decimal256::from_uint256(anchor_token_supply),
+        (Decimal256::from_uint256(contract_balance) + state.total_liabilities
+            - state.total_reserves)
+            / Decimal256::from_uint256(a_token_supply),
     )
 }

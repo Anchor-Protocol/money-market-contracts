@@ -87,6 +87,7 @@ pub enum Cw20HookMsg {
 pub enum QueryMsg {
     Config {},
     State {},
+    EpochState {},
     Liability {
         borrower: HumanAddr,
     },
@@ -109,6 +110,13 @@ pub struct ConfigResponse {
     pub overseer_contract: HumanAddr,
     pub stable_denom: String,
     pub reserve_factor: Decimal256,
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct EpochStateResponse {
+    pub exchange_rate: Decimal256,
+    pub a_token_supply: Uint256,
 }
 
 // We define a custom struct for each query response
