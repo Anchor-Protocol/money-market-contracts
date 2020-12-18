@@ -6,7 +6,7 @@ use crate::msg::{
 use crate::state::{store_state, State};
 use crate::testing::mock_querier::mock_dependencies;
 
-use cosmwasm_bignumber::Decimal256;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, log, to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
@@ -615,7 +615,7 @@ fn borrow_stable() {
     deps.querier
         .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
     deps.querier
-        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint128::from(1000000u128))]);
+        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint256::from(1000000u64))]);
 
     store_state(
         &mut deps.storage,
@@ -629,7 +629,7 @@ fn borrow_stable() {
     .unwrap();
 
     let msg = HandleMsg::BorrowStable {
-        borrow_amount: Uint128::from(500000u128),
+        borrow_amount: Uint256::from(500000u64),
         to: None,
     };
 
@@ -693,7 +693,7 @@ fn borrow_stable() {
         LiabilityResponse {
             borrower: HumanAddr::from("addr0000"),
             interest_index: Decimal256::from_uint256(2u128),
-            loan_amount: Uint128::from(500000u128),
+            loan_amount: Uint256::from(500000u64),
         }
     );
 
@@ -711,7 +711,7 @@ fn borrow_stable() {
         loan_amount,
         LoanAmountResponse {
             borrower: HumanAddr::from("addr0000"),
-            loan_amount: Uint128::from(500000u128),
+            loan_amount: Uint256::from(500000u64),
         }
     );
 
@@ -731,13 +731,13 @@ fn borrow_stable() {
         loan_amount,
         LoanAmountResponse {
             borrower: HumanAddr::from("addr0000"),
-            loan_amount: Uint128::from(1000000u128),
+            loan_amount: Uint256::from(1000000u64),
         }
     );
 
     // Cannot borrow more than borrow limit
     let msg = HandleMsg::BorrowStable {
-        borrow_amount: Uint128::from(500001u128),
+        borrow_amount: Uint256::from(500001u64),
         to: None,
     };
     let res = handle(&mut deps, env.clone(), msg);
@@ -788,7 +788,7 @@ fn repay_stable() {
     deps.querier
         .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
     deps.querier
-        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint128::from(1000000u128))]);
+        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint256::from(1000000u64))]);
 
     store_state(
         &mut deps.storage,
@@ -802,7 +802,7 @@ fn repay_stable() {
     .unwrap();
 
     let msg = HandleMsg::BorrowStable {
-        borrow_amount: Uint128::from(500000u128),
+        borrow_amount: Uint256::from(500000u64),
         to: None,
     };
 
@@ -901,7 +901,7 @@ fn repay_stable_from_liquidation() {
     deps.querier
         .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
     deps.querier
-        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint128::from(1000000u128))]);
+        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint256::from(1000000u64))]);
 
     store_state(
         &mut deps.storage,
@@ -915,7 +915,7 @@ fn repay_stable_from_liquidation() {
     .unwrap();
 
     let msg = HandleMsg::BorrowStable {
-        borrow_amount: Uint128::from(500000u128),
+        borrow_amount: Uint256::from(500000u64),
         to: None,
     };
 
@@ -933,7 +933,7 @@ fn repay_stable_from_liquidation() {
 
     let msg = HandleMsg::RepayStableFromLiquidation {
         borrower: HumanAddr::from("addr0000"),
-        prev_balance: Uint128::zero(),
+        prev_balance: Uint256::zero(),
     };
 
     let res = handle(&mut deps, env.clone(), msg.clone());

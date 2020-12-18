@@ -1,7 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{HumanAddr, Uint128};
+use cosmwasm_bignumber::Uint256;
+use cosmwasm_std::HumanAddr;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -13,12 +14,12 @@ pub enum CustodyHandleMsg {
     /// Make specified amount of tokens unspendable
     LockCollateral {
         borrower: HumanAddr,
-        amount: Uint128,
+        amount: Uint256,
     },
     /// Make specified amount of collateral tokens spendable
     UnlockCollateral {
         borrower: HumanAddr,
-        amount: Uint128,
+        amount: Uint256,
     },
     /// Claim bAsset rewards and distribute claimed rewards
     /// to market and overseer contracts
@@ -26,7 +27,7 @@ pub enum CustodyHandleMsg {
     /// Liquidate colalteral and send liquidated collateral to `to` address
     LiquidateCollateral {
         borrower: HumanAddr,
-        amount: Uint128,
+        amount: Uint256,
     },
 
     ////////////////////
@@ -36,7 +37,7 @@ pub enum CustodyHandleMsg {
     /// Withdraw spendable collateral token.
     /// If the amount is not given,
     /// return all spendable collateral
-    WithdrawCollateral { amount: Option<Uint128> },
+    WithdrawCollateral { amount: Option<Uint256> },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -48,7 +49,7 @@ pub enum MarketHandleMsg {
     /// Repay stable with liquidated collaterals
     RepayStableFromLiquidation {
         borrower: HumanAddr,
-        prev_balance: Uint128,
+        prev_balance: Uint256,
     },
 
     ////////////////////
@@ -59,7 +60,7 @@ pub enum MarketHandleMsg {
 
     /// Borrow stable asset with collaterals in overseer contract
     BorrowStable {
-        borrow_amount: Uint128,
+        borrow_amount: Uint256,
         to: Option<HumanAddr>,
     },
 

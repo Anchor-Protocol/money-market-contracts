@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_bignumber::Decimal256;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr,
@@ -136,11 +136,11 @@ pub(crate) fn borrower_rate_to_map(
 #[derive(Clone, Default)]
 pub struct BorrowLimitQuerier {
     // this lets us iterate over all pairs that match the first string
-    borrow_limit: HashMap<HumanAddr, Uint128>,
+    borrow_limit: HashMap<HumanAddr, Uint256>,
 }
 
 impl BorrowLimitQuerier {
-    pub fn new(borrow_limit: &[(&HumanAddr, &Uint128)]) -> Self {
+    pub fn new(borrow_limit: &[(&HumanAddr, &Uint256)]) -> Self {
         BorrowLimitQuerier {
             borrow_limit: borrow_limit_to_map(borrow_limit),
         }
@@ -148,9 +148,9 @@ impl BorrowLimitQuerier {
 }
 
 pub(crate) fn borrow_limit_to_map(
-    borrow_limit: &[(&HumanAddr, &Uint128)],
-) -> HashMap<HumanAddr, Uint128> {
-    let mut borrow_limit_map: HashMap<HumanAddr, Uint128> = HashMap::new();
+    borrow_limit: &[(&HumanAddr, &Uint256)],
+) -> HashMap<HumanAddr, Uint256> {
+    let mut borrow_limit_map: HashMap<HumanAddr, Uint256> = HashMap::new();
     for (market_contract, borrow_limit) in borrow_limit.iter() {
         borrow_limit_map.insert((*market_contract).clone(), **borrow_limit);
     }
@@ -335,7 +335,7 @@ impl WasmMockQuerier {
         self.borrow_rate_querier = BorrowRateQuerier::new(borrow_rate);
     }
 
-    pub fn with_borrow_limit(&mut self, borrow_limit: &[(&HumanAddr, &Uint128)]) {
+    pub fn with_borrow_limit(&mut self, borrow_limit: &[(&HumanAddr, &Uint256)]) {
         self.borrow_limit_querier = BorrowLimitQuerier::new(borrow_limit);
     }
 }

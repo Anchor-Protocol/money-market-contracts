@@ -1,3 +1,4 @@
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     from_binary, log, to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
     WasmMsg,
@@ -25,9 +26,9 @@ fn proper_initialization() {
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal::permille(3),
-        target_deposit_rate: Decimal::permille(5),
-        buffer_distribution_rate: Decimal::percent(20),
+        distribution_threshold: Decimal256::permille(3),
+        target_deposit_rate: Decimal256::permille(5),
+        buffer_distribution_rate: Decimal256::percent(20),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -43,16 +44,16 @@ fn proper_initialization() {
     assert_eq!(HumanAddr::from("liquidation"), config_res.liquidation_model);
     assert_eq!("uusd".to_string(), config_res.stable_denom);
     assert_eq!(86400u64, config_res.epoch_period);
-    assert_eq!(Decimal::permille(3), config_res.distribution_threshold);
-    assert_eq!(Decimal::permille(5), config_res.target_deposit_rate);
-    assert_eq!(Decimal::percent(20), config_res.buffer_distribution_rate);
+    assert_eq!(Decimal256::permille(3), config_res.distribution_threshold);
+    assert_eq!(Decimal256::permille(5), config_res.target_deposit_rate);
+    assert_eq!(Decimal256::percent(20), config_res.buffer_distribution_rate);
 
     let query_res = query(&deps, QueryMsg::EpochState {}).unwrap();
     let epoch_state: EpochState = from_binary(&query_res).unwrap();
-    assert_eq!(Decimal::zero(), epoch_state.deposit_rate);
+    assert_eq!(Decimal256::zero(), epoch_state.deposit_rate);
     assert_eq!(env.block.height, epoch_state.last_executed_height);
-    assert_eq!(Uint128::zero(), epoch_state.prev_a_token_supply);
-    assert_eq!(Decimal::one(), epoch_state.prev_exchange_rate);
+    assert_eq!(Uint256::zero(), epoch_state.prev_a_token_supply);
+    assert_eq!(Decimal256::one(), epoch_state.prev_exchange_rate);
 }
 
 #[test]
@@ -67,9 +68,9 @@ fn update_config() {
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal::permille(3),
-        target_deposit_rate: Decimal::permille(5),
-        buffer_distribution_rate: Decimal::percent(20),
+        distribution_threshold: Decimal256::permille(3),
+        target_deposit_rate: Decimal256::permille(5),
+        buffer_distribution_rate: Decimal256::percent(20),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -101,9 +102,9 @@ fn update_config() {
         owner_addr: None,
         oracle_contract: Some(HumanAddr("oracle1".to_string())),
         liquidation_model: Some(HumanAddr("liquidation1".to_string())),
-        distribution_threshold: Some(Decimal::permille(1)),
-        target_deposit_rate: Some(Decimal::permille(2)),
-        buffer_distribution_rate: Some(Decimal::percent(10)),
+        distribution_threshold: Some(Decimal256::permille(1)),
+        target_deposit_rate: Some(Decimal256::permille(2)),
+        buffer_distribution_rate: Some(Decimal256::percent(10)),
         epoch_period: Some(100000u64),
     };
 
@@ -119,9 +120,9 @@ fn update_config() {
         HumanAddr::from("liquidation1"),
         config_res.liquidation_model
     );
-    assert_eq!(Decimal::permille(1), config_res.distribution_threshold);
-    assert_eq!(Decimal::permille(2), config_res.target_deposit_rate);
-    assert_eq!(Decimal::percent(10), config_res.buffer_distribution_rate);
+    assert_eq!(Decimal256::permille(1), config_res.distribution_threshold);
+    assert_eq!(Decimal256::permille(2), config_res.target_deposit_rate);
+    assert_eq!(Decimal256::percent(10), config_res.buffer_distribution_rate);
     assert_eq!(100000u64, config_res.epoch_period);
 
     // Unauthorzied err
@@ -155,9 +156,9 @@ fn whitelist() {
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal::permille(3),
-        target_deposit_rate: Decimal::permille(5),
-        buffer_distribution_rate: Decimal::percent(20),
+        distribution_threshold: Decimal256::permille(3),
+        target_deposit_rate: Decimal256::permille(5),
+        buffer_distribution_rate: Decimal256::percent(20),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -166,7 +167,7 @@ fn whitelist() {
     let msg = HandleMsg::Whitelist {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody"),
-        ltv: Decimal::percent(60),
+        ltv: Decimal256::percent(60),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -204,7 +205,7 @@ fn whitelist() {
             elems: vec![WhitelistResponseElem {
                 collateral_token: HumanAddr::from("bluna"),
                 custody_contract: HumanAddr::from("custody"),
-                ltv: Decimal::percent(60),
+                ltv: Decimal256::percent(60),
             }]
         }
     );
@@ -212,7 +213,7 @@ fn whitelist() {
     let msg = HandleMsg::UpdateWhitelist {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: Some(HumanAddr::from("custody2")),
-        ltv: Some(Decimal::percent(30)),
+        ltv: Some(Decimal256::percent(30)),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -250,7 +251,7 @@ fn whitelist() {
             elems: vec![WhitelistResponseElem {
                 collateral_token: HumanAddr::from("bluna"),
                 custody_contract: HumanAddr::from("custody2"),
-                ltv: Decimal::percent(30),
+                ltv: Decimal256::percent(30),
             }]
         }
     );
@@ -274,9 +275,9 @@ fn execute_epoch_operations() {
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal::from_ratio(1u128, 1000000u128),
-        target_deposit_rate: Decimal::permille(5),
-        buffer_distribution_rate: Decimal::percent(20),
+        distribution_threshold: Decimal256::from_ratio(1u64, 1000000u64),
+        target_deposit_rate: Decimal256::permille(5),
+        buffer_distribution_rate: Decimal256::percent(20),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -286,7 +287,7 @@ fn execute_epoch_operations() {
     let msg = HandleMsg::Whitelist {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
-        ltv: Decimal::percent(60),
+        ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -294,7 +295,7 @@ fn execute_epoch_operations() {
     let msg = HandleMsg::Whitelist {
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
-        ltv: Decimal::percent(60),
+        ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -311,7 +312,7 @@ fn execute_epoch_operations() {
     // If deposit_rate is bigger than distribution_threshold
     deps.querier.with_epoch_state(&[(
         &HumanAddr::from("market"),
-        &(Uint128::from(1000000u128), Decimal::percent(120)),
+        &(Uint256::from(1000000u64), Decimal256::percent(120)),
     )]);
 
     // (120 / 100 - 1) / 86400
@@ -347,7 +348,7 @@ fn execute_epoch_operations() {
     // If deposit rate is bigger than threshold
     deps.querier.with_epoch_state(&[(
         &HumanAddr::from("market"),
-        &(Uint128::from(1000000u128), Decimal::percent(125)),
+        &(Uint256::from(1000000u64), Decimal256::percent(125)),
     )]);
 
     deps.querier.with_tax(
@@ -358,7 +359,7 @@ fn execute_epoch_operations() {
     env.block.height += 86400u64;
 
     // (125 / 120 - 1) / 86400
-    // deposit rate = 0.000000482253078703
+    // deposit rate = 0.000000482253086419
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
     assert_eq!(
         res.messages,
@@ -370,7 +371,7 @@ fn execute_epoch_operations() {
                     &deps,
                     Coin {
                         denom: "uusd".to_string(),
-                        amount: Uint128::from(53706u128),
+                        amount: Uint128::from(53680u128),
                     }
                 )
                 .unwrap()]
@@ -392,8 +393,8 @@ fn execute_epoch_operations() {
         res.log,
         vec![
             log("action", "epoch_operations"),
-            log("distributed_interest", "53706"),
-            log("deposit_rate", "0.000000482253078703"),
+            log("distributed_interest", "53680"),
+            log("deposit_rate", "0.000000482253086419"),
             log("exchange_rate", "1.25"),
             log("a_token_supply", "1000000"),
         ]
@@ -412,9 +413,9 @@ fn lock_collateral() {
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal::permille(3),
-        target_deposit_rate: Decimal::permille(5),
-        buffer_distribution_rate: Decimal::percent(20),
+        distribution_threshold: Decimal256::permille(3),
+        target_deposit_rate: Decimal256::permille(5),
+        buffer_distribution_rate: Decimal256::percent(20),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -424,7 +425,7 @@ fn lock_collateral() {
     let msg = HandleMsg::Whitelist {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
-        ltv: Decimal::percent(60),
+        ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -432,15 +433,15 @@ fn lock_collateral() {
     let msg = HandleMsg::Whitelist {
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
-        ltv: Decimal::percent(60),
+        ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
 
     let msg = HandleMsg::LockCollateral {
         collaterals: vec![
-            (HumanAddr::from("bluna"), Uint128::from(1000000u128)),
-            (HumanAddr::from("batom"), Uint128::from(10000000u128)),
+            (HumanAddr::from("bluna"), Uint256::from(1000000u64)),
+            (HumanAddr::from("batom"), Uint256::from(10000000u64)),
         ],
     };
     let env = mock_env("addr0000", &[]);
@@ -453,7 +454,7 @@ fn lock_collateral() {
                 send: vec![],
                 msg: to_binary(&CustodyHandleMsg::LockCollateral {
                     borrower: HumanAddr::from("addr0000"),
-                    amount: Uint128::from(1000000u128),
+                    amount: Uint256::from(1000000u64),
                 })
                 .unwrap(),
             }),
@@ -462,7 +463,7 @@ fn lock_collateral() {
                 send: vec![],
                 msg: to_binary(&CustodyHandleMsg::LockCollateral {
                     borrower: HumanAddr::from("addr0000"),
-                    amount: Uint128::from(10000000u128),
+                    amount: Uint256::from(10000000u64),
                 })
                 .unwrap(),
             })
@@ -491,8 +492,8 @@ fn lock_collateral() {
         CollateralsResponse {
             borrower: HumanAddr::from("addr0000"),
             collaterals: vec![
-                (HumanAddr::from("batom"), Uint128::from(10000000u128)),
-                (HumanAddr::from("bluna"), Uint128::from(1000000u128)),
+                (HumanAddr::from("batom"), Uint256::from(10000000u64)),
+                (HumanAddr::from("bluna"), Uint256::from(1000000u64)),
             ]
         }
     );
@@ -512,8 +513,8 @@ fn lock_collateral() {
             all_collaterals: vec![CollateralsResponse {
                 borrower: HumanAddr::from("addr0000"),
                 collaterals: vec![
-                    (HumanAddr::from("batom"), Uint128::from(10000000u128)),
-                    (HumanAddr::from("bluna"), Uint128::from(1000000u128)),
+                    (HumanAddr::from("batom"), Uint256::from(10000000u64)),
+                    (HumanAddr::from("bluna"), Uint256::from(1000000u64)),
                 ]
             }]
         }
@@ -532,9 +533,9 @@ fn unlock_collateral() {
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal::permille(3),
-        target_deposit_rate: Decimal::permille(5),
-        buffer_distribution_rate: Decimal::percent(20),
+        distribution_threshold: Decimal256::permille(3),
+        target_deposit_rate: Decimal256::permille(5),
+        buffer_distribution_rate: Decimal256::percent(20),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -544,7 +545,7 @@ fn unlock_collateral() {
     let msg = HandleMsg::Whitelist {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
-        ltv: Decimal::percent(60),
+        ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -552,15 +553,15 @@ fn unlock_collateral() {
     let msg = HandleMsg::Whitelist {
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
-        ltv: Decimal::percent(60),
+        ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
 
     let msg = HandleMsg::LockCollateral {
         collaterals: vec![
-            (HumanAddr::from("bluna"), Uint128::from(1000000u128)),
-            (HumanAddr::from("batom"), Uint128::from(10000000u128)),
+            (HumanAddr::from("bluna"), Uint256::from(1000000u64)),
+            (HumanAddr::from("batom"), Uint256::from(10000000u64)),
         ],
     };
     let env = mock_env("addr0000", &[]);
@@ -569,8 +570,8 @@ fn unlock_collateral() {
     // Failed to unlock more than locked amount
     let msg = HandleMsg::UnlockCollateral {
         collaterals: vec![
-            (HumanAddr::from("bluna"), Uint128::from(1000001u128)),
-            (HumanAddr::from("batom"), Uint128::from(10000001u128)),
+            (HumanAddr::from("bluna"), Uint256::from(1000001u64)),
+            (HumanAddr::from("batom"), Uint256::from(10000001u64)),
         ],
     };
     let res = handle(&mut deps, env.clone(), msg);
@@ -585,7 +586,7 @@ fn unlock_collateral() {
         (
             &("bluna".to_string(), "uusd".to_string()),
             &(
-                Decimal::from_ratio(1000u128, 1u128),
+                Decimal256::from_ratio(1000u64, 1u64),
                 env.block.time,
                 env.block.time,
             ),
@@ -593,7 +594,7 @@ fn unlock_collateral() {
         (
             &("batom".to_string(), "uusd".to_string()),
             &(
-                Decimal::from_ratio(2000u128, 1u128),
+                Decimal256::from_ratio(2000u64, 1u64),
                 env.block.time,
                 env.block.time,
             ),
@@ -602,15 +603,13 @@ fn unlock_collateral() {
 
     // borrow_limit = 1000 * 1000000 * 0.6 + 2000 * 10000000 * 0.6
     // = 12,600,000,000 uusd
-    deps.querier.with_loan_amount(&[(
-        &HumanAddr::from("addr0000"),
-        &Uint128::from(12600000000u128),
-    )]);
+    deps.querier
+        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(12600000000u64))]);
 
     // cannot unlock any tokens
     // Failed to unlock more than locked amount
     let msg = HandleMsg::UnlockCollateral {
-        collaterals: vec![(HumanAddr::from("bluna"), Uint128::from(1u128))],
+        collaterals: vec![(HumanAddr::from("bluna"), Uint256::one())],
     };
     let res = handle(&mut deps, env.clone(), msg);
     match res {
@@ -621,7 +620,7 @@ fn unlock_collateral() {
     }
 
     let msg = HandleMsg::UnlockCollateral {
-        collaterals: vec![(HumanAddr::from("batom"), Uint128::from(1u128))],
+        collaterals: vec![(HumanAddr::from("batom"), Uint256::one())],
     };
     let res = handle(&mut deps, env.clone(), msg);
     match res {
@@ -633,10 +632,8 @@ fn unlock_collateral() {
 
     // borrow_limit = 1000 * 1000000 * 0.6 + 2000 * 10000000 * 0.6
     // = 12,600,000,000 uusd
-    deps.querier.with_loan_amount(&[(
-        &HumanAddr::from("addr0000"),
-        &Uint128::from(12599999400u128),
-    )]);
+    deps.querier
+        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(12599999400u64))]);
     let res = query(
         &deps,
         QueryMsg::BorrowLimit {
@@ -645,14 +642,11 @@ fn unlock_collateral() {
     )
     .unwrap();
     let borrow_limit_res: BorrowLimitResponse = from_binary(&res).unwrap();
-    assert_eq!(
-        borrow_limit_res.borrow_limit,
-        Uint128::from(12600000000u128),
-    );
+    assert_eq!(borrow_limit_res.borrow_limit, Uint256::from(12600000000u64),);
 
     // Cannot unlock 2bluna
     let msg = HandleMsg::UnlockCollateral {
-        collaterals: vec![(HumanAddr::from("bluna"), Uint128::from(2u128))],
+        collaterals: vec![(HumanAddr::from("bluna"), Uint256::from(2u64))],
     };
     let res = handle(&mut deps, env.clone(), msg);
     match res {
@@ -664,7 +658,7 @@ fn unlock_collateral() {
 
     // Can unlock 1bluna
     let msg = HandleMsg::UnlockCollateral {
-        collaterals: vec![(HumanAddr::from("bluna"), Uint128::from(1u128))],
+        collaterals: vec![(HumanAddr::from("bluna"), Uint256::one())],
     };
     let res = handle(&mut deps, env.clone(), msg).unwrap();
     assert_eq!(
@@ -674,7 +668,7 @@ fn unlock_collateral() {
             send: vec![],
             msg: to_binary(&CustodyHandleMsg::UnlockCollateral {
                 borrower: HumanAddr::from("addr0000"),
-                amount: Uint128::from(1u128),
+                amount: Uint256::one(),
             })
             .unwrap(),
         }),]
@@ -694,7 +688,7 @@ fn unlock_collateral() {
 fn liquidate_collateral() {
     let mut deps = mock_dependencies(20, &[]);
     deps.querier
-        .with_liquidation_percent(&[(&HumanAddr::from("liquidation"), &Decimal::percent(1))]);
+        .with_liquidation_percent(&[(&HumanAddr::from("liquidation"), &Decimal256::percent(1))]);
 
     let env = mock_env("owner", &[]);
     let msg = InitMsg {
@@ -704,9 +698,9 @@ fn liquidate_collateral() {
         liquidation_model: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal::permille(3),
-        target_deposit_rate: Decimal::permille(5),
-        buffer_distribution_rate: Decimal::percent(20),
+        distribution_threshold: Decimal256::permille(3),
+        target_deposit_rate: Decimal256::permille(5),
+        buffer_distribution_rate: Decimal256::percent(20),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -716,7 +710,7 @@ fn liquidate_collateral() {
     let msg = HandleMsg::Whitelist {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
-        ltv: Decimal::percent(60),
+        ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -724,15 +718,15 @@ fn liquidate_collateral() {
     let msg = HandleMsg::Whitelist {
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
-        ltv: Decimal::percent(60),
+        ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
 
     let msg = HandleMsg::LockCollateral {
         collaterals: vec![
-            (HumanAddr::from("bluna"), Uint128::from(1000000u128)),
-            (HumanAddr::from("batom"), Uint128::from(10000000u128)),
+            (HumanAddr::from("bluna"), Uint256::from(1000000u64)),
+            (HumanAddr::from("batom"), Uint256::from(10000000u64)),
         ],
     };
     let env = mock_env("addr0000", &[]);
@@ -742,7 +736,7 @@ fn liquidate_collateral() {
         (
             &("bluna".to_string(), "uusd".to_string()),
             &(
-                Decimal::from_ratio(1000u128, 1u128),
+                Decimal256::from_ratio(1000u64, 1u64),
                 env.block.time,
                 env.block.time,
             ),
@@ -750,7 +744,7 @@ fn liquidate_collateral() {
         (
             &("batom".to_string(), "uusd".to_string()),
             &(
-                Decimal::from_ratio(2000u128, 1u128),
+                Decimal256::from_ratio(2000u64, 1u64),
                 env.block.time,
                 env.block.time,
             ),
@@ -759,10 +753,8 @@ fn liquidate_collateral() {
 
     // borrow_limit = 1000 * 1000000 * 0.6 + 2000 * 10000000 * 0.6
     // = 12,600,000,000 uusd
-    deps.querier.with_loan_amount(&[(
-        &HumanAddr::from("addr0000"),
-        &Uint128::from(12600000000u128),
-    )]);
+    deps.querier
+        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(12600000000u64))]);
 
     let msg = HandleMsg::LiquidateCollateral {
         borrower: HumanAddr::from("addr0000"),
@@ -776,10 +768,8 @@ fn liquidate_collateral() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    deps.querier.with_loan_amount(&[(
-        &HumanAddr::from("addr0000"),
-        &Uint128::from(12600000001u128),
-    )]);
+    deps.querier
+        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(12600000001u64))]);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -789,7 +779,7 @@ fn liquidate_collateral() {
                 send: vec![],
                 msg: to_binary(&CustodyHandleMsg::LiquidateCollateral {
                     borrower: HumanAddr::from("addr0000"),
-                    amount: Uint128::from(100000u128),
+                    amount: Uint256::from(100000u64),
                 })
                 .unwrap(),
             }),
@@ -798,7 +788,7 @@ fn liquidate_collateral() {
                 send: vec![],
                 msg: to_binary(&CustodyHandleMsg::LiquidateCollateral {
                     borrower: HumanAddr::from("addr0000"),
-                    amount: Uint128::from(10000u128),
+                    amount: Uint256::from(10000u64),
                 })
                 .unwrap(),
             }),
@@ -807,7 +797,7 @@ fn liquidate_collateral() {
                 send: vec![],
                 msg: to_binary(&MarketHandleMsg::RepayStableFromLiquidation {
                     borrower: HumanAddr::from("addr0000"),
-                    prev_balance: Uint128::zero(),
+                    prev_balance: Uint256::zero(),
                 })
                 .unwrap(),
             })
@@ -827,8 +817,8 @@ fn liquidate_collateral() {
         CollateralsResponse {
             borrower: HumanAddr::from("addr0000"),
             collaterals: vec![
-                (HumanAddr::from("batom"), Uint128::from(9900000u128)),
-                (HumanAddr::from("bluna"), Uint128::from(990000u128)),
+                (HumanAddr::from("batom"), Uint256::from(9900000u64)),
+                (HumanAddr::from("bluna"), Uint256::from(990000u64)),
             ]
         }
     );

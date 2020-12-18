@@ -1,8 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_bignumber::Decimal256;
-use cosmwasm_std::{HumanAddr, Uint128};
+use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::HumanAddr;
 use cw20::Cw20ReceiveMsg;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -55,7 +55,7 @@ pub enum HandleMsg {
     /// Repay stable with liquidated collaterals
     RepayStableFromLiquidation {
         borrower: HumanAddr,
-        prev_balance: Uint128,
+        prev_balance: Uint256,
     },
 
     ////////////////////
@@ -66,7 +66,7 @@ pub enum HandleMsg {
 
     /// Borrow stable asset with collaterals in overseer contract
     BorrowStable {
-        borrow_amount: Uint128,
+        borrow_amount: Uint256,
         to: Option<HumanAddr>,
     },
 
@@ -116,7 +116,7 @@ pub struct ConfigResponse {
 pub struct LiabilityResponse {
     pub borrower: HumanAddr,
     pub interest_index: Decimal256,
-    pub loan_amount: Uint128,
+    pub loan_amount: Uint256,
 }
 
 // We define a custom struct for each query response
@@ -129,5 +129,5 @@ pub struct LiabilitiesResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LoanAmountResponse {
     pub borrower: HumanAddr,
-    pub loan_amount: Uint128,
+    pub loan_amount: Uint256,
 }

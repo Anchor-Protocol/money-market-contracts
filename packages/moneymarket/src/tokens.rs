@@ -1,9 +1,8 @@
-use cosmwasm_std::{
-    Api, CanonicalAddr, Extern, HumanAddr, Querier, StdError, StdResult, Storage, Uint128,
-};
+use cosmwasm_bignumber::Uint256;
+use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdError, StdResult, Storage};
 
-pub type Token = (CanonicalAddr, Uint128);
-pub type TokenHuman = (HumanAddr, Uint128);
+pub type Token = (CanonicalAddr, Uint256);
+pub type TokenHuman = (HumanAddr, Uint256);
 
 pub type Tokens = Vec<Token>;
 pub type TokensHuman = Vec<TokenHuman>;
@@ -21,10 +20,7 @@ pub trait TokensToHuman {
 }
 
 pub trait TokensToRaw {
-    fn to_raw<S: Storage, A: Api, Q: Querier>(
-        &self,
-        deps: &Extern<S, A, Q>,
-    ) -> StdResult<Tokens>;
+    fn to_raw<S: Storage, A: Api, Q: Querier>(&self, deps: &Extern<S, A, Q>) -> StdResult<Tokens>;
 }
 
 impl TokensMath for Tokens {
@@ -38,7 +34,11 @@ impl TokensMath for Tokens {
         let mut j = 0;
         while i < self.len() && j < tokens.len() {
             if self[i].0 == tokens[j].0 {
-                self[i].1 = (self[i].1 - tokens[j].1)?;
+                if self[i].1 < tokens[j].1 {
+                    return Err(StdError::generic_err("Subtraction underflow"));
+                }
+
+                self[i].1 = self[i].1 - tokens[j].1;
 
                 i += 1;
                 j += 1;
@@ -102,10 +102,7 @@ impl TokensToHuman for Tokens {
 }
 
 impl TokensToRaw for TokensHuman {
-    fn to_raw<S: Storage, A: Api, Q: Querier>(
-        &self,
-        deps: &Extern<S, A, Q>,
-    ) -> StdResult<Tokens> {
+    fn to_raw<S: Storage, A: Api, Q: Querier>(&self, deps: &Extern<S, A, Q>) -> StdResult<Tokens> {
         let collaterals: Tokens = self
             .iter()
             .map(|c| Ok((deps.api.canonical_address(&c.0)?, c.1)))

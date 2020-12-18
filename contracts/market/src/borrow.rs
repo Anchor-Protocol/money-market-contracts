@@ -1,12 +1,12 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     log, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    Querier, StdError, StdResult, Storage, Uint128,
+    Querier, StdError, StdResult, Storage,
 };
 use moneymarket::{
-    deduct_tax, query_borrow_limit, query_borrow_rate, BorrowLimitResponse, BorrowRateResponse,
+    deduct_tax, query_balance, query_borrow_limit, query_borrow_rate, BorrowLimitResponse,
+    BorrowRateResponse,
 };
-use terraswap::query_balance;
 
 use crate::msg::{LiabilitiesResponse, LiabilityResponse, LoanAmountResponse};
 use crate::state::{
@@ -17,7 +17,7 @@ use crate::state::{
 pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    borrow_amount: Uint128,
+    borrow_amount: Uint256,
     to: Option<HumanAddr>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
@@ -51,7 +51,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
                 &deps,
                 Coin {
                     denom: config.stable_denom,
-                    amount: borrow_amount,
+                    amount: borrow_amount.into(),
                 },
             )?],
         })],
@@ -68,14 +68,14 @@ pub fn repay_stable_from_liquidation<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     borrower: HumanAddr,
-    prev_balance: Uint128,
+    prev_balance: Uint256,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     if config.overseer_contract != deps.api.canonical_address(&env.message.sender)? {
         return Err(StdError::unauthorized());
     }
 
-    let cur_balance: Uint128 = query_balance(
+    let cur_balance: Uint256 = query_balance(
         &deps,
         &env.contract.address,
         config.stable_denom.to_string(),
@@ -87,7 +87,7 @@ pub fn repay_stable_from_liquidation<S: Storage, A: Api, Q: Querier>(
     env.message.sender = borrower;
     env.message.sent_funds = vec![Coin {
         denom: config.stable_denom,
-        amount: (cur_balance - prev_balance).unwrap(),
+        amount: (cur_balance - prev_balance).into(),
     }];
 
     repay_stable(deps, env)
@@ -100,13 +100,13 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
 
     // Check stable denom deposit
-    let amount: Uint128 = env
+    let amount: Uint256 = env
         .message
         .sent_funds
         .iter()
         .find(|c| c.denom == config.stable_denom)
-        .map(|c| c.amount)
-        .unwrap_or_else(Uint128::zero);
+        .map(|c| Uint256::from(c.amount))
+        .unwrap_or_else(Uint256::zero);
 
     // Cannot deposit zero amount
     if amount.is_zero() {
@@ -122,11 +122,11 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
     let mut liability: Liability = read_liability(&deps.storage, &borrower_raw);
     compute_loan(&state, &mut liability);
 
-    let repay_amount: Uint128;
+    let repay_amount: Uint256;
     let mut messages: Vec<CosmosMsg> = vec![];
     if liability.loan_amount < amount {
         repay_amount = liability.loan_amount;
-        liability.loan_amount = Uint128::zero();
+        liability.loan_amount = Uint256::zero();
 
         // Payback left repay amount to sender
         messages.push(CosmosMsg::Bank(BankMsg::Send {
@@ -136,13 +136,13 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
                 &deps,
                 Coin {
                     denom: config.stable_denom,
-                    amount: (amount - repay_amount)?,
+                    amount: (amount - repay_amount).into(),
                 },
             )?],
         }));
     } else {
         repay_amount = amount;
-        liability.loan_amount = (liability.loan_amount - repay_amount)?;
+        liability.loan_amount = liability.loan_amount - repay_amount;
     }
 
     state.total_liabilities = state.total_liabilities - Decimal256::from_uint256(repay_amount);
@@ -168,13 +168,13 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
     config: &Config,
     state: &mut State,
     block_height: u64,
-    deposit_amount: Option<Uint128>,
+    deposit_amount: Option<Uint256>,
 ) -> StdResult<()> {
-    let balance: Uint128 = (query_balance(
+    let balance: Uint256 = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
         config.stable_denom.to_string(),
-    )? - deposit_amount.unwrap_or_else(Uint128::zero))?;
+    )? - deposit_amount.unwrap_or_else(Uint256::zero);
 
     let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
         &deps,

@@ -1,11 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_bignumber::Decimal256;
-use cosmwasm_std::{
-    Api, CanonicalAddr, Extern, HumanAddr, Order, Querier, StdResult, Storage, Uint128,
-};
-use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
+use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Order, Querier, StdResult, Storage};
+use cosmwasm_storage::{bucket, bucket_read, ReadonlyBucket, ReadonlySingleton, Singleton};
 
 use crate::msg::LiabilityResponse;
 
@@ -36,7 +34,7 @@ pub struct State {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Liability {
     pub interest_index: Decimal256,
-    pub loan_amount: Uint128,
+    pub loan_amount: Uint256,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, data: &Config) -> StdResult<()> {
@@ -60,20 +58,15 @@ pub fn store_liability<S: Storage>(
     borrower: &CanonicalAddr,
     liability: &Liability,
 ) -> StdResult<()> {
-    let mut liability_bucket: Bucket<S, Liability> = Bucket::new(PREFIX_LIABILITY, storage);
-    liability_bucket.save(borrower.as_slice(), &liability)?;
-
-    Ok(())
+    bucket(PREFIX_LIABILITY, storage).save(borrower.as_slice(), liability)
 }
 
 pub fn read_liability<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> Liability {
-    let liability_bucket: ReadonlyBucket<S, Liability> =
-        ReadonlyBucket::new(PREFIX_LIABILITY, storage);
-    match liability_bucket.load(&borrower.as_slice()) {
+    match bucket_read(PREFIX_LIABILITY, storage).load(borrower.as_slice()) {
         Ok(v) => v,
         _ => Liability {
             interest_index: Decimal256::one(),
-            loan_amount: Uint128::zero(),
+            loan_amount: Uint256::zero(),
         },
     }
 }
@@ -87,7 +80,7 @@ pub fn read_liabilities<S: Storage, A: Api, Q: Querier>(
     limit: Option<u32>,
 ) -> StdResult<Vec<LiabilityResponse>> {
     let liability_bucket: ReadonlyBucket<S, Liability> =
-        ReadonlyBucket::new(PREFIX_LIABILITY, &deps.storage);
+        bucket_read(PREFIX_LIABILITY, &deps.storage);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = calc_range_start(start_after);

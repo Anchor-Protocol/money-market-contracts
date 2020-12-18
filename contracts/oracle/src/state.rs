@@ -2,7 +2,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::msg::PricesResponseElem;
-use cosmwasm_std::{CanonicalAddr, Decimal, Order, StdError, StdResult, Storage};
+use cosmwasm_bignumber::Decimal256;
+use cosmwasm_std::{CanonicalAddr, Order, StdError, StdResult, Storage};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 
 static PREFIX_PRICE: &[u8] = b"price";
@@ -24,7 +25,7 @@ pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PriceInfo {
-    pub price: Decimal,
+    pub price: Decimal256,
     pub last_updated_time: u64,
 }
 

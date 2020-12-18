@@ -1,8 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_bignumber::Decimal256;
-use cosmwasm_std::{HumanAddr, Uint128};
+use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::HumanAddr;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -26,7 +26,7 @@ pub enum HandleMsg {
 pub enum QueryMsg {
     Config {},
     BorrowRate {
-        market_balance: Uint128,
+        market_balance: Uint256,
         total_liabilities: Decimal256,
         total_reserve: Decimal256,
     },

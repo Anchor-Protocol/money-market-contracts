@@ -1,7 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{HumanAddr, Uint128};
+use cosmwasm_bignumber::Uint256;
+use cosmwasm_std::HumanAddr;
 use cw20::Cw20ReceiveMsg;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -35,12 +36,12 @@ pub enum HandleMsg {
     /// Make specified amount of tokens unspendable
     LockCollateral {
         borrower: HumanAddr,
-        amount: Uint128,
+        amount: Uint256,
     },
     /// Make specified amount of collateral tokens spendable
     UnlockCollateral {
         borrower: HumanAddr,
-        amount: Uint128,
+        amount: Uint256,
     },
     /// Claim bAsset rewards and distribute claimed rewards
     /// to market and overseer contracts
@@ -55,7 +56,7 @@ pub enum HandleMsg {
     /// Liquidate colalteral and send liquidated collateral to `to` address
     LiquidateCollateral {
         borrower: HumanAddr,
-        amount: Uint128,
+        amount: Uint256,
     },
 
     ////////////////////
@@ -65,7 +66,7 @@ pub enum HandleMsg {
     /// Withdraw spendable collateral token.
     /// If the amount is not given,
     /// return all spendable collateral
-    WithdrawCollateral { amount: Option<Uint128> },
+    WithdrawCollateral { amount: Option<Uint256> },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -103,8 +104,8 @@ pub struct ConfigResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BorrowerResponse {
     pub borrower: HumanAddr,
-    pub balance: Uint128,
-    pub spendable: Uint128,
+    pub balance: Uint256,
+    pub spendable: Uint256,
 }
 
 // We define a custom struct for each query response

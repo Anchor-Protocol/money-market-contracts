@@ -1,9 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    Api, CanonicalAddr, Decimal, Extern, HumanAddr, Order, Querier, StdError, StdResult, Storage,
-    Uint128,
+    Api, CanonicalAddr, Extern, HumanAddr, Order, Querier, StdError, StdResult, Storage,
 };
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
 use moneymarket::Tokens;
@@ -24,22 +24,22 @@ pub struct Config {
     pub liquidation_model: CanonicalAddr,
     pub stable_denom: String,
     pub epoch_period: u64,
-    pub distribution_threshold: Decimal,
-    pub target_deposit_rate: Decimal,
-    pub buffer_distribution_rate: Decimal,
+    pub distribution_threshold: Decimal256,
+    pub target_deposit_rate: Decimal256,
+    pub buffer_distribution_rate: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct EpochState {
-    pub deposit_rate: Decimal,
-    pub prev_a_token_supply: Uint128,
-    pub prev_exchange_rate: Decimal,
+    pub deposit_rate: Decimal256,
+    pub prev_a_token_supply: Uint256,
+    pub prev_exchange_rate: Decimal256,
     pub last_executed_height: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct WhitelistElem {
-    pub ltv: Decimal,
+    pub ltv: Decimal256,
     pub custody_contract: CanonicalAddr,
 }
 
@@ -150,10 +150,10 @@ pub fn read_all_collaterals<S: Storage, A: Api, Q: Querier>(
         .map(|elem| {
             let (k, v) = elem?;
             let borrower: HumanAddr = deps.api.human_address(&CanonicalAddr::from(k))?;
-            let collaterals: Vec<(HumanAddr, Uint128)> = v
+            let collaterals: Vec<(HumanAddr, Uint256)> = v
                 .iter()
                 .map(|c| Ok((deps.api.human_address(&c.0)?, c.1)))
-                .collect::<StdResult<Vec<(HumanAddr, Uint128)>>>()?;
+                .collect::<StdResult<Vec<(HumanAddr, Uint256)>>>()?;
 
             Ok(CollateralsResponse {
                 borrower,

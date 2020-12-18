@@ -1,9 +1,9 @@
+use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::{
-    log, to_binary, Api, Binary, Decimal, Env, Extern, HandleResponse, HandleResult, HumanAddr,
+    log, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr,
     InitResponse, Querier, StdError, StdResult, Storage,
 };
 
-use crate::math::decimal_division;
 use crate::msg::{
     ConfigResponse, HandleMsg, InitMsg, PriceResponse, PricesResponse, PricesResponseElem, QueryMsg,
 };
@@ -59,7 +59,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 pub fn feed_prices<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    prices: Vec<(String, Decimal)>,
+    prices: Vec<(String, Decimal256)>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
 
@@ -71,7 +71,7 @@ pub fn feed_prices<S: Storage, A: Api, Q: Querier>(
     let mut logs = vec![log("action", "feed_prices")];
     for price in prices {
         let asset: String = price.0;
-        let price: Decimal = price.1;
+        let price: Decimal256 = price.1;
 
         logs.push(log("asset", asset.to_string()));
         logs.push(log("price", price));
@@ -126,7 +126,7 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
     let quote_price = if config.base_asset == quote {
         PriceInfo {
-            price: Decimal::one(),
+            price: Decimal256::one(),
             last_updated_time: 9999999999,
         }
     } else {
@@ -135,7 +135,7 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
 
     let base_price = if config.base_asset == base {
         PriceInfo {
-            price: Decimal::one(),
+            price: Decimal256::one(),
             last_updated_time: 9999999999,
         }
     } else {
@@ -143,7 +143,7 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
     };
 
     Ok(PriceResponse {
-        rate: decimal_division(base_price.price, quote_price.price),
+        rate: base_price.price / quote_price.price,
         last_updated_base: base_price.last_updated_time,
         last_updated_quote: quote_price.last_updated_time,
     })
@@ -237,8 +237,8 @@ mod tests {
 
         let msg = HandleMsg::FeedPrice {
             prices: vec![
-                ("mAPPL".to_string(), Decimal::from_str("1.2").unwrap()),
-                ("mGOGL".to_string(), Decimal::from_str("2.2").unwrap()),
+                ("mAPPL".to_string(), Decimal256::from_str("1.2").unwrap()),
+                ("mGOGL".to_string(), Decimal256::from_str("2.2").unwrap()),
             ],
         };
         let env = mock_env("owner0000", &[]);
@@ -248,7 +248,7 @@ mod tests {
         assert_eq!(
             value,
             PriceResponse {
-                rate: Decimal::from_str("1.2").unwrap(),
+                rate: Decimal256::from_str("1.2").unwrap(),
                 last_updated_base: env.block.time,
                 last_updated_quote: 9999999999,
             }
@@ -259,7 +259,7 @@ mod tests {
         assert_eq!(
             value,
             PriceResponse {
-                rate: Decimal::from_str("1.833333333333333333").unwrap(),
+                rate: Decimal256::from_str("1.833333333333333333").unwrap(),
                 last_updated_base: env.block.time,
                 last_updated_quote: env.block.time,
             }
@@ -272,12 +272,12 @@ mod tests {
                 prices: vec![
                     PricesResponseElem {
                         asset: "mAPPL".to_string(),
-                        price: Decimal::from_str("1.2").unwrap(),
+                        price: Decimal256::from_str("1.2").unwrap(),
                         last_updated_time: env.block.time,
                     },
                     PricesResponseElem {
                         asset: "mGOGL".to_string(),
-                        price: Decimal::from_str("2.2").unwrap(),
+                        price: Decimal256::from_str("2.2").unwrap(),
                         last_updated_time: env.block.time,
                     }
                 ],
@@ -287,7 +287,7 @@ mod tests {
         // Unautorized try
         let env = mock_env("addr0001", &[]);
         let msg = HandleMsg::FeedPrice {
-            prices: vec![("mAPPL".to_string(), Decimal::from_str("1.2").unwrap())],
+            prices: vec![("mAPPL".to_string(), Decimal256::from_str("1.2").unwrap())],
         };
 
         let res = handle(&mut deps, env, msg);

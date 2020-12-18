@@ -1,6 +1,7 @@
+use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
     to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr, InitResponse,
-    Querier, StdError, StdResult, Storage, Uint128,
+    Querier, StdError, StdResult, Storage,
 };
 
 use crate::msg::{BorrowRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg};
@@ -100,7 +101,7 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
 
 fn query_borrow_rate<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    market_balance: Uint128,
+    market_balance: Uint256,
     total_liabilities: Decimal256,
     total_reserve: Decimal256,
 ) -> StdResult<BorrowRateResponse> {
@@ -151,7 +152,7 @@ mod tests {
 
         let value = query_borrow_rate(
             &deps,
-            Uint128::from(1000000u128),
+            Uint256::from(1000000u128),
             Decimal256::from_uint256(500000u128),
             Decimal256::from_uint256(100000u128),
         )
@@ -162,7 +163,7 @@ mod tests {
 
         let value = query_borrow_rate(
             &deps,
-            Uint128::zero(),
+            Uint256::zero(),
             Decimal256::zero(),
             Decimal256::zero(),
         )

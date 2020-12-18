@@ -1,3 +1,4 @@
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     from_binary, log, to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
     WasmMsg,
@@ -98,8 +99,8 @@ fn deposit_collateral() {
         borrower_res,
         BorrowerResponse {
             borrower: HumanAddr::from("addr0000"),
-            balance: Uint128::from(100u128),
-            spendable: Uint128::from(100u128),
+            balance: Uint256::from(100u128),
+            spendable: Uint256::from(100u128),
         }
     );
 
@@ -126,8 +127,8 @@ fn deposit_collateral() {
         borrower_res,
         BorrowerResponse {
             borrower: HumanAddr::from("addr0000"),
-            balance: Uint128::from(200u128),
-            spendable: Uint128::from(200u128),
+            balance: Uint256::from(200u128),
+            spendable: Uint256::from(200u128),
         }
     );
 }
@@ -166,7 +167,7 @@ fn withdraw_collateral() {
     );
 
     let msg = HandleMsg::WithdrawCollateral {
-        amount: Some(Uint128(110u128)),
+        amount: Some(Uint256::from(110u64)),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -179,7 +180,7 @@ fn withdraw_collateral() {
     }
 
     let msg = HandleMsg::WithdrawCollateral {
-        amount: Some(Uint128(50u128)),
+        amount: Some(Uint256::from(50u64)),
     };
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
     assert_eq!(
@@ -203,8 +204,8 @@ fn withdraw_collateral() {
         borrower_res,
         BorrowerResponse {
             borrower: HumanAddr::from("addr0000"),
-            balance: Uint128::from(50u128),
-            spendable: Uint128::from(50u128),
+            balance: Uint256::from(50u64),
+            spendable: Uint256::from(50u64),
         }
     );
 
@@ -221,8 +222,8 @@ fn withdraw_collateral() {
         borrower_res,
         BorrowerResponse {
             borrower: HumanAddr::from("addr0000"),
-            balance: Uint128::zero(),
-            spendable: Uint128::zero(),
+            balance: Uint256::zero(),
+            spendable: Uint256::zero(),
         }
     );
 }
@@ -262,7 +263,7 @@ fn lock_collateral() {
 
     let msg = HandleMsg::LockCollateral {
         borrower: HumanAddr::from("addr0000"),
-        amount: Uint128::from(50u128),
+        amount: Uint256::from(50u64),
     };
     let env = mock_env("addr0000", &[]);
     let res = handle(&mut deps, env, msg.clone());
@@ -283,7 +284,7 @@ fn lock_collateral() {
     );
 
     let msg = HandleMsg::WithdrawCollateral {
-        amount: Some(Uint128(51u128)),
+        amount: Some(Uint256::from(51u64)),
     };
     let env = mock_env("addr0000", &[]);
     let res = handle(&mut deps, env.clone(), msg);
@@ -295,7 +296,7 @@ fn lock_collateral() {
     }
 
     let msg = HandleMsg::WithdrawCollateral {
-        amount: Some(Uint128(50u128)),
+        amount: Some(Uint256::from(50u64)),
     };
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
@@ -319,15 +320,15 @@ fn lock_collateral() {
         borrower_res,
         BorrowerResponse {
             borrower: HumanAddr::from("addr0000"),
-            balance: Uint128::from(50u128),
-            spendable: Uint128::from(0u128),
+            balance: Uint256::from(50u64),
+            spendable: Uint256::from(0u64),
         }
     );
 
     // Unlock partial amount of collateral
     let msg = HandleMsg::UnlockCollateral {
         borrower: HumanAddr::from("addr0000"),
-        amount: Uint128::from(30u128),
+        amount: Uint256::from(30u64),
     };
     let env = mock_env("overseer", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
@@ -341,7 +342,7 @@ fn lock_collateral() {
     );
 
     let msg = HandleMsg::WithdrawCollateral {
-        amount: Some(Uint128(30u128)),
+        amount: Some(Uint256::from(30u64)),
     };
     let env = mock_env("addr0000", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
@@ -366,8 +367,8 @@ fn lock_collateral() {
         borrower_res,
         BorrowerResponse {
             borrower: HumanAddr::from("addr0000"),
-            balance: Uint128::from(20u128),
-            spendable: Uint128::from(0u128),
+            balance: Uint256::from(20u64),
+            spendable: Uint256::from(0u64),
         }
     );
 }
@@ -441,9 +442,9 @@ fn distribute_hook() {
     deps.querier.with_distribution_params(&[(
         &HumanAddr::from("overseer"),
         &(
-            Decimal::percent(30),
-            Decimal::percent(20),
-            Decimal::percent(30),
+            Decimal256::percent(30),
+            Decimal256::percent(20),
+            Decimal256::percent(30),
         ),
     )]);
 
@@ -499,7 +500,7 @@ fn distribute_hook() {
                 to_address: HumanAddr::from("overseer"),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128::from(99009u128)
+                    amount: Uint128::from(99010u128)
                 }],
             }),
             CosmosMsg::Bank(BankMsg::Send {
@@ -507,7 +508,7 @@ fn distribute_hook() {
                 to_address: HumanAddr::from("market"),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128::from(891089u128),
+                    amount: Uint128::from(891090u128),
                 }]
             }),
         ],
@@ -613,7 +614,7 @@ fn liquidate_collateral() {
 
     let msg = HandleMsg::LockCollateral {
         borrower: HumanAddr::from("addr0000"),
-        amount: Uint128::from(50u128),
+        amount: Uint256::from(50u64),
     };
     let env = mock_env("overseer", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
@@ -628,7 +629,7 @@ fn liquidate_collateral() {
 
     let msg = HandleMsg::LiquidateCollateral {
         borrower: HumanAddr::from("addr0000"),
-        amount: Uint128::from(100u128),
+        amount: Uint256::from(100u64),
     };
     let env = mock_env("addr0000", &[]);
     let res = handle(&mut deps, env, msg.clone());
@@ -647,7 +648,7 @@ fn liquidate_collateral() {
     }
     let msg = HandleMsg::LiquidateCollateral {
         borrower: HumanAddr::from("addr0000"),
-        amount: Uint128::from(10u128),
+        amount: Uint256::from(10u64),
     };
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(

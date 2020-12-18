@@ -1,4 +1,4 @@
-use cosmwasm_bignumber::Decimal256;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, from_slice, to_binary, Api, Coin, Decimal, Extern, HumanAddr, Querier,
@@ -72,11 +72,13 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 #[derive(Clone, Default)]
 pub struct DistributionParamsQuerier {
     // this lets us iterate over all pairs that match the first string
-    distribution_params: HashMap<HumanAddr, (Decimal, Decimal, Decimal)>,
+    distribution_params: HashMap<HumanAddr, (Decimal256, Decimal256, Decimal256)>,
 }
 
 impl DistributionParamsQuerier {
-    pub fn new(distribution_params: &[(&HumanAddr, &(Decimal, Decimal, Decimal))]) -> Self {
+    pub fn new(
+        distribution_params: &[(&HumanAddr, &(Decimal256, Decimal256, Decimal256))],
+    ) -> Self {
         DistributionParamsQuerier {
             distribution_params: distribution_params_to_map(distribution_params),
         }
@@ -84,9 +86,9 @@ impl DistributionParamsQuerier {
 }
 
 pub(crate) fn distribution_params_to_map(
-    caps: &[(&HumanAddr, &(Decimal, Decimal, Decimal))],
-) -> HashMap<HumanAddr, (Decimal, Decimal, Decimal)> {
-    let mut distribution_params_map: HashMap<HumanAddr, (Decimal, Decimal, Decimal)> =
+    caps: &[(&HumanAddr, &(Decimal256, Decimal256, Decimal256))],
+) -> HashMap<HumanAddr, (Decimal256, Decimal256, Decimal256)> {
+    let mut distribution_params_map: HashMap<HumanAddr, (Decimal256, Decimal256, Decimal256)> =
         HashMap::new();
     for (asset_token, distribution_params) in caps.iter() {
         distribution_params_map.insert((*asset_token).clone(), **distribution_params);
@@ -97,11 +99,11 @@ pub(crate) fn distribution_params_to_map(
 #[derive(Clone, Default)]
 pub struct OraclePriceQuerier {
     // this lets us iterate over all pairs that match the first string
-    oracle_price: HashMap<(String, String), (Decimal, u64, u64)>,
+    oracle_price: HashMap<(String, String), (Decimal256, u64, u64)>,
 }
 
 impl OraclePriceQuerier {
-    pub fn new(oracle_price: &[(&(String, String), &(Decimal, u64, u64))]) -> Self {
+    pub fn new(oracle_price: &[(&(String, String), &(Decimal256, u64, u64))]) -> Self {
         OraclePriceQuerier {
             oracle_price: oracle_price_to_map(oracle_price),
         }
@@ -109,9 +111,9 @@ impl OraclePriceQuerier {
 }
 
 pub(crate) fn oracle_price_to_map(
-    oracle_price: &[(&(String, String), &(Decimal, u64, u64))],
-) -> HashMap<(String, String), (Decimal, u64, u64)> {
-    let mut oracle_price_map: HashMap<(String, String), (Decimal, u64, u64)> = HashMap::new();
+    oracle_price: &[(&(String, String), &(Decimal256, u64, u64))],
+) -> HashMap<(String, String), (Decimal256, u64, u64)> {
+    let mut oracle_price_map: HashMap<(String, String), (Decimal256, u64, u64)> = HashMap::new();
     for (base_quote, oracle_price) in oracle_price.iter() {
         oracle_price_map.insert((*base_quote).clone(), **oracle_price);
     }
@@ -122,11 +124,11 @@ pub(crate) fn oracle_price_to_map(
 #[derive(Clone, Default)]
 pub struct EpochStateQuerier {
     // this lets us iterate over all pairs that match the first string
-    epoch_state: HashMap<HumanAddr, (Uint128, Decimal)>,
+    epoch_state: HashMap<HumanAddr, (Uint256, Decimal256)>,
 }
 
 impl EpochStateQuerier {
-    pub fn new(epoch_state: &[(&HumanAddr, &(Uint128, Decimal))]) -> Self {
+    pub fn new(epoch_state: &[(&HumanAddr, &(Uint256, Decimal256))]) -> Self {
         EpochStateQuerier {
             epoch_state: epoch_state_to_map(epoch_state),
         }
@@ -134,9 +136,9 @@ impl EpochStateQuerier {
 }
 
 pub(crate) fn epoch_state_to_map(
-    epoch_state: &[(&HumanAddr, &(Uint128, Decimal))],
-) -> HashMap<HumanAddr, (Uint128, Decimal)> {
-    let mut epoch_state_map: HashMap<HumanAddr, (Uint128, Decimal)> = HashMap::new();
+    epoch_state: &[(&HumanAddr, &(Uint256, Decimal256))],
+) -> HashMap<HumanAddr, (Uint256, Decimal256)> {
+    let mut epoch_state_map: HashMap<HumanAddr, (Uint256, Decimal256)> = HashMap::new();
     for (market_contract, epoch_state) in epoch_state.iter() {
         epoch_state_map.insert((*market_contract).clone(), **epoch_state);
     }
@@ -146,11 +148,11 @@ pub(crate) fn epoch_state_to_map(
 #[derive(Clone, Default)]
 pub struct LoanAmountQuerier {
     // this lets us iterate over all pairs that match the first string
-    loan_amount: HashMap<HumanAddr, Uint128>,
+    loan_amount: HashMap<HumanAddr, Uint256>,
 }
 
 impl LoanAmountQuerier {
-    pub fn new(loan_amount: &[(&HumanAddr, &Uint128)]) -> Self {
+    pub fn new(loan_amount: &[(&HumanAddr, &Uint256)]) -> Self {
         LoanAmountQuerier {
             loan_amount: loan_amount_to_map(loan_amount),
         }
@@ -158,9 +160,9 @@ impl LoanAmountQuerier {
 }
 
 pub(crate) fn loan_amount_to_map(
-    loan_amount: &[(&HumanAddr, &Uint128)],
-) -> HashMap<HumanAddr, Uint128> {
-    let mut loan_amount_map: HashMap<HumanAddr, Uint128> = HashMap::new();
+    loan_amount: &[(&HumanAddr, &Uint256)],
+) -> HashMap<HumanAddr, Uint256> {
+    let mut loan_amount_map: HashMap<HumanAddr, Uint256> = HashMap::new();
     for (market_contract, loan_amount) in loan_amount.iter() {
         loan_amount_map.insert((*market_contract).clone(), **loan_amount);
     }
@@ -194,11 +196,11 @@ pub(crate) fn borrower_rate_to_map(
 #[derive(Clone, Default)]
 pub struct BorrowLimitQuerier {
     // this lets us iterate over all pairs that match the first string
-    borrow_limit: HashMap<HumanAddr, Uint128>,
+    borrow_limit: HashMap<HumanAddr, Uint256>,
 }
 
 impl BorrowLimitQuerier {
-    pub fn new(borrow_limit: &[(&HumanAddr, &Uint128)]) -> Self {
+    pub fn new(borrow_limit: &[(&HumanAddr, &Uint256)]) -> Self {
         BorrowLimitQuerier {
             borrow_limit: borrow_limit_to_map(borrow_limit),
         }
@@ -206,9 +208,9 @@ impl BorrowLimitQuerier {
 }
 
 pub(crate) fn borrow_limit_to_map(
-    borrow_limit: &[(&HumanAddr, &Uint128)],
-) -> HashMap<HumanAddr, Uint128> {
-    let mut borrow_limit_map: HashMap<HumanAddr, Uint128> = HashMap::new();
+    borrow_limit: &[(&HumanAddr, &Uint256)],
+) -> HashMap<HumanAddr, Uint256> {
+    let mut borrow_limit_map: HashMap<HumanAddr, Uint256> = HashMap::new();
     for (market_contract, borrow_limit) in borrow_limit.iter() {
         borrow_limit_map.insert((*market_contract).clone(), **borrow_limit);
     }
@@ -218,11 +220,11 @@ pub(crate) fn borrow_limit_to_map(
 #[derive(Clone, Default)]
 pub struct LiquidationPercentQuerier {
     // this lets us iterate over all pairs that match the first string
-    liquidation_percent: HashMap<HumanAddr, Decimal>,
+    liquidation_percent: HashMap<HumanAddr, Decimal256>,
 }
 
 impl LiquidationPercentQuerier {
-    pub fn new(liquidation_percent: &[(&HumanAddr, &Decimal)]) -> Self {
+    pub fn new(liquidation_percent: &[(&HumanAddr, &Decimal256)]) -> Self {
         LiquidationPercentQuerier {
             liquidation_percent: liquidation_percent_to_map(liquidation_percent),
         }
@@ -230,9 +232,9 @@ impl LiquidationPercentQuerier {
 }
 
 pub(crate) fn liquidation_percent_to_map(
-    liquidation_percent: &[(&HumanAddr, &Decimal)],
-) -> HashMap<HumanAddr, Decimal> {
-    let mut liquidation_percent_map: HashMap<HumanAddr, Decimal> = HashMap::new();
+    liquidation_percent: &[(&HumanAddr, &Decimal256)],
+) -> HashMap<HumanAddr, Decimal256> {
+    let mut liquidation_percent_map: HashMap<HumanAddr, Decimal256> = HashMap::new();
     for (liquidation_model, liquidation_percent) in liquidation_percent.iter() {
         liquidation_percent_map.insert((*liquidation_model).clone(), **liquidation_percent);
     }
@@ -424,23 +426,23 @@ impl WasmMockQuerier {
     // configure the effective distribution_params mock querier
     pub fn with_distribution_params(
         &mut self,
-        distribution_params: &[(&HumanAddr, &(Decimal, Decimal, Decimal))],
+        distribution_params: &[(&HumanAddr, &(Decimal256, Decimal256, Decimal256))],
     ) {
         self.distribution_params_querier = DistributionParamsQuerier::new(distribution_params);
     }
 
-    pub fn with_epoch_state(&mut self, epoch_state: &[(&HumanAddr, &(Uint128, Decimal))]) {
+    pub fn with_epoch_state(&mut self, epoch_state: &[(&HumanAddr, &(Uint256, Decimal256))]) {
         self.epoch_state_querier = EpochStateQuerier::new(epoch_state);
     }
 
     pub fn with_oracle_price(
         &mut self,
-        oracle_price: &[(&(String, String), &(Decimal, u64, u64))],
+        oracle_price: &[(&(String, String), &(Decimal256, u64, u64))],
     ) {
         self.oracle_price_querier = OraclePriceQuerier::new(oracle_price);
     }
 
-    pub fn with_loan_amount(&mut self, loan_amount: &[(&HumanAddr, &Uint128)]) {
+    pub fn with_loan_amount(&mut self, loan_amount: &[(&HumanAddr, &Uint256)]) {
         self.loan_amount_querier = LoanAmountQuerier::new(loan_amount);
     }
 
@@ -448,11 +450,11 @@ impl WasmMockQuerier {
         self.borrow_rate_querier = BorrowRateQuerier::new(borrow_rate);
     }
 
-    pub fn with_borrow_limit(&mut self, borrow_limit: &[(&HumanAddr, &Uint128)]) {
+    pub fn with_borrow_limit(&mut self, borrow_limit: &[(&HumanAddr, &Uint256)]) {
         self.borrow_limit_querier = BorrowLimitQuerier::new(borrow_limit);
     }
 
-    pub fn with_liquidation_percent(&mut self, liquidation_percent: &[(&HumanAddr, &Decimal)]) {
+    pub fn with_liquidation_percent(&mut self, liquidation_percent: &[(&HumanAddr, &Decimal256)]) {
         self.liquidation_percent_querier = LiquidationPercentQuerier::new(liquidation_percent);
     }
 }

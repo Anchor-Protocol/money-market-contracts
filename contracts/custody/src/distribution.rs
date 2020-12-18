@@ -1,15 +1,18 @@
+use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
     log, to_binary, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
-    Querier, StdError, Storage, Uint128, WasmMsg,
+    Querier, StdError, Storage, WasmMsg,
 };
 
 use crate::external::handle::RewardContractHandleMsg;
 use crate::msg::HandleMsg;
 use crate::state::{read_config, Config};
 
-use moneymarket::{deduct_tax, query_distribution_params, DistributionParamsResponse};
+use moneymarket::{
+    deduct_tax, query_all_balances, query_balance, query_distribution_params,
+    DistributionParamsResponse,
+};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
-use terraswap::{query_all_balances, query_balance};
 
 /// Request withdraw reward operation to
 /// reward contract and execute `distribute_hook`
@@ -65,7 +68,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     let overseer_contract = deps.api.human_address(&config.overseer_contract)?;
 
     // reward_amount = (prev_balance + reward_amount) - prev_balance
-    let reward_amount: Uint128 =
+    let reward_amount: Uint256 =
         query_balance(&deps, &contract_addr, config.stable_denom.to_string())?;
 
     // load distribution params from the overseer contract
@@ -78,17 +81,16 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
     let buffer_rewards =
         if distribution_params.deposit_rate > distribution_params.target_deposit_rate {
-            (reward_amount * distribution_params.deposit_rate
-                - reward_amount * distribution_params.target_deposit_rate)
-                .unwrap()
+            reward_amount * distribution_params.deposit_rate
+                - reward_amount * distribution_params.target_deposit_rate
         } else {
-            Uint128::zero()
+            Uint256::zero()
         };
 
-    let depositor_subsidy = (reward_amount - buffer_rewards).unwrap();
+    let depositor_subsidy = reward_amount - buffer_rewards;
 
     // Deposit interest buffer, if buffer_rewards > 0
-    if buffer_rewards > Uint128::zero() {
+    if buffer_rewards > Uint256::zero() {
         messages.push(CosmosMsg::Bank(BankMsg::Send {
             from_address: contract_addr.clone(),
             to_address: overseer_contract,
@@ -96,7 +98,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
                 deps,
                 Coin {
                     denom: config.stable_denom.to_string(),
-                    amount: buffer_rewards,
+                    amount: buffer_rewards.into(),
                 },
             )?],
         }));
@@ -110,7 +112,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
             deps,
             Coin {
                 denom: config.stable_denom,
-                amount: depositor_subsidy,
+                amount: depositor_subsidy.into(),
             },
         )?],
     }));

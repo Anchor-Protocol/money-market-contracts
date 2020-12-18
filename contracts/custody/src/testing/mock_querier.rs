@@ -1,3 +1,4 @@
+use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr,
@@ -95,11 +96,13 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 #[derive(Clone, Default)]
 pub struct DistributionParamsQuerier {
     // this lets us iterate over all pairs that match the first string
-    distribution_params: HashMap<HumanAddr, (Decimal, Decimal, Decimal)>,
+    distribution_params: HashMap<HumanAddr, (Decimal256, Decimal256, Decimal256)>,
 }
 
 impl DistributionParamsQuerier {
-    pub fn new(distribution_params: &[(&HumanAddr, &(Decimal, Decimal, Decimal))]) -> Self {
+    pub fn new(
+        distribution_params: &[(&HumanAddr, &(Decimal256, Decimal256, Decimal256))],
+    ) -> Self {
         DistributionParamsQuerier {
             distribution_params: distribution_params_to_map(distribution_params),
         }
@@ -107,9 +110,9 @@ impl DistributionParamsQuerier {
 }
 
 pub(crate) fn distribution_params_to_map(
-    caps: &[(&HumanAddr, &(Decimal, Decimal, Decimal))],
-) -> HashMap<HumanAddr, (Decimal, Decimal, Decimal)> {
-    let mut distribution_params_map: HashMap<HumanAddr, (Decimal, Decimal, Decimal)> =
+    caps: &[(&HumanAddr, &(Decimal256, Decimal256, Decimal256))],
+) -> HashMap<HumanAddr, (Decimal256, Decimal256, Decimal256)> {
+    let mut distribution_params_map: HashMap<HumanAddr, (Decimal256, Decimal256, Decimal256)> =
         HashMap::new();
     for (collateral_token, distribution_params) in caps.iter() {
         distribution_params_map.insert((*collateral_token).clone(), **distribution_params);
@@ -277,7 +280,7 @@ impl WasmMockQuerier {
     // configure the effective distribution_params mock querier
     pub fn with_distribution_params(
         &mut self,
-        distribution_params: &[(&HumanAddr, &(Decimal, Decimal, Decimal))],
+        distribution_params: &[(&HumanAddr, &(Decimal256, Decimal256, Decimal256))],
     ) {
         self.distribution_params_querier = DistributionParamsQuerier::new(distribution_params);
     }

@@ -1,17 +1,17 @@
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    log, to_binary, Api, CosmosMsg, Decimal, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    log, to_binary, Api, CosmosMsg, Env, Extern, HandleResponse, HandleResult, HumanAddr, Querier,
+    StdError, StdResult, Storage, WasmMsg,
 };
 
 use crate::msg::{AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse};
-use crate::querier::query_balance;
 use crate::state::{
     read_all_collaterals, read_collaterals, read_config, read_whitelist_elem, store_collaterals,
     Config, WhitelistElem,
 };
 
 use moneymarket::{
-    query_liquidation_amount, query_loan_amount, query_price, CustodyHandleMsg,
+    query_balance, query_liquidation_amount, query_loan_amount, query_price, CustodyHandleMsg,
     LiquidationAmountResponse, LoanAmountResponse, MarketHandleMsg, PriceResponse, Tokens,
     TokensHuman, TokensMath, TokensToHuman, TokensToRaw,
 };
@@ -160,7 +160,7 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
     store_collaterals(&mut deps.storage, &borrower_raw, &cur_collaterals)?;
 
     let market_contract = deps.api.human_address(&config.market_contract)?;
-    let prev_balance: Uint128 = query_balance(&deps, &market_contract, config.stable_denom)?;
+    let prev_balance: Uint256 = query_balance(&deps, &market_contract, config.stable_denom)?;
 
     let liquidation_messages: Vec<CosmosMsg> = liquidation_amount
         .iter()
@@ -209,7 +209,7 @@ pub fn query_collaterals<S: Storage, A: Api, Q: Querier>(
         collaterals: collaterals
             .iter()
             .map(|c| Ok((deps.api.human_address(&c.0)?, c.1)))
-            .collect::<StdResult<Vec<(HumanAddr, Uint128)>>>()?,
+            .collect::<StdResult<Vec<(HumanAddr, Uint256)>>>()?,
     })
 }
 
@@ -234,12 +234,12 @@ pub fn query_all_collaterals<S: Storage, A: Api, Q: Querier>(
 fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collaterals: &Tokens,
-) -> StdResult<(Uint128, Vec<Decimal>)> {
+) -> StdResult<(Uint256, Vec<Decimal256>)> {
     let config: Config = read_config(&deps.storage)?;
     let oracle_contract = deps.api.human_address(&config.oracle_contract)?;
 
-    let mut borrow_limit: Uint128 = Uint128::zero();
-    let mut collateral_prices: Vec<Decimal> = vec![];
+    let mut borrow_limit: Uint256 = Uint256::zero();
+    let mut collateral_prices: Vec<Decimal256> = vec![];
     for collateral in collaterals.iter() {
         let collateral_token = collateral.0.clone();
         let collateral_amount = collateral.1;

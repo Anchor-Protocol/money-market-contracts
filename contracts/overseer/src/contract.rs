@@ -1,25 +1,26 @@
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    log, to_binary, Api, BankMsg, Binary, Coin, CosmosMsg, Decimal, Env, Extern, HandleResponse,
+    log, to_binary, Api, BankMsg, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse,
     HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError, StdResult, Storage,
-    Uint128, WasmMsg,
+    WasmMsg,
 };
 
 use crate::collateral::{
     liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
     query_collaterals, unlock_collateral,
 };
-use crate::math::{decimal_division, decimal_subtraction};
 use crate::msg::{
     ConfigResponse, DistributionParamsResponse, HandleMsg, InitMsg, QueryMsg, WhitelistResponse,
     WhitelistResponseElem,
 };
-use crate::querier::query_balance;
 use crate::state::{
     read_config, read_epoch_state, read_whitelist, read_whitelist_elem, store_config,
     store_epoch_state, store_whitelist_elem, Config, EpochState, WhitelistElem,
 };
 
-use moneymarket::{deduct_tax, query_epoch_state, CustodyHandleMsg, EpochStateResponse};
+use moneymarket::{
+    deduct_tax, query_balance, query_epoch_state, CustodyHandleMsg, EpochStateResponse,
+};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -44,9 +45,9 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     store_epoch_state(
         &mut deps.storage,
         &EpochState {
-            deposit_rate: Decimal::zero(),
-            prev_a_token_supply: Uint128::zero(),
-            prev_exchange_rate: Decimal::one(),
+            deposit_rate: Decimal256::zero(),
+            prev_a_token_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
             last_executed_height: env.block.height,
         },
     )?;
@@ -103,9 +104,9 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     owner_addr: Option<HumanAddr>,
     oracle_contract: Option<HumanAddr>,
     liquidation_model: Option<HumanAddr>,
-    distribution_threshold: Option<Decimal>,
-    target_deposit_rate: Option<Decimal>,
-    buffer_distribution_rate: Option<Decimal>,
+    distribution_threshold: Option<Decimal256>,
+    target_deposit_rate: Option<Decimal256>,
+    buffer_distribution_rate: Option<Decimal256>,
     epoch_period: Option<u64>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
@@ -156,7 +157,7 @@ pub fn register_whitelist<S: Storage, A: Api, Q: Querier>(
     env: Env,
     collateral_token: HumanAddr,
     custody_contract: HumanAddr,
-    ltv: Decimal,
+    ltv: Decimal256,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.owner_addr {
@@ -196,7 +197,7 @@ pub fn update_whitelist<S: Storage, A: Api, Q: Querier>(
     env: Env,
     collateral_token: HumanAddr,
     custody_contract: Option<HumanAddr>,
-    ltv: Option<Decimal>,
+    ltv: Option<Decimal256>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.owner_addr {
@@ -243,7 +244,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     }
 
     // # of blocks from the last executed height
-    let blocks = Uint128::from(env.block.height - state.last_executed_height);
+    let blocks = Uint256::from(env.block.height - state.last_executed_height);
 
     // Compute next epoch state
     let market_contract: HumanAddr = deps.api.human_address(&config.market_contract)?;
@@ -251,25 +252,22 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
 
     // effective_deposit_rate = cur_exchange_rate / prev_exchange_rate
     // deposit_rate = (effective_deposit_rate - 1) / blocks
-    let effective_deposit_rate =
-        decimal_division(epoch_state.exchange_rate, state.prev_exchange_rate);
-    let deposit_rate = decimal_division(
-        decimal_subtraction(effective_deposit_rate, Decimal::one()),
-        Decimal::from_ratio(blocks, 1u128),
-    );
+    let effective_deposit_rate = epoch_state.exchange_rate / state.prev_exchange_rate;
+    let deposit_rate =
+        (effective_deposit_rate - Decimal256::one()) / Decimal256::from_uint256(blocks);
 
     let mut messages: Vec<CosmosMsg> = vec![];
 
     // Distribute Interest Buffer to depositor
     // Only executed when deposit rate < distribution_threshold
-    let mut distributed_interest: Uint128 = Uint128::zero();
+    let mut distributed_interest: Uint256 = Uint256::zero();
     if deposit_rate < config.distribution_threshold {
         // missing_deposit_rate(_per_block)
-        let missing_deposit_rate = decimal_subtraction(config.distribution_threshold, deposit_rate);
+        let missing_deposit_rate = config.distribution_threshold - deposit_rate;
         let prev_deposits = state.prev_a_token_supply * state.prev_exchange_rate;
 
         // missing_deposits = prev_deposits * missing_deposit_rate(_per_block) * blocks
-        let missing_deposits = Uint128(prev_deposits.u128() * blocks.u128()) * missing_deposit_rate;
+        let missing_deposits = prev_deposits * blocks * missing_deposit_rate;
         let interest_buffer = query_balance(
             &deps,
             &env.contract.address,
@@ -289,7 +287,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
                 &deps,
                 Coin {
                     denom: config.stable_denom,
-                    amount: distributed_interest,
+                    amount: distributed_interest.into(),
                 },
             )?],
         }));

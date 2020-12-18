@@ -1,8 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Api, CanonicalAddr, Extern, Order, Querier, StdResult, Storage, Uint128};
-
+use cosmwasm_bignumber::Uint256;
+use cosmwasm_std::{Api, CanonicalAddr, Extern, Order, Querier, StdResult, Storage};
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
 
 use crate::msg::BorrowerResponse;
@@ -22,8 +22,8 @@ pub struct Config {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BorrowerInfo {
-    pub balance: Uint128,
-    pub spendable: Uint128,
+    pub balance: Uint256,
+    pub spendable: Uint256,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, data: &Config) -> StdResult<()> {
@@ -56,8 +56,8 @@ pub fn read_borrower_info<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> 
     match borrower_bucket.load(&borrower.as_slice()) {
         Ok(v) => v,
         _ => BorrowerInfo {
-            balance: Uint128::zero(),
-            spendable: Uint128::zero(),
+            balance: Uint256::zero(),
+            spendable: Uint256::zero(),
         },
     }
 }

@@ -1,7 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Decimal, HumanAddr};
+use cosmwasm_bignumber::Decimal256;
+use cosmwasm_std::HumanAddr;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -16,7 +17,7 @@ pub enum HandleMsg {
         owner: Option<HumanAddr>,
     },
     FeedPrice {
-        prices: Vec<(String, Decimal)>, // (asset, price)
+        prices: Vec<(String, Decimal256)>, // (asset, price)
     },
 }
 
@@ -44,7 +45,7 @@ pub struct ConfigResponse {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PriceResponse {
-    pub rate: Decimal,
+    pub rate: Decimal256,
     pub last_updated_base: u64,
     pub last_updated_quote: u64,
 }
@@ -53,7 +54,7 @@ pub struct PriceResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PricesResponseElem {
     pub asset: String,
-    pub price: Decimal,
+    pub price: Decimal256,
     pub last_updated_time: u64,
 }
 

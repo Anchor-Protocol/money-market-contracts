@@ -71,7 +71,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
                     return Err(StdError::unauthorized());
                 }
 
-                deposit_collateral(deps, cw20_msg.sender, cw20_msg.amount)
+                deposit_collateral(deps, cw20_msg.sender, cw20_msg.amount.into())
             }
         }
     } else {

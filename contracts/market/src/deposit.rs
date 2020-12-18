@@ -1,3 +1,4 @@
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     log, to_binary, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
     HumanAddr, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
@@ -6,10 +7,8 @@ use cosmwasm_std::{
 use crate::borrow::compute_interest;
 use crate::state::{read_config, read_state, store_state, Config, State};
 
-use cosmwasm_bignumber::{Decimal256, Uint256};
 use cw20::Cw20HandleMsg;
-use moneymarket::deduct_tax;
-use terraswap::{query_balance, query_supply};
+use moneymarket::{deduct_tax, query_balance, query_supply};
 
 pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -18,13 +17,13 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
 
     // Check base denom deposit
-    let deposit_amount: Uint128 = env
+    let deposit_amount: Uint256 = env
         .message
         .sent_funds
         .iter()
         .find(|c| c.denom == config.stable_denom)
-        .map(|c| c.amount)
-        .unwrap_or_else(Uint128::zero);
+        .map(|c| Uint256::from(c.amount))
+        .unwrap_or_else(Uint256::zero);
 
     // Cannot deposit zero amount
     if deposit_amount.is_zero() {
@@ -117,23 +116,23 @@ fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
     env: &Env,
     config: &Config,
     state: &State,
-    deposit_amount: Option<Uint128>,
+    deposit_amount: Option<Uint256>,
 ) -> StdResult<Decimal256> {
     let anchor_token_supply = query_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
     if anchor_token_supply.is_zero() {
         return Ok(Decimal256::one());
     }
 
-    let balance = (query_balance(
+    let balance = query_balance(
         &deps,
         &env.contract.address,
         config.stable_denom.to_string(),
-    )? - deposit_amount.unwrap_or_else(Uint128::zero))?;
+    )? - deposit_amount.unwrap_or_else(Uint256::zero);
 
     // (anchor_token / stable_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / anchor_token_supply
     Ok(
-        (Decimal256::from_uint256(balance.u128()) + state.total_liabilities - state.total_reserves)
-            / Decimal256::from_uint256(anchor_token_supply.u128()),
+        (Decimal256::from_uint256(balance) + state.total_liabilities - state.total_reserves)
+            / Decimal256::from_uint256(anchor_token_supply),
     )
 }

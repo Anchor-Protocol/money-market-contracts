@@ -4,9 +4,10 @@ use crate::state::{
     BorrowerInfo, Config,
 };
 
+use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
     log, to_binary, Api, CanonicalAddr, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    HumanAddr, Querier, StdError, StdResult, Storage, WasmMsg,
 };
 use cw20::Cw20HandleMsg;
 use terra_cosmwasm::TerraMsgWrapper;
@@ -17,7 +18,7 @@ use terraswap::PairCw20HookMsg;
 pub fn deposit_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     borrower: HumanAddr,
-    amount: Uint128,
+    amount: Uint256,
 ) -> HandleResult<TerraMsgWrapper> {
     let borrower_raw = deps.api.canonical_address(&borrower)?;
     let mut borrower_info: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
@@ -44,7 +45,7 @@ pub fn deposit_collateral<S: Storage, A: Api, Q: Querier>(
 pub fn withdraw_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    amount: Option<Uint128>,
+    amount: Option<Uint256>,
 ) -> HandleResult<TerraMsgWrapper> {
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
@@ -60,10 +61,10 @@ pub fn withdraw_collateral<S: Storage, A: Api, Q: Querier>(
     }
 
     // withdraw rewards to pending rewards
-    borrower_info.balance = (borrower_info.balance - amount).unwrap();
-    borrower_info.spendable = (borrower_info.spendable - amount).unwrap();
+    borrower_info.balance = borrower_info.balance - amount;
+    borrower_info.spendable = borrower_info.spendable - amount;
 
-    if borrower_info.balance == Uint128::zero() {
+    if borrower_info.balance == Uint256::zero() {
         remove_borrower_info(&mut deps.storage, &borrower_raw);
     } else {
         store_borrower_info(&mut deps.storage, &borrower_raw, &borrower_info)?;
@@ -87,7 +88,7 @@ pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     borrower: HumanAddr,
-    amount: Uint128,
+    amount: Uint256,
 ) -> HandleResult<TerraMsgWrapper> {
     let config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.overseer_contract {
@@ -103,7 +104,7 @@ pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
         )));
     }
 
-    borrower_info.spendable = (borrower_info.spendable - amount).unwrap();
+    borrower_info.spendable = borrower_info.spendable - amount;
     store_borrower_info(&mut deps.storage, &borrower_raw, &borrower_info)?;
     Ok(HandleResponse {
         messages: vec![],
@@ -123,7 +124,7 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     borrower: HumanAddr,
-    amount: Uint128,
+    amount: Uint256,
 ) -> HandleResult<TerraMsgWrapper> {
     let config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.overseer_contract {
@@ -132,7 +133,7 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
 
     let borrower_raw: CanonicalAddr = deps.api.canonical_address(&borrower)?;
     let mut borrower_info: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
-    let borrowed_amt = (borrower_info.balance - borrower_info.spendable).unwrap();
+    let borrowed_amt = borrower_info.balance - borrower_info.spendable;
     if amount > borrowed_amt {
         return Err(StdError::generic_err(format!(
             "Cannot unlock more than borrowed {}",
@@ -158,7 +159,7 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     borrower: HumanAddr,
-    amount: Uint128,
+    amount: Uint256,
 ) -> HandleResult<TerraMsgWrapper> {
     let config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.overseer_contract {
@@ -167,7 +168,7 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
 
     let borrower_raw: CanonicalAddr = deps.api.canonical_address(&borrower)?;
     let mut borrower_info: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
-    let borrowed_amt = (borrower_info.balance - borrower_info.spendable).unwrap();
+    let borrowed_amt = borrower_info.balance - borrower_info.spendable;
     if amount > borrowed_amt {
         return Err(StdError::generic_err(format!(
             "Cannot liquidate more than locked {}",
@@ -175,7 +176,7 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
         )));
     }
 
-    borrower_info.balance = (borrower_info.balance - amount).unwrap();
+    borrower_info.balance = borrower_info.balance - amount;
     store_borrower_info(&mut deps.storage, &borrower_raw, &borrower_info)?;
 
     Ok(HandleResponse {
@@ -184,7 +185,7 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
             send: vec![],
             msg: to_binary(&Cw20HandleMsg::Send {
                 contract: deps.api.human_address(&config.liquidation_contract)?,
-                amount,
+                amount: amount.into(),
                 msg: Some(to_binary(&PairCw20HookMsg::Swap {
                     belief_price: None,
                     max_spread: None,
