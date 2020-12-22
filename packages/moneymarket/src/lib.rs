@@ -10,7 +10,9 @@ pub use crate::querier::{
     LiquidationAmountResponse, LoanAmountResponse, PriceResponse, QueryMsg,
 };
 
-pub use crate::msgs::{CustodyHandleMsg, MarketHandleMsg};
+pub use crate::msgs::{
+    CustodyHandleMsg, LiquidationCw20HookMsg, LiquidationHandleMsg, MarketHandleMsg,
+};
 pub use crate::tokens::{
     Token, TokenHuman, Tokens, TokensHuman, TokensMath, TokensToHuman, TokensToRaw,
 };

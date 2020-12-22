@@ -11,8 +11,8 @@ use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
+use moneymarket::LiquidationCw20HookMsg;
 use terra_cosmwasm::create_swap_msg;
-use terraswap::PairCw20HookMsg;
 
 #[test]
 fn proper_initialization() {
@@ -23,7 +23,7 @@ fn proper_initialization() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        liquidation_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -39,7 +39,7 @@ fn proper_initialization() {
     assert_eq!(HumanAddr::from("market"), config_res.market_contract);
     assert_eq!(HumanAddr::from("reward"), config_res.reward_contract);
     assert_eq!(
-        HumanAddr::from("terraswap"),
+        HumanAddr::from("liquidation"),
         config_res.liquidation_contract
     );
     assert_eq!("uusd".to_string(), config_res.stable_denom);
@@ -54,7 +54,7 @@ fn deposit_collateral() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        liquidation_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -142,7 +142,7 @@ fn withdraw_collateral() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        liquidation_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -237,7 +237,7 @@ fn lock_collateral() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        liquidation_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -388,7 +388,7 @@ fn distribute_rewards() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        liquidation_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -466,7 +466,7 @@ fn distribute_hook() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        liquidation_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -540,7 +540,7 @@ fn swap_to_stable_denom() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        liquidation_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -588,7 +588,7 @@ fn liquidate_collateral() {
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
         reward_contract: HumanAddr::from("reward"),
-        liquidation_contract: HumanAddr::from("terraswap"),
+        liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
     };
 
@@ -628,6 +628,7 @@ fn liquidate_collateral() {
     );
 
     let msg = HandleMsg::LiquidateCollateral {
+        liquidator: HumanAddr::from("addr0001"),
         borrower: HumanAddr::from("addr0000"),
         amount: Uint256::from(100u64),
     };
@@ -647,6 +648,7 @@ fn liquidate_collateral() {
         _ => panic!("DO NOT ENTER HERE"),
     }
     let msg = HandleMsg::LiquidateCollateral {
+        liquidator: HumanAddr::from("liquidator"),
         borrower: HumanAddr::from("addr0000"),
         amount: Uint256::from(10u64),
     };
@@ -655,6 +657,7 @@ fn liquidate_collateral() {
         res.log,
         vec![
             log("action", "liquidate_collateral"),
+            log("liquidator", "liquidator"),
             log("borrower", "addr0000"),
             log("amount", "10"),
         ]
@@ -666,13 +669,13 @@ fn liquidate_collateral() {
             contract_addr: HumanAddr::from("bluna"),
             send: vec![],
             msg: to_binary(&Cw20HandleMsg::Send {
-                contract: HumanAddr::from("terraswap"),
+                contract: HumanAddr::from("liquidation"),
                 amount: Uint128::from(10u128),
                 msg: Some(
-                    to_binary(&PairCw20HookMsg::Swap {
-                        belief_price: None,
-                        max_spread: None,
-                        to: Some(HumanAddr::from("market")),
+                    to_binary(&LiquidationCw20HookMsg::ExecuteBid {
+                        liquidator: HumanAddr::from("liquidator"),
+                        fee_address: Some(HumanAddr::from("overseer")),
+                        repay_address: Some(HumanAddr::from("market")),
                     })
                     .unwrap()
                 ),

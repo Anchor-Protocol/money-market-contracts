@@ -10,8 +10,8 @@ use cosmwasm_std::{
     HumanAddr, Querier, StdError, StdResult, Storage, WasmMsg,
 };
 use cw20::Cw20HandleMsg;
+use moneymarket::LiquidationCw20HookMsg;
 use terra_cosmwasm::TerraMsgWrapper;
-use terraswap::PairCw20HookMsg;
 
 /// Deposit new collateral
 /// Executor: bAsset token contract
@@ -158,6 +158,7 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
 pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    liquidator: HumanAddr,
     borrower: HumanAddr,
     amount: Uint256,
 ) -> HandleResult<TerraMsgWrapper> {
@@ -186,15 +187,16 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
             msg: to_binary(&Cw20HandleMsg::Send {
                 contract: deps.api.human_address(&config.liquidation_contract)?,
                 amount: amount.into(),
-                msg: Some(to_binary(&PairCw20HookMsg::Swap {
-                    belief_price: None,
-                    max_spread: None,
-                    to: Some(deps.api.human_address(&config.market_contract)?),
+                msg: Some(to_binary(&LiquidationCw20HookMsg::ExecuteBid {
+                    liquidator: liquidator.clone(),
+                    fee_address: Some(deps.api.human_address(&config.overseer_contract)?),
+                    repay_address: Some(deps.api.human_address(&config.market_contract)?),
                 })?),
             })?,
         })],
         log: vec![
             log("action", "liquidate_collateral"),
+            log("liquidator", liquidator),
             log("borrower", borrower),
             log("amount", amount),
         ],

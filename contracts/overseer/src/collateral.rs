@@ -171,6 +171,7 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
                 contract_addr: deps.api.human_address(&whitelist_elem.custody_contract)?,
                 send: vec![],
                 msg: to_binary(&CustodyHandleMsg::LiquidateCollateral {
+                    liquidator: env.message.sender.clone(),
                     borrower: borrower.clone(),
                     amount: collateral.1,
                 })?,
