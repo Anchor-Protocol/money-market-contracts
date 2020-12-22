@@ -5,12 +5,33 @@
     {
       "type": "object",
       "required": [
+        "receive"
+      ],
+      "properties": {
+        "receive": {
+          "$ref": "#/definitions/Cw20ReceiveMsg"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "update_config"
       ],
       "properties": {
         "update_config": {
           "type": "object",
           "properties": {
+            "bid_fee": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "liquidation_threshold": {
               "anyOf": [
                 {
@@ -21,10 +42,20 @@
                 }
               ]
             },
-            "min_liquidation": {
+            "max_premium_rate": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/Uint256"
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "oracle_contract": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
                 },
                 {
                   "type": "null"
@@ -50,6 +81,64 @@
                   "type": "null"
                 }
               ]
+            },
+            "stable_denom": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "submit_bid"
+      ],
+      "properties": {
+        "submit_bid": {
+          "type": "object",
+          "required": [
+            "collateral_token",
+            "premium_rate"
+          ],
+          "properties": {
+            "collateral_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "premium_rate": {
+              "$ref": "#/definitions/Decimal256"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "retract_bid"
+      ],
+      "properties": {
+        "retract_bid": {
+          "type": "object",
+          "required": [
+            "collateral_token"
+          ],
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "collateral_token": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -57,11 +146,44 @@
     }
   ],
   "definitions": {
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
+      "type": "string"
+    },
+    "Cw20ReceiveMsg": {
+      "description": "Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg",
+      "type": "object",
+      "required": [
+        "amount",
+        "sender"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "msg": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sender": {
+          "$ref": "#/definitions/HumanAddr"
+        }
+      }
+    },
     "Decimal256": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal256(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 115792089237316195423570985008687907853269984665640564039457.584007913129639935 (which is (2^128 - 1) / 10^18)",
       "type": "string"
     },
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     },
     "Uint256": {

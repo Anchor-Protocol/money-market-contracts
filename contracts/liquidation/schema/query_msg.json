@@ -63,6 +63,103 @@
           }
         }
       }
+    },
+    {
+      "type": "object",
+      "required": [
+        "bid"
+      ],
+      "properties": {
+        "bid": {
+          "type": "object",
+          "required": [
+            "bidder",
+            "collateral_token"
+          ],
+          "properties": {
+            "bidder": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "collateral_token": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "bids_by_user"
+      ],
+      "properties": {
+        "bids_by_user": {
+          "type": "object",
+          "required": [
+            "bidder"
+          ],
+          "properties": {
+            "bidder": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "start_after": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "bids_by_collateral"
+      ],
+      "properties": {
+        "bids_by_collateral": {
+          "type": "object",
+          "required": [
+            "collateral_token"
+          ],
+          "properties": {
+            "collateral_token": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "start_after": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
     }
   ],
   "definitions": {
