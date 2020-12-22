@@ -66,7 +66,6 @@ pub enum QueryMsg {
     LiquidationAmount {
         borrow_amount: Uint256,
         borrow_limit: Uint256,
-        stable_denom: String,
         collaterals: TokensHuman,
         collateral_prices: Vec<Decimal256>,
     },

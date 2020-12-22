@@ -149,7 +149,6 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
         &deps.api.human_address(&config.liquidation_model)?,
         borrow_amount,
         borrow_limit,
-        config.stable_denom.to_string(),
         &cur_collaterals.to_human(&deps)?,
         collateral_prices,
     )?;

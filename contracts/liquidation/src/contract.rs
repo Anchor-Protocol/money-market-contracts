@@ -164,14 +164,12 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::LiquidationAmount {
             borrow_amount,
             borrow_limit,
-            stable_denom,
             collaterals,
             collateral_prices,
         } => to_binary(&query_liquidation_amount(
             deps,
             borrow_amount,
             borrow_limit,
-            stable_denom,
             collaterals,
             collateral_prices,
         )?),
@@ -218,7 +216,6 @@ fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     borrow_amount: Uint256,
     borrow_limit: Uint256,
-    _stable_denom: String,
     collaterals: TokensHuman,
     collateral_prices: Vec<Decimal256>,
 ) -> StdResult<LiquidationAmountResponse> {

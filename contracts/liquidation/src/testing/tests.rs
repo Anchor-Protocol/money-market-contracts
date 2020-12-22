@@ -469,7 +469,6 @@ fn query_liquidation_amount() {
     let msg = QueryMsg::LiquidationAmount {
         borrow_amount: Uint256::from(931095u64),
         borrow_limit: Uint256::from(1000000u64),
-        stable_denom: "uusd".to_string(),
         collaterals: vec![(HumanAddr::from("token0000"), Uint256::from(1000000u64))],
         collateral_prices: vec![Decimal256::percent(10)],
     };
@@ -485,7 +484,6 @@ fn query_liquidation_amount() {
     let msg = QueryMsg::LiquidationAmount {
         borrow_amount: Uint256::from(100000u64),
         borrow_limit: Uint256::from(1000000u64),
-        stable_denom: "uusd".to_string(),
         collaterals: vec![(HumanAddr::from("token0000"), Uint256::from(1000000u64))],
         collateral_prices: vec![Decimal256::one()],
     };
@@ -502,7 +500,6 @@ fn query_liquidation_amount() {
     let query_msg = QueryMsg::LiquidationAmount {
         borrow_amount: Uint256::from(1000000u64),
         borrow_limit: Uint256::from(1000000u64),
-        stable_denom: "uusd".to_string(),
         collaterals: vec![
             (HumanAddr::from("token0000"), Uint256::from(1000000u64)),
             (HumanAddr::from("token0001"), Uint256::from(2000000u64)),

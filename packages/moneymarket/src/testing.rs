@@ -228,7 +228,6 @@ fn liquidation_amount_querier() {
         &HumanAddr::from("model0000"),
         Uint256::from(1000000u128),
         Uint256::from(1000000u128),
-        "uusd".to_string(),
         &vec![
             (HumanAddr::from("token0000"), Uint256::from(1000000u128)),
             (HumanAddr::from("token0001"), Uint256::from(2000000u128)),
@@ -253,7 +252,6 @@ fn liquidation_amount_querier() {
         &HumanAddr::from("model0000"),
         Uint256::from(1000001u128),
         Uint256::from(1000000u128),
-        "uusd".to_string(),
         &vec![
             (HumanAddr::from("token0000"), Uint256::from(1000000u128)),
             (HumanAddr::from("token0001"), Uint256::from(2000000u128)),

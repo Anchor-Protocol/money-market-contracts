@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    from_binary, to_binary, Api, BalanceResponse, BankQuery, Binary, Coin, Extern, HumanAddr,
-    Querier, QueryRequest, StdError, StdResult, Storage, Uint128, WasmQuery, AllBalanceResponse,
+    from_binary, to_binary, AllBalanceResponse, Api, BalanceResponse, BankQuery, Binary, Coin,
+    Extern, HumanAddr, Querier, QueryRequest, StdError, StdResult, Storage, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 
@@ -131,7 +131,6 @@ pub enum QueryMsg {
     LiquidationAmount {
         borrow_amount: Uint256,
         borrow_limit: Uint256,
-        stable_denom: String,
         collaterals: TokensHuman,
         collateral_prices: Vec<Decimal256>,
     },
@@ -307,7 +306,6 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     liquidation_model: &HumanAddr,
     borrow_amount: Uint256,
     borrow_limit: Uint256,
-    stable_denom: String,
     collaterals: &TokensHuman,
     collateral_prices: Vec<Decimal256>,
 ) -> StdResult<LiquidationAmountResponse> {
@@ -317,7 +315,6 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
             msg: to_binary(&QueryMsg::LiquidationAmount {
                 borrow_amount,
                 borrow_limit,
-                stable_denom,
                 collaterals: collaterals.clone(),
                 collateral_prices,
             })?,
