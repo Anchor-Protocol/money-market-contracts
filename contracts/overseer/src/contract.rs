@@ -279,18 +279,20 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
         // distribute interest to market contract
         distributed_interest = std::cmp::min(missing_deposits, distribution_buffer);
 
-        // Send some portion of interest buffer to Market contract
-        messages.push(CosmosMsg::Bank(BankMsg::Send {
-            from_address: env.contract.address,
-            to_address: deps.api.human_address(&config.market_contract)?,
-            amount: vec![deduct_tax(
-                &deps,
-                Coin {
-                    denom: config.stable_denom,
-                    amount: distributed_interest.into(),
-                },
-            )?],
-        }));
+        if !distributed_interest.is_zero() {
+            // Send some portion of interest buffer to Market contract
+            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                from_address: env.contract.address,
+                to_address: deps.api.human_address(&config.market_contract)?,
+                amount: vec![deduct_tax(
+                    &deps,
+                    Coin {
+                        denom: config.stable_denom,
+                        amount: distributed_interest.into(),
+                    },
+                )?],
+            }));
+        }
     }
 
     // Execute DistributeRewards
