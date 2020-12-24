@@ -370,6 +370,15 @@ fn execute_bid() {
     assert_eq!(
         res.messages,
         vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("asset0000"),
+                send: vec![],
+                msg: to_binary(&Cw20HandleMsg::Transfer {
+                    recipient: HumanAddr::from("addr0000"),
+                    amount: Uint128::from(1000000u128),
+                })
+                .unwrap(),
+            }),
             CosmosMsg::Bank(BankMsg::Send {
                 from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
                 to_address: HumanAddr::from("repay0000"),
@@ -386,15 +395,6 @@ fn execute_bid() {
                     amount: Uint128::from(4901u128), // 4950 / (1 + tax_rate)
                 }]
             }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("asset0000"),
-                send: vec![],
-                msg: to_binary(&Cw20HandleMsg::Transfer {
-                    recipient: HumanAddr::from("addr0000"),
-                    amount: Uint128::from(1000000u128),
-                })
-                .unwrap(),
-            })
         ]
     );
 
@@ -414,6 +414,15 @@ fn execute_bid() {
     assert_eq!(
         res.messages,
         vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("asset0000"),
+                send: vec![],
+                msg: to_binary(&Cw20HandleMsg::Transfer {
+                    recipient: HumanAddr::from("addr0000"),
+                    amount: Uint128::from(1000000u128),
+                })
+                .unwrap(),
+            }),
             CosmosMsg::Bank(BankMsg::Send {
                 from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
                 to_address: HumanAddr::from("addr0001"),
@@ -430,15 +439,6 @@ fn execute_bid() {
                     amount: Uint128::from(4901u128), // 4950 / (1 + tax_rate)
                 }]
             }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("asset0000"),
-                send: vec![],
-                msg: to_binary(&Cw20HandleMsg::Transfer {
-                    recipient: HumanAddr::from("addr0000"),
-                    amount: Uint128::from(1000000u128),
-                })
-                .unwrap(),
-            })
         ]
     );
 }

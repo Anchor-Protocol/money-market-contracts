@@ -79,15 +79,19 @@ pub fn retract_bid<S: Storage, A: Api, Q: Querier>(
         ));
     }
 
-    store_bid(
-        &mut deps.storage,
-        &bidder_raw,
-        &collateral_token_raw,
-        Bid {
-            amount: bid.amount - amount,
-            ..bid
-        },
-    )?;
+    if amount == bid.amount {
+        remove_bid(&mut deps.storage, &bidder_raw, &collateral_token_raw);
+    } else {
+        store_bid(
+            &mut deps.storage,
+            &bidder_raw,
+            &collateral_token_raw,
+            Bid {
+                amount: bid.amount - amount,
+                ..bid
+            },
+        )?;
+    }
 
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Bank(BankMsg::Send {
@@ -160,39 +164,44 @@ pub fn execute_bid<S: Storage, A: Api, Q: Querier>(
     let bid_fee = required_stable * config.bid_fee;
     let repay_amount = required_stable - bid_fee;
 
+    let mut messages: Vec<CosmosMsg> = vec![
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: collateral_token.clone(),
+            send: vec![],
+            msg: to_binary(&Cw20HandleMsg::Transfer {
+                recipient: liquidator,
+                amount: amount.into(),
+            })?,
+        }),
+        CosmosMsg::Bank(BankMsg::Send {
+            from_address: env.contract.address.clone(),
+            to_address: repay_address,
+            amount: vec![deduct_tax(
+                &deps,
+                Coin {
+                    denom: config.stable_denom.clone(),
+                    amount: repay_amount.into(),
+                },
+            )?],
+        }),
+    ];
+
+    if !bid_fee.is_zero() {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            from_address: env.contract.address,
+            to_address: fee_address,
+            amount: vec![deduct_tax(
+                &deps,
+                Coin {
+                    denom: config.stable_denom.clone(),
+                    amount: bid_fee.into(),
+                },
+            )?],
+        }));
+    }
+
     Ok(HandleResponse {
-        messages: vec![
-            CosmosMsg::Bank(BankMsg::Send {
-                from_address: env.contract.address.clone(),
-                to_address: repay_address,
-                amount: vec![deduct_tax(
-                    &deps,
-                    Coin {
-                        denom: config.stable_denom.clone(),
-                        amount: repay_amount.into(),
-                    },
-                )?],
-            }),
-            CosmosMsg::Bank(BankMsg::Send {
-                from_address: env.contract.address,
-                to_address: fee_address,
-                amount: vec![deduct_tax(
-                    &deps,
-                    Coin {
-                        denom: config.stable_denom.clone(),
-                        amount: bid_fee.into(),
-                    },
-                )?],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: collateral_token.clone(),
-                send: vec![],
-                msg: to_binary(&Cw20HandleMsg::Transfer {
-                    recipient: liquidator,
-                    amount: amount.into(),
-                })?,
-            }),
-        ],
+        messages,
         log: vec![
             log("action", "execute_bid"),
             log("stable_denom", config.stable_denom),
