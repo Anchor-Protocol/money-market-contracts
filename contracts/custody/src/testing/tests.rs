@@ -1,4 +1,4 @@
-use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
     from_binary, log, to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
     WasmMsg,
@@ -439,15 +439,6 @@ fn distribute_hook() {
         }],
     );
 
-    deps.querier.with_distribution_params(&[(
-        &HumanAddr::from("overseer"),
-        &(
-            Decimal256::percent(30),
-            Decimal256::percent(20),
-            Decimal256::percent(30),
-        ),
-    )]);
-
     deps.querier.with_token_balances(&[(
         &HumanAddr::from("bluna"),
         &[(
@@ -487,32 +478,52 @@ fn distribute_hook() {
         res.log,
         vec![
             log("action", "distribute_rewards"),
-            log("buffer_rewards", "100000"),
-            log("depositer_subsidy", "900000"),
+            log("buffer_rewards", "1000000"),
         ]
     );
 
     assert_eq!(
         res.messages,
-        vec![
-            CosmosMsg::Bank(BankMsg::Send {
-                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                to_address: HumanAddr::from("overseer"),
-                amount: vec![Coin {
-                    denom: "uusd".to_string(),
-                    amount: Uint128::from(99010u128)
-                }],
-            }),
-            CosmosMsg::Bank(BankMsg::Send {
-                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                to_address: HumanAddr::from("market"),
-                amount: vec![Coin {
-                    denom: "uusd".to_string(),
-                    amount: Uint128::from(891090u128),
-                }]
-            }),
-        ],
+        vec![CosmosMsg::Bank(BankMsg::Send {
+            from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+            to_address: HumanAddr::from("overseer"),
+            amount: vec![Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128::from(990100u128)
+            }],
+        }),],
     )
+}
+
+#[test]
+fn distribution_hook_zero_rewards() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    let msg = InitMsg {
+        collateral_token: HumanAddr::from("bluna"),
+        overseer_contract: HumanAddr::from("overseer"),
+        market_contract: HumanAddr::from("market"),
+        reward_contract: HumanAddr::from("reward"),
+        liquidation_contract: HumanAddr::from("terraswap"),
+        stable_denom: "uusd".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    // Claimed rewards is 1000000uusd
+    let msg = HandleMsg::DistributeHook {};
+    let env = mock_env(MOCK_CONTRACT_ADDR, &[]);
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "distribute_rewards"),
+            log("buffer_rewards", "0"),
+        ]
+    );
+
+    assert_eq!(res.messages, vec![],)
 }
 
 #[test]

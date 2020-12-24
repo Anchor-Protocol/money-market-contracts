@@ -8,10 +8,7 @@ use crate::external::handle::RewardContractHandleMsg;
 use crate::msg::HandleMsg;
 use crate::state::{read_config, Config};
 
-use moneymarket::{
-    deduct_tax, query_all_balances, query_balance, query_distribution_params,
-    DistributionParamsResponse,
-};
+use moneymarket::{deduct_tax, query_all_balances, query_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
 
 /// Request withdraw reward operation to
@@ -70,59 +67,26 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     // reward_amount = (prev_balance + reward_amount) - prev_balance
     let reward_amount: Uint256 =
         query_balance(&deps, &contract_addr, config.stable_denom.to_string())?;
-
-    // load distribution params from the overseer contract
-    let distribution_params: DistributionParamsResponse =
-        query_distribution_params(&deps, &overseer_contract)?;
-
-    // Compute interest buffer rewards.
-    // Interest buffer is given only when deposit rates
-    // is bigger than target deposit rate
     let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
-    let buffer_rewards =
-        if distribution_params.deposit_rate > distribution_params.target_deposit_rate {
-            reward_amount * distribution_params.deposit_rate
-                - reward_amount * distribution_params.target_deposit_rate
-        } else {
-            Uint256::zero()
-        };
-
-    let depositor_subsidy = reward_amount - buffer_rewards;
-
-    // Deposit interest buffer, if buffer_rewards > 0
-    if buffer_rewards > Uint256::zero() {
+    if !reward_amount.is_zero() {
         messages.push(CosmosMsg::Bank(BankMsg::Send {
-            from_address: contract_addr.clone(),
+            from_address: contract_addr,
             to_address: overseer_contract,
             amount: vec![deduct_tax(
                 deps,
                 Coin {
-                    denom: config.stable_denom.to_string(),
-                    amount: buffer_rewards.into(),
+                    denom: config.stable_denom,
+                    amount: reward_amount.into(),
                 },
             )?],
         }));
     }
 
-    // Deposit to market contract (to depositors)
-    messages.push(CosmosMsg::Bank(BankMsg::Send {
-        from_address: contract_addr,
-        to_address: deps.api.human_address(&config.market_contract)?,
-        amount: vec![deduct_tax(
-            deps,
-            Coin {
-                denom: config.stable_denom,
-                amount: depositor_subsidy.into(),
-            },
-        )?],
-    }));
-
     Ok(HandleResponse {
         messages,
         log: vec![
             log("action", "distribute_rewards"),
-            log("buffer_rewards", buffer_rewards),
-            log("depositer_subsidy", depositor_subsidy),
+            log("buffer_rewards", reward_amount),
         ],
         data: None,
     })

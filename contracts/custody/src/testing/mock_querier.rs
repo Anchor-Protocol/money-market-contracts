@@ -1,15 +1,11 @@
-use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr,
-    Querier, QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
+    from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr, Querier,
+    QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
-use std::collections::HashMap;
-
-use moneymarket::{DistributionParamsResponse, QueryMsg};
-
 use cw20::TokenInfoResponse;
+use std::collections::HashMap;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -36,7 +32,6 @@ pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     token_querier: TokenQuerier,
     tax_querier: TaxQuerier,
-    distribution_params_querier: DistributionParamsQuerier,
     canonical_length: usize,
 }
 
@@ -93,33 +88,6 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
     owner_map
 }
 
-#[derive(Clone, Default)]
-pub struct DistributionParamsQuerier {
-    // this lets us iterate over all pairs that match the first string
-    distribution_params: HashMap<HumanAddr, (Decimal256, Decimal256, Decimal256)>,
-}
-
-impl DistributionParamsQuerier {
-    pub fn new(
-        distribution_params: &[(&HumanAddr, &(Decimal256, Decimal256, Decimal256))],
-    ) -> Self {
-        DistributionParamsQuerier {
-            distribution_params: distribution_params_to_map(distribution_params),
-        }
-    }
-}
-
-pub(crate) fn distribution_params_to_map(
-    caps: &[(&HumanAddr, &(Decimal256, Decimal256, Decimal256))],
-) -> HashMap<HumanAddr, (Decimal256, Decimal256, Decimal256)> {
-    let mut distribution_params_map: HashMap<HumanAddr, (Decimal256, Decimal256, Decimal256)> =
-        HashMap::new();
-    for (collateral_token, distribution_params) in caps.iter() {
-        distribution_params_map.insert((*collateral_token).clone(), **distribution_params);
-    }
-    distribution_params_map
-}
-
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
@@ -162,26 +130,6 @@ impl WasmMockQuerier {
                     }
                 } else {
                     panic!("DO NOT ENTER HERE")
-                }
-            }
-            QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
-                match from_binary(&msg).unwrap() {
-                    QueryMsg::DistributionParams {} => match self
-                        .distribution_params_querier
-                        .distribution_params
-                        .get(&contract_addr)
-                    {
-                        Some(v) => Ok(to_binary(&DistributionParamsResponse {
-                            deposit_rate: v.0.clone(),
-                            target_deposit_rate: v.1.clone(),
-                            distribution_threshold: v.2.clone(),
-                        })),
-                        None => Err(SystemError::InvalidRequest {
-                            error: format!("No distribution_params exists in {}", contract_addr),
-                            request: msg.as_slice().into(),
-                        }),
-                    },
-                    _ => panic!("DO NOT ENTER HERE"),
                 }
             }
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
@@ -262,7 +210,6 @@ impl WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
-            distribution_params_querier: DistributionParamsQuerier::default(),
             canonical_length,
         }
     }
@@ -275,13 +222,5 @@ impl WasmMockQuerier {
     // configure the tax mock querier
     pub fn with_tax(&mut self, rate: Decimal, caps: &[(&String, &Uint128)]) {
         self.tax_querier = TaxQuerier::new(rate, caps);
-    }
-
-    // configure the effective distribution_params mock querier
-    pub fn with_distribution_params(
-        &mut self,
-        distribution_params: &[(&HumanAddr, &(Decimal256, Decimal256, Decimal256))],
-    ) {
-        self.distribution_params_querier = DistributionParamsQuerier::new(distribution_params);
     }
 }
