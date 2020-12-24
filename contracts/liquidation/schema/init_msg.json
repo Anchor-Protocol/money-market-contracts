@@ -3,12 +3,23 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
+    "bid_fee",
     "liquidation_threshold",
-    "min_liquidation",
+    "max_premium_rate",
+    "oracle_contract",
     "owner",
-    "safe_ratio"
+    "safe_ratio",
+    "stable_denom"
   ],
   "properties": {
+    "bid_fee": {
+      "description": "Fee applied to executed bids Sent to Overseer interest buffer",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal256"
+        }
+      ]
+    },
     "liquidation_threshold": {
       "description": "Liquidation threshold amount in stable denom. When the current collaterals value is smaller than the threshold, all callterals will be liquidated",
       "allOf": [
@@ -17,13 +28,16 @@
         }
       ]
     },
-    "min_liquidation": {
-      "description": "Minimum liquidation amount. If a liquidation amount is below than this value, exclude the asset from the liquidation process",
+    "max_premium_rate": {
+      "description": "Maximum fee applied to liquidated collaterals Sent to liquidator as incentive",
       "allOf": [
         {
-          "$ref": "#/definitions/Uint256"
+          "$ref": "#/definitions/Decimal256"
         }
       ]
+    },
+    "oracle_contract": {
+      "$ref": "#/definitions/HumanAddr"
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
@@ -35,6 +49,9 @@
           "$ref": "#/definitions/Decimal256"
         }
       ]
+    },
+    "stable_denom": {
+      "type": "string"
     }
   },
   "definitions": {

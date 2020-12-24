@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_bignumber::Uint256;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::HumanAddr;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -26,6 +26,7 @@ pub enum CustodyHandleMsg {
     DistributeRewards {},
     /// Liquidate colalteral and send liquidated collateral to `to` address
     LiquidateCollateral {
+        liquidator: HumanAddr,
         borrower: HumanAddr,
         amount: Uint256,
     },
@@ -66,4 +67,36 @@ pub enum MarketHandleMsg {
 
     /// Repay stable asset to decrease liability
     RepayStable {},
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LiquidationHandleMsg {
+    UpdateConfig {
+        owner: Option<HumanAddr>,
+        oracle_contract: Option<HumanAddr>,
+        stable_denom: Option<String>,
+        safe_ratio: Option<Decimal256>,
+        bid_fee: Option<Decimal256>,
+        max_premium_rate: Option<Decimal256>,
+        liquidation_threshold: Option<Uint256>,
+    },
+    SubmitBid {
+        collateral_token: HumanAddr,
+        premium_rate: Decimal256,
+    },
+    RetractBid {
+        collateral_token: HumanAddr,
+        amount: Option<Uint256>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LiquidationCw20HookMsg {
+    ExecuteBid {
+        liquidator: HumanAddr,
+        fee_address: Option<HumanAddr>,
+        repay_address: Option<HumanAddr>,
+    },
 }

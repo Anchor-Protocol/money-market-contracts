@@ -778,6 +778,7 @@ fn liquidate_collateral() {
                 contract_addr: HumanAddr::from("custody_batom"),
                 send: vec![],
                 msg: to_binary(&CustodyHandleMsg::LiquidateCollateral {
+                    liquidator: HumanAddr::from("addr0001"),
                     borrower: HumanAddr::from("addr0000"),
                     amount: Uint256::from(100000u64),
                 })
@@ -787,6 +788,7 @@ fn liquidate_collateral() {
                 contract_addr: HumanAddr::from("custody_bluna"),
                 send: vec![],
                 msg: to_binary(&CustodyHandleMsg::LiquidateCollateral {
+                    liquidator: HumanAddr::from("addr0001"),
                     borrower: HumanAddr::from("addr0000"),
                     amount: Uint256::from(10000u64),
                 })

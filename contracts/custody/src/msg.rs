@@ -55,6 +55,7 @@ pub enum HandleMsg {
 
     /// Liquidate colalteral and send liquidated collateral to `to` address
     LiquidateCollateral {
+        liquidator: HumanAddr,
         borrower: HumanAddr,
         amount: Uint256,
     },

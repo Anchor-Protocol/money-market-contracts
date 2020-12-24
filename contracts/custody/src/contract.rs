@@ -50,9 +50,11 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::DistributeHook {} => distribute_hook(deps, env),
         HandleMsg::SwapToStableDenom {} => swap_to_stable_denom(deps, env),
         HandleMsg::WithdrawCollateral { amount } => withdraw_collateral(deps, env, amount),
-        HandleMsg::LiquidateCollateral { borrower, amount } => {
-            liquidate_collateral(deps, env, borrower, amount)
-        }
+        HandleMsg::LiquidateCollateral {
+            liquidator,
+            borrower,
+            amount,
+        } => liquidate_collateral(deps, env, liquidator, borrower, amount),
     }
 }
 

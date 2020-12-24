@@ -70,12 +70,12 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
     if !reward_amount.is_zero() {
         messages.push(CosmosMsg::Bank(BankMsg::Send {
-            from_address: contract_addr.clone(),
+            from_address: contract_addr,
             to_address: overseer_contract,
             amount: vec![deduct_tax(
                 deps,
                 Coin {
-                    denom: config.stable_denom.to_string(),
+                    denom: config.stable_denom,
                     amount: reward_amount.into(),
                 },
             )?],

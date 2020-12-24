@@ -1,37 +1,25 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "ConfigResponse",
+  "title": "BidResponse",
   "type": "object",
   "required": [
-    "bid_fee",
-    "liquidation_threshold",
-    "max_premium_rate",
-    "oracle_contract",
-    "owner",
-    "safe_ratio",
-    "stable_denom"
+    "amount",
+    "bidder",
+    "collateral_token",
+    "premium_rate"
   ],
   "properties": {
-    "bid_fee": {
-      "$ref": "#/definitions/Decimal256"
-    },
-    "liquidation_threshold": {
+    "amount": {
       "$ref": "#/definitions/Uint256"
     },
-    "max_premium_rate": {
-      "$ref": "#/definitions/Decimal256"
-    },
-    "oracle_contract": {
+    "bidder": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "owner": {
+    "collateral_token": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "safe_ratio": {
+    "premium_rate": {
       "$ref": "#/definitions/Decimal256"
-    },
-    "stable_denom": {
-      "type": "string"
     }
   },
   "definitions": {

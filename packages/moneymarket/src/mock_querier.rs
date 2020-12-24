@@ -366,7 +366,6 @@ impl WasmMockQuerier {
                     QueryMsg::LiquidationAmount {
                         borrow_amount,
                         borrow_limit,
-                        stable_denom: _,
                         collaterals,
                         collateral_prices: _,
                     } => {
