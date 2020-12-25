@@ -76,12 +76,12 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::BorrowRate {
             market_balance,
             total_liabilities,
-            total_reserve,
+            total_reserves,
         } => to_binary(&query_borrow_rate(
             deps,
             market_balance,
             total_liabilities,
-            total_reserve,
+            total_reserves,
         )?),
     }
 }
@@ -103,13 +103,13 @@ fn query_borrow_rate<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     market_balance: Uint256,
     total_liabilities: Decimal256,
-    total_reserve: Decimal256,
+    total_reserves: Decimal256,
 ) -> StdResult<BorrowRateResponse> {
     let config: Config = read_config(&deps.storage)?;
 
     // ignore decimal parts
     let total_value_in_market =
-        Decimal256::from_uint256(market_balance) + total_liabilities - total_reserve;
+        Decimal256::from_uint256(market_balance) + total_liabilities - total_reserves;
 
     let utilization_ratio = if total_value_in_market.is_zero() {
         Decimal256::zero()

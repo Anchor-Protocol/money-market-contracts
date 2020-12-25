@@ -75,12 +75,22 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     // Update interest related state
     let mut state: State = read_state(&deps.storage)?;
     compute_interest(&deps, &config, &mut state, env.block.height, None)?;
-    store_state(&mut deps.storage, &state)?;
-
     // Load anchor token exchange rate with updated state
     let exchange_rate = compute_exchange_rate(deps, &config, &state, None)?;
     let redeem_amount = Uint256::from(burn_amount) * exchange_rate;
+    if redeem_amount
+        > query_balance(
+            &deps,
+            &env.contract.address,
+            config.stable_denom.to_string(),
+        )?
+    {
+        return Err(StdError::generic_err(
+            "Failed to redeem stable; not enough contract balance",
+        ));
+    }
 
+    store_state(&mut deps.storage, &state)?;
     Ok(HandleResponse {
         messages: vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -137,10 +147,10 @@ pub fn compute_exchange_rate_raw(
     contract_balance: Uint256,
 ) -> StdResult<Decimal256> {
     // (anchor_token / stable_denom)
-    // exchange_rate = (balance + total_liabilities - total_reserves) / anchor_token_supply
+    // exchange_rate = (balance + total_liabilities - total_reservess) / anchor_token_supply
     Ok(
         (Decimal256::from_uint256(contract_balance) + state.total_liabilities
-            - state.total_reserves)
+            - state.total_reservess)
             / Decimal256::from_uint256(a_token_supply),
     )
 }

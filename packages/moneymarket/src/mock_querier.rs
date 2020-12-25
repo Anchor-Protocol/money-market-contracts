@@ -343,7 +343,7 @@ impl WasmMockQuerier {
                     QueryMsg::BorrowRate {
                         market_balance: _,
                         total_liabilities: _,
-                        total_reserve: _,
+                        total_reserves: _,
                     } => match self.borrow_rate_querier.borrower_rate.get(&contract_addr) {
                         Some(v) => Ok(to_binary(&BorrowRateResponse { rate: *v })),
                         None => Err(SystemError::InvalidRequest {

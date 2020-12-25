@@ -123,7 +123,7 @@ pub enum QueryMsg {
     BorrowRate {
         market_balance: Uint256,
         total_liabilities: Decimal256,
-        total_reserve: Decimal256,
+        total_reserves: Decimal256,
     },
     /// Query borrow limit to overseer contract
     BorrowLimit { borrower: HumanAddr },
@@ -257,7 +257,7 @@ pub fn query_borrow_rate<S: Storage, A: Api, Q: Querier>(
     interest_model: &HumanAddr,
     market_balance: Uint256,
     total_liabilities: Decimal256,
-    total_reserve: Decimal256,
+    total_reserves: Decimal256,
 ) -> StdResult<BorrowRateResponse> {
     let borrow_rate: BorrowRateResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
@@ -265,7 +265,7 @@ pub fn query_borrow_rate<S: Storage, A: Api, Q: Querier>(
             msg: to_binary(&QueryMsg::BorrowRate {
                 market_balance,
                 total_liabilities,
-                total_reserve,
+                total_reserves,
             })?,
         }))?;
 

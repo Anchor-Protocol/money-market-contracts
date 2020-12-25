@@ -242,7 +242,7 @@ fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
         * (Decimal256::one() - config.bid_fee)
         * (Decimal256::one() - tax_rate);
 
-    // expected_repay_amounte must be bigger than borrow_amount
+    // expected_repay_amount must be bigger than borrow_amount
     let expected_repay_amount = collaterals_value * fee_deductor;
     if expected_repay_amount <= borrow_amount {
         return Err(StdError::generic_err(

@@ -24,7 +24,7 @@
           "required": [
             "market_balance",
             "total_liabilities",
-            "total_reserve"
+            "total_reserves"
           ],
           "properties": {
             "market_balance": {
@@ -33,7 +33,7 @@
             "total_liabilities": {
               "$ref": "#/definitions/Decimal256"
             },
-            "total_reserve": {
+            "total_reserves": {
               "$ref": "#/definitions/Decimal256"
             }
           }

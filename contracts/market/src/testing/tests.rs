@@ -92,7 +92,7 @@ fn proper_initialization() {
     let query_res = query(&deps, QueryMsg::State {}).unwrap();
     let state: State = from_binary(&query_res).unwrap();
     assert_eq!(Decimal256::zero(), state.total_liabilities);
-    assert_eq!(Decimal256::zero(), state.total_reserves);
+    assert_eq!(Decimal256::zero(), state.total_reservess);
     assert_eq!(env.block.height, state.last_interest_updated);
     assert_eq!(Decimal256::one(), state.global_interest_index);
 }
@@ -395,7 +395,7 @@ fn deposit_stable() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(50000u128),
-            total_reserves: Decimal256::from_uint256(550000u128),
+            total_reservess: Decimal256::from_uint256(550000u128),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
@@ -544,13 +544,37 @@ fn redeem_stable() {
     store_state(
         &mut deps.storage,
         &State {
-            total_liabilities: Decimal256::from_uint256(500000u128),
-            total_reserves: Decimal256::from_uint256(1500000u128),
+            total_liabilities: Decimal256::from_uint256(2000000u128),
+            total_reservess: Decimal256::from_uint256(1500000u128),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
     )
     .unwrap();
+
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(400000u128),
+        }],
+    );
+
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Failed to redeem stable; not enough contract balance")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(500000u128),
+        }],
+    );
 
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
@@ -621,7 +645,7 @@ fn borrow_stable() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reserves: Decimal256::zero(),
+            total_reservess: Decimal256::zero(),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
@@ -640,7 +664,7 @@ fn borrow_stable() {
     // interest_accrued = 1000000
     // global_interest_index = 2
     // total_liabilities = 2500000
-    // total_reserves = 3000
+    // total_reservess = 3000
     // last_interest_updated = 100
     assert_eq!(
         res.log,
@@ -673,7 +697,7 @@ fn borrow_stable() {
         state,
         State {
             total_liabilities: Decimal256::from_uint256(2500000u128),
-            total_reserves: Decimal256::from_uint256(3000u128),
+            total_reservess: Decimal256::from_uint256(3000u128),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::from_uint256(2u128),
         }
@@ -794,7 +818,7 @@ fn repay_stable() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reserves: Decimal256::zero(),
+            total_reservess: Decimal256::zero(),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
@@ -907,7 +931,7 @@ fn repay_stable_from_liquidation() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reserves: Decimal256::zero(),
+            total_reservess: Decimal256::zero(),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },

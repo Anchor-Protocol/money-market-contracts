@@ -28,7 +28,7 @@ pub enum QueryMsg {
     BorrowRate {
         market_balance: Uint256,
         total_liabilities: Decimal256,
-        total_reserve: Decimal256,
+        total_reserves: Decimal256,
     },
 }
 

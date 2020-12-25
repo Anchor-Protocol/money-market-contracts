@@ -21,7 +21,7 @@ pub enum QueryMsg {
     BorrowRate {
         market_balance: Uint128,
         total_liabilities: Decimal256,
-        total_reserve: Decimal256,
+        total_reserves: Decimal256,
     },
     /// Query borrow limit to overseer contract
     BorrowLimit { borrower: HumanAddr },
@@ -206,7 +206,7 @@ impl WasmMockQuerier {
                     QueryMsg::BorrowRate {
                         market_balance: _,
                         total_liabilities: _,
-                        total_reserve: _,
+                        total_reserves: _,
                     } => match self.borrow_rate_querier.borrower_rate.get(&contract_addr) {
                         Some(v) => Ok(to_binary(&BorrowRateResponse { rate: *v })),
                         None => Err(SystemError::InvalidRequest {

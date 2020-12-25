@@ -26,7 +26,7 @@ pub struct Config {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
     pub total_liabilities: Decimal256,
-    pub total_reserves: Decimal256,
+    pub total_reservess: Decimal256,
     pub last_interest_updated: u64,
     pub global_interest_index: Decimal256,
 }

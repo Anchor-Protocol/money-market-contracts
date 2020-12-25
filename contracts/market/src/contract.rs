@@ -39,7 +39,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::zero(),
-            total_reserves: Decimal256::zero(),
+            total_reservess: Decimal256::zero(),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
