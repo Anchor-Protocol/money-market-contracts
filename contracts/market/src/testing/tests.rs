@@ -3,7 +3,7 @@ use crate::msg::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LiabilityResponse, LoanAmountResponse,
     QueryMsg,
 };
-use crate::state::{store_state, State};
+use crate::state::{read_liabilities, read_state, store_state, State};
 use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
@@ -353,6 +353,21 @@ fn deposit_stable() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
+    //base denom, zero deposit
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::zero(),
+        }],
+    );
+
+    let res = handle(&mut deps, env, msg.clone());
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot deposit zero coins"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
     let env = mock_env(
         "addr0000",
         &[Coin {
@@ -367,6 +382,21 @@ fn deposit_stable() {
         .with_token_balances(&[(&HumanAddr::from("AT-uusd"), &[])]);
 
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+
+    //1- As the last place to modify the state is compute_interest, a check on the state ensures the invocation of compute_interest.
+    //However, because passed_blocks = 0, interest factor & interest accrued are also 0, and thus the values do not change
+    // (looking as if the function might not have been invoked at all.)
+    //Thus, later, the invocation of compute interest will be tested after increasing the block height.
+    assert_eq!(
+        read_state(&deps.storage).unwrap(),
+        State {
+            global_interest_index: Decimal256::from_uint256(1u128),
+            total_liabilities: Decimal256::zero(),
+            total_reservess: Decimal256::zero(),
+            last_interest_updated: env.block.height,
+        }
+    );
+
     assert_eq!(
         res.log,
         vec![
@@ -410,7 +440,7 @@ fn deposit_stable() {
         )],
     )]);
 
-    let res = handle(&mut deps, env, msg).unwrap();
+    let res = handle(&mut deps, env, msg.clone()).unwrap();
     assert_eq!(
         res.log,
         vec![
@@ -432,6 +462,52 @@ fn deposit_stable() {
             })
             .unwrap(),
         })]
+    );
+
+    //testing the invocation of compute interest after increasing the block height
+    let mut env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(1000000u128),
+        }],
+    );
+
+    store_state(
+        &mut deps.storage,
+        &State {
+            total_liabilities: Decimal256::from_uint256(50000u128),
+            total_reservess: Decimal256::from_uint256(550000u128),
+            last_interest_updated: env.block.height,
+            global_interest_index: Decimal256::one(),
+        },
+    )
+    .unwrap();
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("AT-uusd"),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128::from(1000000u128),
+        )],
+    )]);
+
+    env.block.height += 100;
+
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    //State: global_interest_index: 1
+    //total_liabilities: 50000
+    //total_reserves: 550000
+
+    assert_eq!(
+        read_state(&deps.storage).unwrap(),
+        State {
+            global_interest_index: Decimal256::from_uint256(2u128),
+            total_liabilities: Decimal256::from_uint256(100000u128),
+            total_reservess: Decimal256::from_uint256(550150u128),
+            last_interest_updated: env.block.height,
+        }
     );
 }
 
@@ -847,6 +923,17 @@ fn repay_stable() {
 
     env.message.sent_funds = vec![Coin {
         denom: "uusd".to_string(),
+        amount: Uint128::zero(),
+    }];
+
+    let res2 = handle(&mut deps, env.clone(), msg.clone());
+    match res2 {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot repay zero coins"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    env.message.sent_funds = vec![Coin {
+        denom: "uusd".to_string(),
         amount: Uint128(100000u128),
     }];
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
@@ -857,6 +944,18 @@ fn repay_stable() {
             log("borrower", "addr0000"),
             log("repay_amount", "100000"),
         ]
+    );
+
+    //Loan amount and Total liability have decreased according to the repayment
+    let res_loan = read_liabilities(&deps, None, None)
+        .unwrap()
+        .get(0)
+        .unwrap()
+        .loan_amount;
+    assert_eq!(res_loan, Uint256::from(400000u128));
+    assert_eq!(
+        read_state(&deps.storage).unwrap().total_liabilities,
+        Decimal256::from_uint256(2400000u128)
     );
 
     env.message.sent_funds = vec![Coin {
@@ -871,6 +970,18 @@ fn repay_stable() {
             log("borrower", "addr0000"),
             log("repay_amount", "400000"),
         ]
+    );
+
+    //Loan amount and Total liability have decreased according to the repayment
+    let res_loan = read_liabilities(&deps, None, None)
+        .unwrap()
+        .get(0)
+        .unwrap()
+        .loan_amount;
+    assert_eq!(res_loan, Uint256::zero());
+    assert_eq!(
+        read_state(&deps.storage).unwrap().total_liabilities,
+        Decimal256::from_uint256(2000000u128)
     );
 
     assert_eq!(

@@ -121,7 +121,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
+pub(crate) fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     config: &Config,
     state: &State,
