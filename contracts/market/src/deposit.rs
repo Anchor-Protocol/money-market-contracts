@@ -147,10 +147,10 @@ pub fn compute_exchange_rate_raw(
     contract_balance: Uint256,
 ) -> StdResult<Decimal256> {
     // (anchor_token / stable_denom)
-    // exchange_rate = (balance + total_liabilities - total_reservess) / anchor_token_supply
+    // exchange_rate = (balance + total_liabilities - total_reserves) / anchor_token_supply
     Ok(
         (Decimal256::from_uint256(contract_balance) + state.total_liabilities
-            - state.total_reservess)
+            - state.total_reserves)
             / Decimal256::from_uint256(a_token_supply),
     )
 }

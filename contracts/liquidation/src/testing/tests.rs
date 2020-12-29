@@ -300,11 +300,6 @@ fn execute_bid() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
-    deps.querier.with_oracle_price(&[(
-        &("asset0000".to_string(), "uusd".to_string()),
-        &(Decimal256::percent(50), 123456u64, 123456u64),
-    )]);
-
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
         oracle_contract: HumanAddr::from("oracle0000"),
@@ -316,6 +311,11 @@ fn execute_bid() {
     };
 
     let env = mock_env("addr0000", &[]);
+    deps.querier.with_oracle_price(&[(
+        &("asset0000".to_string(), "uusd".to_string()),
+        &(Decimal256::percent(50), env.block.time, env.block.time),
+    )]);
+
     let _res = init(&mut deps, env.clone(), msg).unwrap();
 
     let msg = HandleMsg::SubmitBid {
@@ -535,10 +535,6 @@ fn query_bids_by_user() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
-    deps.querier.with_oracle_price(&[(
-        &("asset0000".to_string(), "uusd".to_string()),
-        &(Decimal256::percent(50), 123456u64, 123456u64),
-    )]);
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
@@ -551,6 +547,11 @@ fn query_bids_by_user() {
     };
 
     let env = mock_env("addr0000", &[]);
+    deps.querier.with_oracle_price(&[(
+        &("asset0000".to_string(), "uusd".to_string()),
+        &(Decimal256::percent(50), env.block.time, env.block.time),
+    )]);
+
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::SubmitBid {

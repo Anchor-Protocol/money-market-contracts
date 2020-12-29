@@ -135,6 +135,7 @@ pub fn execute_bid<S: Storage, A: Api, Q: Querier>(
         &oracle_contract,
         collateral_token.to_string(),
         config.stable_denom.clone(),
+        Some(env.block.time),
     )?;
 
     let collateral_value = amount * price.rate;

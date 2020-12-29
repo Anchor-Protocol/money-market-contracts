@@ -46,6 +46,49 @@ fn proper_initialization() {
 }
 
 #[test]
+fn update_config() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    let msg = InitMsg {
+        collateral_token: HumanAddr::from("bluna"),
+        overseer_contract: HumanAddr::from("overseer"),
+        market_contract: HumanAddr::from("market"),
+        reward_contract: HumanAddr::from("reward"),
+        liquidation_contract: HumanAddr::from("liquidation"),
+        stable_denom: "uusd".to_string(),
+    };
+
+    let env = mock_env("addr0000", &[]);
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::UpdateConfig {
+        liquidation_contract: Some(HumanAddr::from("liquidation2")),
+    };
+    let env = mock_env("overseer", &[]);
+    handle(&mut deps, env, msg.clone()).unwrap();
+    let query_res = query(&deps, QueryMsg::Config {}).unwrap();
+    let config_res: ConfigResponse = from_binary(&query_res).unwrap();
+    assert_eq!(HumanAddr::from("bluna"), config_res.collateral_token);
+    assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
+    assert_eq!(HumanAddr::from("market"), config_res.market_contract);
+    assert_eq!(HumanAddr::from("reward"), config_res.reward_contract);
+    assert_eq!(
+        HumanAddr::from("liquidation2"),
+        config_res.liquidation_contract
+    );
+    assert_eq!("uusd".to_string(), config_res.stable_denom);
+
+    let env = mock_env("addr0000", &[]);
+    let res = handle(&mut deps, env, msg.clone());
+    match res {
+        Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+}
+
+#[test]
 fn deposit_collateral() {
     let mut deps = mock_dependencies(20, &[]);
 

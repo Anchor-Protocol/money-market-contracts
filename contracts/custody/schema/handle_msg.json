@@ -15,7 +15,31 @@
       }
     },
     {
-      "description": "Overseer operations Make specified amount of tokens unspendable",
+      "description": "Overseer operations Update config",
+      "type": "object",
+      "required": [
+        "update_config"
+      ],
+      "properties": {
+        "update_config": {
+          "type": "object",
+          "properties": {
+            "liquidation_contract": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Make specified amount of tokens unspendable",
       "type": "object",
       "required": [
         "lock_collateral"
@@ -109,13 +133,17 @@
           "type": "object",
           "required": [
             "amount",
-            "borrower"
+            "borrower",
+            "liquidator"
           ],
           "properties": {
             "amount": {
               "$ref": "#/definitions/Uint256"
             },
             "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "liquidator": {
               "$ref": "#/definitions/HumanAddr"
             }
           }

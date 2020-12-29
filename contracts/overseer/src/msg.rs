@@ -15,7 +15,7 @@ pub struct InitMsg {
     /// Market contract address to receive missing interest buffer
     pub market_contract: HumanAddr,
     /// Liquidation model contract address to compute liqudation amount
-    pub liquidation_model: HumanAddr,
+    pub liquidation_contract: HumanAddr,
     /// The base denomination used when fetching oracle price,
     /// reward distribution, and borrow
     pub stable_denom: String,
@@ -43,7 +43,7 @@ pub enum HandleMsg {
     UpdateConfig {
         owner_addr: Option<HumanAddr>,
         oracle_contract: Option<HumanAddr>,
-        liquidation_model: Option<HumanAddr>,
+        liquidation_contract: Option<HumanAddr>,
         distribution_threshold: Option<Decimal256>,
         target_deposit_rate: Option<Decimal256>,
         buffer_distribution_rate: Option<Decimal256>,
@@ -105,6 +105,7 @@ pub enum QueryMsg {
     DistributionParams {},
     BorrowLimit {
         borrower: HumanAddr,
+        block_time: Option<u64>,
     },
 }
 
@@ -114,7 +115,7 @@ pub struct ConfigResponse {
     pub owner_addr: HumanAddr,
     pub oracle_contract: HumanAddr,
     pub market_contract: HumanAddr,
-    pub liquidation_model: HumanAddr,
+    pub liquidation_contract: HumanAddr,
     pub stable_denom: String,
     pub epoch_period: u64,
     pub distribution_threshold: Decimal256,

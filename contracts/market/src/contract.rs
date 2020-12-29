@@ -5,8 +5,8 @@ use cosmwasm_std::{
 };
 
 use crate::borrow::{
-    borrow_stable, query_liabilities, query_liability, query_loan_amount, repay_stable,
-    repay_stable_from_liquidation,
+    borrow_stable, compute_interest, query_liabilities, query_liability, query_loan_amount,
+    repay_stable, repay_stable_from_liquidation,
 };
 use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
 use crate::msg::{ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, QueryMsg};
@@ -39,7 +39,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::zero(),
-            total_reservess: Decimal256::zero(),
+            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
@@ -173,6 +173,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     }
 
     if let Some(interest_model) = interest_model {
+        let mut state: State = read_state(&deps.storage)?;
+        compute_interest(&deps, &config, &mut state, env.block.height, None)?;
+        store_state(&mut deps.storage, &state)?;
+
         config.interest_model = deps.api.canonical_address(&interest_model)?;
     }
 

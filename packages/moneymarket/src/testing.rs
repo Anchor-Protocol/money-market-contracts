@@ -7,7 +7,7 @@ use crate::querier::{
 };
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::{Coin, Decimal, HumanAddr, Uint128};
+use cosmwasm_std::{Coin, Decimal, HumanAddr, StdError, Uint128};
 
 #[test]
 fn tax_rate_querier() {
@@ -147,6 +147,7 @@ fn oracle_price_querier() {
         &HumanAddr::from("oracle"),
         "terra123123".to_string(),
         "uusd".to_string(),
+        None,
     )
     .unwrap();
 
@@ -164,8 +165,22 @@ fn oracle_price_querier() {
         &HumanAddr::from("oracle"),
         "terra123123".to_string(),
         "ukrw".to_string(),
+        None,
     )
     .unwrap_err();
+
+    let res = query_price(
+        &deps,
+        &HumanAddr::from("oracle"),
+        "terra123123".to_string(),
+        "uusd".to_string(),
+        Some(500),
+    );
+
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Price is too old"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
 }
 
 #[test]
@@ -205,6 +220,7 @@ fn borrow_limit_querier() {
         &deps,
         &HumanAddr::from("overseer"),
         &HumanAddr::from("addr0000"),
+        None,
     )
     .unwrap();
 

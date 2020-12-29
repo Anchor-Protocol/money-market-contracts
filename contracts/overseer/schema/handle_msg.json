@@ -40,7 +40,7 @@
               "format": "uint64",
               "minimum": 0.0
             },
-            "liquidation_model": {
+            "liquidation_contract": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/HumanAddr"

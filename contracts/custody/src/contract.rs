@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    from_binary, to_binary, Api, Binary, Env, Extern, HandleResult, InitResponse, InitResult,
-    Querier, StdError, StdResult, Storage,
+    from_binary, log, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr,
+    InitResponse, InitResult, Querier, StdError, StdResult, Storage,
 };
 
 use crate::collateral::{
@@ -40,6 +40,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult<TerraMsgWrapper> {
     match msg {
         HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
+        HandleMsg::UpdateConfig {
+            liquidation_contract,
+        } => update_config(deps, env, liquidation_contract),
         HandleMsg::LockCollateral { borrower, amount } => {
             lock_collateral(deps, env, borrower, amount)
         }
@@ -79,6 +82,29 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
     } else {
         Err(StdError::generic_err("data should be given"))
     }
+}
+
+pub fn update_config<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    liquidation_contract: Option<HumanAddr>,
+) -> HandleResult<TerraMsgWrapper> {
+    let mut config: Config = read_config(&deps.storage)?;
+
+    if deps.api.canonical_address(&env.message.sender)? != config.overseer_contract {
+        return Err(StdError::unauthorized());
+    }
+
+    if let Some(liquidation_contract) = liquidation_contract {
+        config.liquidation_contract = deps.api.canonical_address(&liquidation_contract)?;
+    }
+
+    store_config(&mut deps.storage, &config)?;
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![log("action", "update_config")],
+        data: None,
+    })
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(

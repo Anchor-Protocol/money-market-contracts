@@ -6,7 +6,7 @@
     "buffer_distribution_rate",
     "distribution_threshold",
     "epoch_period",
-    "liquidation_model",
+    "liquidation_contract",
     "market_contract",
     "oracle_contract",
     "owner_addr",
@@ -25,7 +25,7 @@
       "format": "uint64",
       "minimum": 0.0
     },
-    "liquidation_model": {
+    "liquidation_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
     "market_contract": {
