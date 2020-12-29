@@ -212,7 +212,7 @@ mod tests {
         assert_eq!("owner0001", value.owner.as_str());
         assert_eq!("base0000", &value.base_asset.to_string());
 
-        // Unauthorzied err
+        // Unauthorized err
         let env = mock_env("owner0000", &[]);
         let msg = HandleMsg::UpdateConfig { owner: None };
 
@@ -284,7 +284,7 @@ mod tests {
             }
         );
 
-        // Unautorized try
+        // Unauthorized try
         let env = mock_env("addr0001", &[]);
         let msg = HandleMsg::FeedPrice {
             prices: vec![("mAPPL".to_string(), Decimal256::from_str("1.2").unwrap())],

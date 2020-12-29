@@ -92,7 +92,7 @@ fn proper_initialization() {
     let query_res = query(&deps, QueryMsg::State {}).unwrap();
     let state: State = from_binary(&query_res).unwrap();
     assert_eq!(Decimal256::zero(), state.total_liabilities);
-    assert_eq!(Decimal256::zero(), state.total_reservess);
+    assert_eq!(Decimal256::zero(), state.total_reserves);
     assert_eq!(env.block.height, state.last_interest_updated);
     assert_eq!(Decimal256::one(), state.global_interest_index);
 }
@@ -159,7 +159,7 @@ fn update_config() {
     assert_eq!(Decimal256::percent(1), config_res.reserve_factor);
     assert_eq!(HumanAddr::from("interest2"), config_res.interest_model);
 
-    // Unauthorzied err
+    // Unauthorized err
     let env = mock_env("owner", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner_addr: None,
@@ -392,7 +392,7 @@ fn deposit_stable() {
         State {
             global_interest_index: Decimal256::from_uint256(1u128),
             total_liabilities: Decimal256::zero(),
-            total_reservess: Decimal256::zero(),
+            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
         }
     );
@@ -425,7 +425,7 @@ fn deposit_stable() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(50000u128),
-            total_reservess: Decimal256::from_uint256(550000u128),
+            total_reserves: Decimal256::from_uint256(550000u128),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
@@ -477,7 +477,7 @@ fn deposit_stable() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(50000u128),
-            total_reservess: Decimal256::from_uint256(550000u128),
+            total_reserves: Decimal256::from_uint256(550000u128),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
@@ -505,7 +505,7 @@ fn deposit_stable() {
         State {
             global_interest_index: Decimal256::from_uint256(2u128),
             total_liabilities: Decimal256::from_uint256(100000u128),
-            total_reservess: Decimal256::from_uint256(550150u128),
+            total_reserves: Decimal256::from_uint256(550150u128),
             last_interest_updated: env.block.height,
         }
     );
@@ -621,7 +621,7 @@ fn redeem_stable() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(2000000u128),
-            total_reservess: Decimal256::from_uint256(1500000u128),
+            total_reserves: Decimal256::from_uint256(1500000u128),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
@@ -721,7 +721,7 @@ fn borrow_stable() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reservess: Decimal256::zero(),
+            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
@@ -740,7 +740,7 @@ fn borrow_stable() {
     // interest_accrued = 1000000
     // global_interest_index = 2
     // total_liabilities = 2500000
-    // total_reservess = 3000
+    // total_reserves = 3000
     // last_interest_updated = 100
     assert_eq!(
         res.log,
@@ -773,7 +773,7 @@ fn borrow_stable() {
         state,
         State {
             total_liabilities: Decimal256::from_uint256(2500000u128),
-            total_reservess: Decimal256::from_uint256(3000u128),
+            total_reserves: Decimal256::from_uint256(3000u128),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::from_uint256(2u128),
         }
@@ -894,7 +894,7 @@ fn repay_stable() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reservess: Decimal256::zero(),
+            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
@@ -1042,7 +1042,7 @@ fn repay_stable_from_liquidation() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reservess: Decimal256::zero(),
+            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },

@@ -181,7 +181,7 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
         &deps.api.human_address(&config.interest_model)?,
         balance,
         state.total_liabilities,
-        state.total_reservess,
+        state.total_reserves,
     )?;
 
     let passed_blocks = block_height - state.last_interest_updated;
@@ -192,7 +192,7 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
     state.global_interest_index =
         state.global_interest_index * (Decimal256::one() + interest_factor);
     state.total_liabilities += interest_accrued;
-    state.total_reservess += interest_accrued * config.reserve_factor;
+    state.total_reserves += interest_accrued * config.reserve_factor;
     state.last_interest_updated = block_height;
 
     Ok(())
