@@ -392,7 +392,7 @@ fn deposit_stable() {
         State {
             global_interest_index: Decimal256::from_uint256(1u128),
             total_liabilities: Decimal256::zero(),
-            total_reserves: Decimal256::zero(),
+            total_reservess: Decimal256::zero(),
             last_interest_updated: env.block.height,
         }
     );
@@ -477,7 +477,7 @@ fn deposit_stable() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(50000u128),
-            total_reserves: Decimal256::from_uint256(550000u128),
+            total_reservess: Decimal256::from_uint256(550000u128),
             last_interest_updated: env.block.height,
             global_interest_index: Decimal256::one(),
         },
@@ -505,7 +505,7 @@ fn deposit_stable() {
         State {
             global_interest_index: Decimal256::from_uint256(2u128),
             total_liabilities: Decimal256::from_uint256(100000u128),
-            total_reserves: Decimal256::from_uint256(550150u128),
+            total_reservess: Decimal256::from_uint256(550150u128),
             last_interest_updated: env.block.height,
         }
     );

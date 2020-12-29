@@ -10,7 +10,7 @@ fn proper_compute_loan() {
     let env = mock_env("addr0000", &[]);
     let mock_state = State {
         total_liabilities: Decimal256::from_uint256(1000000u128),
-        total_reserves: Decimal256::from_uint256(0u128),
+        total_reservess: Decimal256::from_uint256(0u128),
         last_interest_updated: env.block.height,
         global_interest_index: Decimal256::one(),
     };
@@ -27,7 +27,7 @@ fn proper_compute_loan() {
 
     let mock_state2 = State {
         total_liabilities: Decimal256::from_uint256(300000u128),
-        total_reserves: Decimal256::from_uint256(1000u128),
+        total_reservess: Decimal256::from_uint256(1000u128),
         last_interest_updated: env.block.height,
         global_interest_index: Decimal256::from_uint256(2u128),
     };
@@ -85,7 +85,7 @@ fn proper_compute_interest() {
 
     let mut mock_state = State {
         total_liabilities: Decimal256::from_uint256(1000000u128),
-        total_reserves: Decimal256::zero(),
+        total_reservess: Decimal256::zero(),
         last_interest_updated: env.block.height,
         global_interest_index: Decimal256::one(),
     };
@@ -106,7 +106,7 @@ fn proper_compute_interest() {
         State {
             global_interest_index: Decimal256::from_uint256(1u128),
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reserves: Decimal256::zero(),
+            total_reservess: Decimal256::zero(),
             last_interest_updated: env.block.height,
         }
     );
@@ -126,7 +126,7 @@ fn proper_compute_interest() {
         State {
             global_interest_index: Decimal256::from_uint256(2u128),
             total_liabilities: Decimal256::from_uint256(2000000u128),
-            total_reserves: Decimal256::from_uint256(3000u128),
+            total_reservess: Decimal256::from_uint256(3000u128),
             last_interest_updated: env.block.height,
         }
     );

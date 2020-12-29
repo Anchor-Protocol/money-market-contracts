@@ -49,7 +49,7 @@ fn proper_compute_exchange_rate() {
     )]);
     let mock_state = State {
         total_liabilities: Decimal256::from_uint256(50000u128),
-        total_reserves: Decimal256::from_uint256(550000u128),
+        total_reservess: Decimal256::from_uint256(550000u128),
         last_interest_updated: env.block.height,
         global_interest_index: Decimal256::one(),
     };
