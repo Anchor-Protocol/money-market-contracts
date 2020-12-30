@@ -4,7 +4,7 @@ use cosmwasm_std::{
     HumanAddr, Querier, StdError, StdResult, Storage, WasmMsg,
 };
 use cw20::Cw20HandleMsg;
-use moneymarket::{deduct_tax, query_price, PriceResponse};
+use moneymarket::{deduct_tax, query_price, PriceResponse, TimeConstraints};
 
 use crate::msg::{BidResponse, BidsResponse};
 use crate::state::{
@@ -135,7 +135,10 @@ pub fn execute_bid<S: Storage, A: Api, Q: Querier>(
         &oracle_contract,
         collateral_token.to_string(),
         config.stable_denom.clone(),
-        Some(env.block.time),
+        Some(TimeConstraints {
+            block_time: env.block.time,
+            valid_timeframe: config.price_timeframe,
+        }),
     )?;
 
     let collateral_value = amount * price.rate;

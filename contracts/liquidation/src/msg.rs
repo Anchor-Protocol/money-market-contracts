@@ -24,6 +24,8 @@ pub struct InitMsg {
     /// When the current collaterals value is smaller than
     /// the threshold, all callterals will be liquidated
     pub liquidation_threshold: Uint256,
+    /// Valid oracle price timeframe
+    pub price_timeframe: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -38,6 +40,7 @@ pub enum HandleMsg {
         bid_fee: Option<Decimal256>,
         max_premium_rate: Option<Decimal256>,
         liquidation_threshold: Option<Uint256>,
+        price_timeframe: Option<u64>,
     },
     SubmitBid {
         collateral_token: HumanAddr,
@@ -95,6 +98,7 @@ pub struct ConfigResponse {
     pub bid_fee: Decimal256,
     pub max_premium_rate: Decimal256,
     pub liquidation_threshold: Uint256,
+    pub price_timeframe: u64,
 }
 
 // We define a custom struct for each query response

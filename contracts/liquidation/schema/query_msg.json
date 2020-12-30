@@ -25,8 +25,7 @@
             "borrow_amount",
             "borrow_limit",
             "collateral_prices",
-            "collaterals",
-            "stable_denom"
+            "collaterals"
           ],
           "properties": {
             "borrow_amount": {
@@ -56,9 +55,6 @@
                 "maxItems": 2,
                 "minItems": 2
               }
-            },
-            "stable_denom": {
-              "type": "string"
             }
           }
         }

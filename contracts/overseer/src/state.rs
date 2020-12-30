@@ -27,6 +27,7 @@ pub struct Config {
     pub distribution_threshold: Decimal256,
     pub target_deposit_rate: Decimal256,
     pub buffer_distribution_rate: Decimal256,
+    pub price_timeframe: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

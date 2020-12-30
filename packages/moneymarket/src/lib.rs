@@ -7,7 +7,7 @@ pub use crate::querier::{
     query_borrow_rate, query_distribution_params, query_epoch_state, query_liquidation_amount,
     query_loan_amount, query_price, query_supply, query_tax_rate, query_token_balance,
     BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse, EpochStateResponse,
-    LiquidationAmountResponse, LoanAmountResponse, PriceResponse, QueryMsg,
+    LiquidationAmountResponse, LoanAmountResponse, PriceResponse, QueryMsg, TimeConstraints,
 };
 
 pub use crate::msgs::{

@@ -3,7 +3,7 @@ use crate::querier::{
     compute_tax, deduct_tax, query_borrow_limit, query_borrow_rate, query_distribution_params,
     query_epoch_state, query_liquidation_amount, query_loan_amount, query_price, query_tax_rate,
     BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse, EpochStateResponse,
-    LiquidationAmountResponse, LoanAmountResponse, PriceResponse,
+    LiquidationAmountResponse, LoanAmountResponse, PriceResponse, TimeConstraints,
 };
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
@@ -174,7 +174,10 @@ fn oracle_price_querier() {
         &HumanAddr::from("oracle"),
         "terra123123".to_string(),
         "uusd".to_string(),
-        Some(500),
+        Some(TimeConstraints {
+            block_time: 500u64,
+            valid_timeframe: 60u64,
+        }),
     );
 
     match res {

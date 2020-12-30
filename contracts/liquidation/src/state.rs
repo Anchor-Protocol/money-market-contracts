@@ -25,6 +25,7 @@ pub struct Config {
     pub bid_fee: Decimal256,
     pub max_premium_rate: Decimal256,
     pub liquidation_threshold: Uint256,
+    pub price_timeframe: u64,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {

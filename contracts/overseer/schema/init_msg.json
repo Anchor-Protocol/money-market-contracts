@@ -10,6 +10,7 @@
     "market_contract",
     "oracle_contract",
     "owner_addr",
+    "price_timeframe",
     "stable_denom",
     "target_deposit_rate"
   ],
@@ -67,6 +68,12 @@
           "$ref": "#/definitions/HumanAddr"
         }
       ]
+    },
+    "price_timeframe": {
+      "description": "Valid oracle price timeframe",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "stable_denom": {
       "description": "The base denomination used when fetching oracle price, reward distribution, and borrow",

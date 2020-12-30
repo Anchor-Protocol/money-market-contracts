@@ -10,6 +10,7 @@
     "market_contract",
     "oracle_contract",
     "owner_addr",
+    "price_timeframe",
     "stable_denom",
     "target_deposit_rate"
   ],
@@ -36,6 +37,11 @@
     },
     "owner_addr": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "price_timeframe": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "stable_denom": {
       "type": "string"

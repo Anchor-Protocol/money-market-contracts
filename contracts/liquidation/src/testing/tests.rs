@@ -25,6 +25,7 @@ fn proper_initialization() {
         bid_fee: Decimal256::percent(1),
         max_premium_rate: Decimal256::percent(5),
         liquidation_threshold: Uint256::from(100000000u64),
+        price_timeframe: 60u64,
     };
 
     let env = mock_env("addr0000", &[]);
@@ -45,6 +46,7 @@ fn proper_initialization() {
             bid_fee: Decimal256::percent(1),
             max_premium_rate: Decimal256::percent(5),
             liquidation_threshold: Uint256::from(100000000u64),
+            price_timeframe: 60u64,
         }
     );
 }
@@ -61,6 +63,7 @@ fn update_config() {
         bid_fee: Decimal256::percent(1),
         max_premium_rate: Decimal256::percent(5),
         liquidation_threshold: Uint256::from(100000000u64),
+        price_timeframe: 60u64,
     };
 
     let env = mock_env("addr0000", &[]);
@@ -76,6 +79,7 @@ fn update_config() {
         bid_fee: None,
         max_premium_rate: None,
         liquidation_threshold: None,
+        price_timeframe: None,
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -93,6 +97,7 @@ fn update_config() {
             bid_fee: Decimal256::percent(1),
             max_premium_rate: Decimal256::percent(5),
             liquidation_threshold: Uint256::from(100000000u64),
+            price_timeframe: 60u64,
         }
     );
 
@@ -106,6 +111,7 @@ fn update_config() {
         bid_fee: Some(Decimal256::percent(2)),
         max_premium_rate: Some(Decimal256::percent(7)),
         liquidation_threshold: Some(Uint256::from(150000000u64)),
+        price_timeframe: Some(120u64),
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -123,6 +129,7 @@ fn update_config() {
             bid_fee: Decimal256::percent(2),
             max_premium_rate: Decimal256::percent(7),
             liquidation_threshold: Uint256::from(150000000u64),
+            price_timeframe: 120u64,
         }
     );
 
@@ -136,6 +143,7 @@ fn update_config() {
         bid_fee: Some(Decimal256::percent(2)),
         max_premium_rate: Some(Decimal256::percent(7)),
         liquidation_threshold: Some(Uint256::from(150000000u64)),
+        price_timeframe: Some(100u64),
     };
 
     let res = handle(&mut deps, env, msg);
@@ -157,6 +165,7 @@ fn submit_bid() {
         bid_fee: Decimal256::percent(1),
         max_premium_rate: Decimal256::percent(5),
         liquidation_threshold: Uint256::from(100000000u64),
+        price_timeframe: 60u64,
     };
 
     let env = mock_env("addr0000", &[]);
@@ -227,6 +236,7 @@ fn retract_bid() {
         bid_fee: Decimal256::percent(1),
         max_premium_rate: Decimal256::percent(5),
         liquidation_threshold: Uint256::from(100000000u64),
+        price_timeframe: 60u64,
     };
 
     let env = mock_env("addr0000", &[]);
@@ -308,6 +318,7 @@ fn execute_bid() {
         bid_fee: Decimal256::percent(1),
         max_premium_rate: Decimal256::percent(5),
         liquidation_threshold: Uint256::from(100000000u64),
+        price_timeframe: 60u64,
     };
 
     let env = mock_env("addr0000", &[]);
@@ -459,6 +470,7 @@ fn query_liquidation_amount() {
         bid_fee: Decimal256::percent(1),
         max_premium_rate: Decimal256::percent(5),
         liquidation_threshold: Uint256::from(100000000u64),
+        price_timeframe: 60u64,
     };
 
     let env = mock_env("addr0000", &[]);
@@ -544,6 +556,7 @@ fn query_bids_by_user() {
         bid_fee: Decimal256::percent(1),
         max_premium_rate: Decimal256::percent(5),
         liquidation_threshold: Uint256::from(100000000u64),
+        price_timeframe: 60u64,
     };
 
     let env = mock_env("addr0000", &[]);
@@ -707,6 +720,7 @@ fn query_bids_by_collateral() {
         bid_fee: Decimal256::percent(1),
         max_premium_rate: Decimal256::percent(5),
         liquidation_threshold: Uint256::from(100000000u64),
+        price_timeframe: 60u64,
     };
 
     let env = mock_env("addr0000", &[]);

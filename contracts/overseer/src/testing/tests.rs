@@ -29,6 +29,7 @@ fn proper_initialization() {
         distribution_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
+        price_timeframe: 60u64,
     };
 
     let env = mock_env("addr0000", &[]);
@@ -41,7 +42,10 @@ fn proper_initialization() {
     assert_eq!(HumanAddr::from("owner"), config_res.owner_addr);
     assert_eq!(HumanAddr::from("oracle"), config_res.oracle_contract);
     assert_eq!(HumanAddr::from("market"), config_res.market_contract);
-    assert_eq!(HumanAddr::from("liquidation"), config_res.liquidation_contract);
+    assert_eq!(
+        HumanAddr::from("liquidation"),
+        config_res.liquidation_contract
+    );
     assert_eq!("uusd".to_string(), config_res.stable_denom);
     assert_eq!(86400u64, config_res.epoch_period);
     assert_eq!(Decimal256::permille(3), config_res.distribution_threshold);
@@ -71,6 +75,7 @@ fn update_config() {
         distribution_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
+        price_timeframe: 60u64,
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -86,6 +91,7 @@ fn update_config() {
         target_deposit_rate: None,
         buffer_distribution_rate: None,
         epoch_period: None,
+        price_timeframe: None,
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -106,6 +112,7 @@ fn update_config() {
         target_deposit_rate: Some(Decimal256::permille(2)),
         buffer_distribution_rate: Some(Decimal256::percent(10)),
         epoch_period: Some(100000u64),
+        price_timeframe: Some(120u64),
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -124,6 +131,7 @@ fn update_config() {
     assert_eq!(Decimal256::permille(2), config_res.target_deposit_rate);
     assert_eq!(Decimal256::percent(10), config_res.buffer_distribution_rate);
     assert_eq!(100000u64, config_res.epoch_period);
+    assert_eq!(120u64, config_res.price_timeframe);
 
     // Unauthorzied err
     let env = mock_env("owner", &[]);
@@ -135,6 +143,7 @@ fn update_config() {
         target_deposit_rate: None,
         buffer_distribution_rate: None,
         epoch_period: None,
+        price_timeframe: None,
     };
 
     let res = handle(&mut deps, env, msg);
@@ -159,6 +168,7 @@ fn whitelist() {
         distribution_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
+        price_timeframe: 60u64,
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -278,6 +288,7 @@ fn execute_epoch_operations() {
         distribution_threshold: Decimal256::from_ratio(1u64, 1000000u64),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
+        price_timeframe: 60u64,
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -416,6 +427,7 @@ fn lock_collateral() {
         distribution_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
+        price_timeframe: 60u64,
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -536,6 +548,7 @@ fn unlock_collateral() {
         distribution_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
+        price_timeframe: 60u64,
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -702,6 +715,7 @@ fn liquidate_collateral() {
         distribution_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
+        price_timeframe: 60u64,
     };
 
     // we can just call .unwrap() to assert this was a success

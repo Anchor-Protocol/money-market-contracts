@@ -8,6 +8,7 @@
     "max_premium_rate",
     "oracle_contract",
     "owner",
+    "price_timeframe",
     "safe_ratio",
     "stable_denom"
   ],
@@ -41,6 +42,12 @@
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "price_timeframe": {
+      "description": "Valid oracle price timeframe",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "safe_ratio": {
       "description": "borrow_amount / borrow_limit must always be bigger than safe_ratio.",

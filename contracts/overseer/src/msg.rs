@@ -30,6 +30,8 @@ pub struct InitMsg {
     pub target_deposit_rate: Decimal256,
     /// Ratio to be distributed from the interest buffer
     pub buffer_distribution_rate: Decimal256,
+    /// Valid oracle price timeframe
+    pub price_timeframe: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -48,6 +50,7 @@ pub enum HandleMsg {
         target_deposit_rate: Option<Decimal256>,
         buffer_distribution_rate: Option<Decimal256>,
         epoch_period: Option<u64>,
+        price_timeframe: Option<u64>,
     },
 
     /// Create new custody contract for the given collateral token
@@ -116,11 +119,12 @@ pub struct ConfigResponse {
     pub oracle_contract: HumanAddr,
     pub market_contract: HumanAddr,
     pub liquidation_contract: HumanAddr,
-    pub stable_denom: String,
-    pub epoch_period: u64,
     pub distribution_threshold: Decimal256,
     pub target_deposit_rate: Decimal256,
     pub buffer_distribution_rate: Decimal256,
+    pub stable_denom: String,
+    pub epoch_period: u64,
+    pub price_timeframe: u64,
 }
 
 // We define a custom struct for each query response

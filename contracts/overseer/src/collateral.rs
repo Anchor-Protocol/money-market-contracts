@@ -12,8 +12,8 @@ use crate::state::{
 
 use moneymarket::{
     query_balance, query_liquidation_amount, query_loan_amount, query_price, CustodyHandleMsg,
-    LiquidationAmountResponse, LoanAmountResponse, MarketHandleMsg, PriceResponse, Tokens,
-    TokensHuman, TokensMath, TokensToHuman, TokensToRaw,
+    LiquidationAmountResponse, LoanAmountResponse, MarketHandleMsg, PriceResponse, TimeConstraints,
+    Tokens, TokensHuman, TokensMath, TokensToHuman, TokensToRaw,
 };
 
 pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
@@ -252,7 +252,10 @@ fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
             &oracle_contract,
             (deps.api.human_address(&collateral_token)?).to_string(),
             config.stable_denom.to_string(),
-            block_time,
+            block_time.map(|block_time| TimeConstraints {
+                block_time,
+                valid_timeframe: config.price_timeframe,
+            }),
         )?;
 
         // TODO check price last_updated

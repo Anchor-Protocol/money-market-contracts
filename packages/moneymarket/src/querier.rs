@@ -12,8 +12,6 @@ use crate::tokens::TokensHuman;
 use cw20::TokenInfoResponse;
 use terra_cosmwasm::TerraQuerier;
 
-const PRICE_EXPIRE_TIME: u64 = 60;
-
 pub fn query_all_balances<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     account_addr: &HumanAddr,
@@ -237,12 +235,18 @@ pub struct PriceResponse {
     pub last_updated_quote: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TimeConstraints {
+    pub block_time: u64,
+    pub valid_timeframe: u64,
+}
+
 pub fn query_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     oracle_addr: &HumanAddr,
     base: String,
     quote: String,
-    block_time: Option<u64>,
+    time_contraints: Option<TimeConstraints>,
 ) -> StdResult<PriceResponse> {
     let oracle_price: PriceResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
@@ -250,9 +254,10 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
             msg: to_binary(&QueryMsg::Price { base, quote })?,
         }))?;
 
-    if let Some(block_time) = block_time {
-        if oracle_price.last_updated_base < (block_time - PRICE_EXPIRE_TIME)
-            || oracle_price.last_updated_quote < (block_time - PRICE_EXPIRE_TIME)
+    if let Some(time_contraints) = time_contraints {
+        let valid_update_time = time_contraints.block_time - time_contraints.valid_timeframe;
+        if oracle_price.last_updated_base < valid_update_time
+            || oracle_price.last_updated_quote < valid_update_time
         {
             return Err(StdError::generic_err("Price is too old"));
         }

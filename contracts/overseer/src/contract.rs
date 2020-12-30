@@ -39,6 +39,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             distribution_threshold: msg.distribution_threshold,
             target_deposit_rate: msg.target_deposit_rate,
             buffer_distribution_rate: msg.buffer_distribution_rate,
+            price_timeframe: msg.price_timeframe,
         },
     )?;
 
@@ -69,6 +70,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             target_deposit_rate,
             buffer_distribution_rate,
             epoch_period,
+            price_timeframe,
         } => update_config(
             deps,
             env,
@@ -79,6 +81,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             target_deposit_rate,
             buffer_distribution_rate,
             epoch_period,
+            price_timeframe,
         ),
         HandleMsg::Whitelist {
             collateral_token,
@@ -108,6 +111,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     target_deposit_rate: Option<Decimal256>,
     buffer_distribution_rate: Option<Decimal256>,
     epoch_period: Option<u64>,
+    price_timeframe: Option<u64>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
 
@@ -141,6 +145,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(epoch_period) = epoch_period {
         config.epoch_period = epoch_period;
+    }
+
+    if let Some(price_timeframe) = price_timeframe {
+        config.price_timeframe = price_timeframe;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -372,6 +380,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         distribution_threshold: config.distribution_threshold,
         target_deposit_rate: config.target_deposit_rate,
         buffer_distribution_rate: config.buffer_distribution_rate,
+        price_timeframe: config.price_timeframe,
     })
 }
 
