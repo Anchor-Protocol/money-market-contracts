@@ -125,7 +125,7 @@ fn update_config() {
     assert_eq!(Decimal256::percent(10), config_res.buffer_distribution_rate);
     assert_eq!(100000u64, config_res.epoch_period);
 
-    // Unauthorzied err
+    // Unauthorized err
     let env = mock_env("owner", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner_addr: None,

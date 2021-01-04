@@ -126,7 +126,7 @@ fn update_config() {
         }
     );
 
-    // Unauthorzied err
+    // Unauthorized err
     let env = mock_env("owner0000", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner: None,

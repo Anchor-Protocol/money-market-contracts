@@ -201,7 +201,7 @@ mod tests {
         assert_eq!("0.1", &value.base_rate.to_string());
         assert_eq!("0.1", &value.interest_multiplier.to_string());
 
-        // Unauthorzied err
+        // Unauthorized err
         let env = mock_env("owner0000", &[]);
         let msg = HandleMsg::UpdateConfig {
             owner: None,
