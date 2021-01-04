@@ -22,7 +22,7 @@
       ]
     },
     "liquidation_threshold": {
-      "description": "Liquidation threshold amount in stable denom. When the current collaterals value is smaller than the threshold, all callterals will be liquidated",
+      "description": "Liquidation threshold amount in stable denom. When the current collaterals value is smaller than the threshold, all collaterals will be liquidated",
       "allOf": [
         {
           "$ref": "#/definitions/Uint256"

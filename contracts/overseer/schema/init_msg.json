@@ -38,7 +38,7 @@
       "minimum": 0.0
     },
     "liquidation_contract": {
-      "description": "Liquidation model contract address to compute liqudation amount",
+      "description": "Liquidation model contract address to compute liquidation amount",
       "allOf": [
         {
           "$ref": "#/definitions/HumanAddr"

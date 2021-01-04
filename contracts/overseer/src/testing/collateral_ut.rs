@@ -16,12 +16,13 @@ fn proper_compute_borrow_limit() {
         owner_addr: HumanAddr::from("owner"),
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
-        liquidation_model: HumanAddr::from("liquidation"),
+        liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         distribution_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
+        price_timeframe: 60u64,
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -79,7 +80,7 @@ fn proper_compute_borrow_limit() {
     );
     collaterals.push(token2);
 
-    let res = compute_borrow_limit(&deps, &collaterals).unwrap();
+    let res = compute_borrow_limit(&deps, &collaterals, None).unwrap();
     let mut vec: Vec<Decimal256> = vec![];
     vec.push(Decimal256::from_uint256(1000u128));
     vec.push(Decimal256::from_uint256(2000u128));
