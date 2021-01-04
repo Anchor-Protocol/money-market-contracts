@@ -14,7 +14,7 @@ pub struct InitMsg {
     pub oracle_contract: HumanAddr,
     /// Market contract address to receive missing interest buffer
     pub market_contract: HumanAddr,
-    /// Liquidation model contract address to compute liqudation amount
+    /// Liquidation model contract address to compute liquidation amount
     pub liquidation_contract: HumanAddr,
     /// The base denomination used when fetching oracle price,
     /// reward distribution, and borrow

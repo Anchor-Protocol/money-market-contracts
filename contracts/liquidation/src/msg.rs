@@ -22,7 +22,7 @@ pub struct InitMsg {
     pub max_premium_rate: Decimal256,
     /// Liquidation threshold amount in stable denom.
     /// When the current collaterals value is smaller than
-    /// the threshold, all callterals will be liquidated
+    /// the threshold, all collaterals will be liquidated
     pub liquidation_threshold: Uint256,
     /// Valid oracle price timeframe
     pub price_timeframe: u64,

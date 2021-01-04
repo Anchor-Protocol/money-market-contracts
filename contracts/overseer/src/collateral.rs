@@ -42,7 +42,7 @@ pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
         }));
     }
 
-    // Loging stuff, so can be removed
+    // Logging stuff, so can be removed
     let collateral_logs: Vec<String> = collaterals_human
         .iter()
         .map(|c| format!("{}{}", c.1, c.0.to_string()))
@@ -102,7 +102,7 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
         }));
     }
 
-    // Loging stuff, so can be removed
+    // Logging stuff, so can be removed
     let collateral_logs: Vec<String> = collaterals_human
         .iter()
         .map(|c| format!("{}{}", c.1, c.0.to_string()))
@@ -233,7 +233,7 @@ pub fn query_all_collaterals<S: Storage, A: Api, Q: Querier>(
 }
 
 #[allow(clippy::ptr_arg)]
-fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
+pub(crate) fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collaterals: &Tokens,
     block_time: Option<u64>,

@@ -9,11 +9,11 @@ use crate::msg::{
     AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse, ConfigResponse, HandleMsg,
     InitMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
-use crate::state::EpochState;
+use crate::state::{read_epoch_state, EpochState};
 use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
-use moneymarket::{deduct_tax, CustodyHandleMsg, MarketHandleMsg};
+use moneymarket::{deduct_tax, query_epoch_state, CustodyHandleMsg, MarketHandleMsg};
 
 #[test]
 fn proper_initialization() {
@@ -133,7 +133,7 @@ fn update_config() {
     assert_eq!(100000u64, config_res.epoch_period);
     assert_eq!(120u64, config_res.price_timeframe);
 
-    // Unauthorzied err
+    // Unauthorized err
     let env = mock_env("owner", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner_addr: None,
@@ -219,6 +219,22 @@ fn whitelist() {
             }]
         }
     );
+
+    //Attempting to whitelist already whitelisted collaterals
+    let msg = HandleMsg::Whitelist {
+        collateral_token: HumanAddr::from("bluna"),
+        custody_contract: HumanAddr::from("custody"),
+        ltv: Decimal256::percent(60),
+    };
+
+    let env = mock_env("owner", &[]);
+    let res = handle(&mut deps, env, msg).unwrap_err();
+    match res {
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "The collateral token was already registered")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
 
     let msg = HandleMsg::UpdateWhitelist {
         collateral_token: HumanAddr::from("bluna"),
@@ -410,6 +426,24 @@ fn execute_epoch_operations() {
             log("a_token_supply", "1000000"),
         ]
     );
+
+    let epoch_state_response = query_epoch_state(&deps, &HumanAddr::from("market")).unwrap();
+    let epoch_state = read_epoch_state(&deps.storage).unwrap();
+
+    // deposit rate = 0.000000482253078703
+    assert_eq!(
+        epoch_state.deposit_rate,
+        Decimal256::from_ratio(482253086419u64, 1000000000000000000u64)
+    );
+    assert_eq!(
+        epoch_state.prev_a_token_supply,
+        epoch_state_response.a_token_supply
+    );
+    assert_eq!(
+        epoch_state.prev_exchange_rate,
+        epoch_state_response.exchange_rate
+    );
+    assert_eq!(epoch_state.last_executed_height, env.block.height);
 }
 
 #[test]
@@ -694,6 +728,49 @@ fn unlock_collateral() {
             log("action", "unlock_collateral"),
             log("borrower", "addr0000"),
             log("collaterals", "1bluna"),
+        ]
+    );
+
+    //testing for unlocking more collaterals
+    deps.querier
+        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(125999900u128))]);
+
+    let msg = HandleMsg::UnlockCollateral {
+        collaterals: vec![
+            (HumanAddr::from("bluna"), Uint256::from(1u128)),
+            (HumanAddr::from("batom"), Uint256::from(1u128)),
+        ],
+    };
+    let res = handle(&mut deps, env.clone(), msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("custody_bluna"),
+                send: vec![],
+                msg: to_binary(&CustodyHandleMsg::UnlockCollateral {
+                    borrower: HumanAddr::from("addr0000"),
+                    amount: Uint256::from(1u128),
+                })
+                .unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("custody_batom"),
+                send: vec![],
+                msg: to_binary(&CustodyHandleMsg::UnlockCollateral {
+                    borrower: HumanAddr::from("addr0000"),
+                    amount: Uint256::from(1u128),
+                })
+                .unwrap(),
+            })
+        ]
+    );
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "unlock_collateral"),
+            log("borrower", "addr0000"),
+            log("collaterals", "1bluna,1batom"),
         ]
     );
 }

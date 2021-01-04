@@ -1,7 +1,7 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
-    from_binary, log, to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
-    WasmMsg,
+    from_binary, log, to_binary, Api, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError,
+    Uint128, WasmMsg,
 };
 
 use crate::contract::{handle, init, query};
@@ -9,6 +9,7 @@ use crate::external::handle::RewardContractHandleMsg;
 use crate::msg::{BorrowerResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
 use crate::testing::mock_querier::mock_dependencies;
 
+use crate::state::read_borrower_info;
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 use moneymarket::LiquidationCw20HookMsg;
@@ -112,9 +113,21 @@ fn deposit_collateral() {
 
     // failed; cannot directly execute receive message
     let env = mock_env("addr0000", &[]);
-    let res = handle(&mut deps, env, msg.clone());
+    let res = handle(&mut deps, env.clone(), msg.clone());
     match res {
         Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    //no messages sent
+    let msg2 = HandleMsg::Receive(Cw20ReceiveMsg {
+        sender: HumanAddr::from("addr0000"),
+        amount: Uint128::from(100u128),
+        msg: None,
+    });
+    let res2 = handle(&mut deps, env.clone(), msg2.clone());
+    match res2 {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "data should be given"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -252,6 +265,29 @@ fn withdraw_collateral() {
         }
     );
 
+    let msg = HandleMsg::WithdrawCollateral {
+        amount: Some(Uint256::from(40u128)),
+    };
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+    let query_res = query(
+        &deps,
+        QueryMsg::Borrower {
+            address: HumanAddr::from("addr0000"),
+        },
+    )
+    .unwrap();
+    let borrower_res: BorrowerResponse = from_binary(&query_res).unwrap();
+    assert_eq!(
+        borrower_res,
+        BorrowerResponse {
+            borrower: HumanAddr::from("addr0000"),
+            balance: Uint256::from(10u128),
+            spendable: Uint256::from(10u128),
+        }
+    );
+
+    //withdraw with "None" amount
+    let msg = HandleMsg::WithdrawCollateral { amount: None };
     let _res = handle(&mut deps, env, msg).unwrap();
     let query_res = query(
         &deps,
@@ -315,6 +351,19 @@ fn lock_collateral() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
+    //locking more than spendable
+    let env2 = mock_env("overseer", &[]);
+    let msg2 = HandleMsg::LockCollateral {
+        borrower: HumanAddr::from("addr0000"),
+        amount: Uint256::from(200u128),
+    };
+    let res2 = handle(&mut deps, env2, msg2.clone()).unwrap_err();
+
+    assert_eq!(
+        res2,
+        StdError::generic_err(format!("Cannot lock more than spendable 100"))
+    );
+
     let env = mock_env("overseer", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
@@ -325,6 +374,17 @@ fn lock_collateral() {
             log("amount", "50"),
         ]
     );
+
+    //directly checking if spendable is decreased by amount
+    let spend = read_borrower_info(
+        &deps.storage,
+        &deps
+            .api
+            .canonical_address(&HumanAddr::from("addr0000"))
+            .unwrap(),
+    )
+    .spendable;
+    assert_eq!(spend, Uint256::from(50u128));
 
     let msg = HandleMsg::WithdrawCollateral {
         amount: Some(Uint256::from(51u64)),
@@ -373,6 +433,30 @@ fn lock_collateral() {
         borrower: HumanAddr::from("addr0000"),
         amount: Uint256::from(30u64),
     };
+
+    //unauthorized sender
+    let env2 = mock_env("addr0000", &[]);
+    let res2 = handle(&mut deps, env2, msg.clone());
+    match res2 {
+        Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    //unlocking more than allowed (which is 50 - 0 = 50)
+    let msg3 = HandleMsg::UnlockCollateral {
+        borrower: HumanAddr::from("addr0000"),
+        amount: Uint256::from(230u128),
+    };
+
+    let env3 = mock_env("overseer", &[]);
+    let res3 = handle(&mut deps, env3, msg3);
+    match res3 {
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Cannot unlock more than borrowed 50")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
     let env = mock_env("overseer", &[]);
     let res = handle(&mut deps, env, msg).unwrap();
     assert_eq!(
@@ -383,6 +467,17 @@ fn lock_collateral() {
             log("amount", "30"),
         ]
     );
+
+    //checking if amount is added to spendable
+    let spend = read_borrower_info(
+        &deps.storage,
+        &deps
+            .api
+            .canonical_address(&HumanAddr::from("addr0000"))
+            .unwrap(),
+    )
+    .spendable;
+    assert_eq!(spend, Uint256::from(30u128));
 
     let msg = HandleMsg::WithdrawCollateral {
         amount: Some(Uint256::from(30u64)),
@@ -619,7 +714,7 @@ fn swap_to_stable_denom() {
                     denom: "ukrw".to_string(),
                     amount: Uint128::from(20000000000u128),
                 },
-                "uusd".to_string()
+                "uusd".to_string(),
             ),
             create_swap_msg(
                 HumanAddr::from(MOCK_CONTRACT_ADDR),
@@ -627,7 +722,7 @@ fn swap_to_stable_denom() {
                     denom: "usdr".to_string(),
                     amount: Uint128::from(2000000u128),
                 },
-                "uusd".to_string()
+                "uusd".to_string(),
             ),
         ]
     );

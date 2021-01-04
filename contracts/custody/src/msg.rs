@@ -57,7 +57,7 @@ pub enum HandleMsg {
     /// (internal) Swap all coins to stable_denom
     SwapToStableDenom {},
 
-    /// Liquidate colalteral and send liquidated collateral to `to` address
+    /// Liquidate collateral and send liquidated collateral to `to` address
     LiquidateCollateral {
         liquidator: HumanAddr,
         borrower: HumanAddr,
@@ -77,7 +77,7 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Cw20HookMsg {
-    /// Deposit collataerl token
+    /// Deposit collateral token
     DepositCollateral {},
 }
 
