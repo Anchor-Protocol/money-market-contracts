@@ -1,12 +1,12 @@
+use crate::state::{read_config, store_config, Config};
+
+use cosmwasm_bignumber::Decimal256;
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
     to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr, InitResponse,
     Querier, StdError, StdResult, Storage,
 };
-
-use crate::msg::{BorrowRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg};
-use crate::state::{read_config, store_config, Config};
-use cosmwasm_bignumber::Decimal256;
+use moneymarket::interest::{BorrowRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,

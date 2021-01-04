@@ -6,9 +6,9 @@ use cosmwasm_std::{
     Api, CanonicalAddr, Extern, HumanAddr, Order, Querier, StdError, StdResult, Storage,
 };
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
-use moneymarket::Tokens;
 
-use crate::msg::{CollateralsResponse, WhitelistResponseElem};
+use moneymarket::overseer::{CollateralsResponse, WhitelistResponseElem};
+use moneymarket::tokens::Tokens;
 
 const KEY_CONFIG: &[u8] = b"config";
 const KEY_EPOCH_STATE: &[u8] = b"epoch_state";

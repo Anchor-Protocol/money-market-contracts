@@ -5,10 +5,10 @@ use cosmwasm_std::{
 };
 
 use crate::external::handle::RewardContractHandleMsg;
-use crate::msg::HandleMsg;
 use crate::state::{read_config, Config};
 
-use moneymarket::{deduct_tax, query_all_balances, query_balance};
+use moneymarket::custody::HandleMsg;
+use moneymarket::querier::{deduct_tax, query_all_balances, query_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
 
 /// Request withdraw reward operation to

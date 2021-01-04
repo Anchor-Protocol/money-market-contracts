@@ -4,8 +4,7 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{Api, CanonicalAddr, Extern, Order, Querier, StdResult, Storage};
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
-
-use crate::msg::BorrowerResponse;
+use moneymarket::custody::BorrowerResponse;
 
 const KEY_CONFIG: &[u8] = b"config";
 const PREFIX_BORROWER: &[u8] = b"borrower";

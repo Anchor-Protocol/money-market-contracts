@@ -9,12 +9,14 @@ use crate::borrow::{
     repay_stable, repay_stable_from_liquidation,
 };
 use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
-use crate::msg::{ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
 
 use cosmwasm_bignumber::Decimal256;
 use cw20::{Cw20ReceiveMsg, MinterResponse};
-use moneymarket::{query_balance, query_supply};
+use moneymarket::market::{
+    ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, QueryMsg,
+};
+use moneymarket::querier::{query_balance, query_supply};
 use terraswap::{InitHook, TokenInitMsg};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(

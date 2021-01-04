@@ -4,17 +4,19 @@ use cosmwasm_std::{
     StdError, StdResult, Storage, WasmMsg,
 };
 
-use crate::msg::{AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse};
+use crate::querier::{query_liquidation_amount, query_loan_amount};
 use crate::state::{
     read_all_collaterals, read_collaterals, read_config, read_whitelist_elem, store_collaterals,
     Config, WhitelistElem,
 };
 
-use moneymarket::{
-    query_balance, query_liquidation_amount, query_loan_amount, query_price, CustodyHandleMsg,
-    LiquidationAmountResponse, LoanAmountResponse, MarketHandleMsg, PriceResponse, TimeConstraints,
-    Tokens, TokensHuman, TokensMath, TokensToHuman, TokensToRaw,
-};
+use moneymarket::custody::HandleMsg as CustodyHandleMsg;
+use moneymarket::liquidation::LiquidationAmountResponse;
+use moneymarket::market::{HandleMsg as MarketHandleMsg, LoanAmountResponse};
+use moneymarket::oracle::PriceResponse;
+use moneymarket::overseer::{AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse};
+use moneymarket::querier::{query_balance, query_price, TimeConstraints};
+use moneymarket::tokens::{Tokens, TokensHuman, TokensMath, TokensToHuman, TokensToRaw};
 
 pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,

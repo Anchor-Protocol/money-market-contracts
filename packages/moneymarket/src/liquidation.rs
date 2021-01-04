@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::HumanAddr;
 use cw20::Cw20ReceiveMsg;
-use moneymarket::TokensHuman;
+
+use crate::tokens::TokensHuman;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {

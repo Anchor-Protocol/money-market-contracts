@@ -9,9 +9,11 @@ use cosmwasm_std::{
 };
 use std::collections::HashMap;
 
-use moneymarket::{
-    EpochStateResponse, LiquidationAmountResponse, LoanAmountResponse, PriceResponse, TokensHuman,
-};
+use moneymarket::liquidation::LiquidationAmountResponse;
+use moneymarket::market::{EpochStateResponse, LoanAmountResponse};
+use moneymarket::oracle::PriceResponse;
+use moneymarket::tokens::TokensHuman;
+
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

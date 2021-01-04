@@ -1,16 +1,17 @@
+use crate::state::{
+    read_bid, read_bids_by_collateral, read_bids_by_user, read_config, remove_bid, store_bid, Bid,
+    Config,
+};
+
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     log, to_binary, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
     HumanAddr, Querier, StdError, StdResult, Storage, WasmMsg,
 };
 use cw20::Cw20HandleMsg;
-use moneymarket::{deduct_tax, query_price, PriceResponse, TimeConstraints};
-
-use crate::msg::{BidResponse, BidsResponse};
-use crate::state::{
-    read_bid, read_bids_by_collateral, read_bids_by_user, read_config, remove_bid, store_bid, Bid,
-    Config,
-};
+use moneymarket::liquidation::{BidResponse, BidsResponse};
+use moneymarket::oracle::PriceResponse;
+use moneymarket::querier::{deduct_tax, query_price, TimeConstraints};
 
 pub fn submit_bid<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,

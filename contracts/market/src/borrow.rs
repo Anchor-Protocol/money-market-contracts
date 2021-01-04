@@ -3,12 +3,12 @@ use cosmwasm_std::{
     log, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult, HumanAddr,
     Querier, StdError, StdResult, Storage,
 };
-use moneymarket::{
-    deduct_tax, query_balance, query_borrow_limit, query_borrow_rate, BorrowLimitResponse,
-    BorrowRateResponse,
-};
+use moneymarket::interest::BorrowRateResponse;
+use moneymarket::overseer::BorrowLimitResponse;
+use moneymarket::querier::{deduct_tax, query_balance};
 
 use crate::msg::{LiabilitiesResponse, LiabilityResponse, LoanAmountResponse};
+use crate::querier::{query_borrow_limit, query_borrow_rate};
 use crate::state::{
     read_config, read_liabilities, read_liability, read_state, store_liability, store_state,
     Config, Liability, State,

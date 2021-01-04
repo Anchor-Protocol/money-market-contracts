@@ -9,18 +9,19 @@ use crate::collateral::{
     liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
     query_collaterals, unlock_collateral,
 };
-use crate::msg::{
-    ConfigResponse, DistributionParamsResponse, HandleMsg, InitMsg, QueryMsg, WhitelistResponse,
-    WhitelistResponseElem,
-};
+use crate::querier::query_epoch_state;
 use crate::state::{
     read_config, read_epoch_state, read_whitelist, read_whitelist_elem, store_config,
     store_epoch_state, store_whitelist_elem, Config, EpochState, WhitelistElem,
 };
 
-use moneymarket::{
-    deduct_tax, query_balance, query_epoch_state, CustodyHandleMsg, EpochStateResponse,
+use moneymarket::custody::HandleMsg as CustodyHandleMsg;
+use moneymarket::market::EpochStateResponse;
+use moneymarket::overseer::{
+    ConfigResponse, DistributionParamsResponse, HandleMsg, InitMsg, QueryMsg, WhitelistResponse,
+    WhitelistResponseElem,
 };
+use moneymarket::querier::{deduct_tax, query_balance};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
