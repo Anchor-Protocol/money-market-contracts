@@ -100,6 +100,8 @@ fn proper_initialization() {
 #[test]
 fn update_config() {
     let mut deps = mock_dependencies(20, &[]);
+    deps.querier
+        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),

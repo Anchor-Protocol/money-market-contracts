@@ -8,6 +8,7 @@
     "max_premium_rate",
     "oracle_contract",
     "owner",
+    "price_timeframe",
     "safe_ratio",
     "stable_denom"
   ],
@@ -21,7 +22,7 @@
       ]
     },
     "liquidation_threshold": {
-      "description": "Liquidation threshold amount in stable denom. When the current collaterals value is smaller than the threshold, all callterals will be liquidated",
+      "description": "Liquidation threshold amount in stable denom. When the current collaterals value is smaller than the threshold, all collaterals will be liquidated",
       "allOf": [
         {
           "$ref": "#/definitions/Uint256"
@@ -41,6 +42,12 @@
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "price_timeframe": {
+      "description": "Valid oracle price timeframe",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "safe_ratio": {
       "description": "borrow_amount / borrow_limit must always be bigger than safe_ratio.",

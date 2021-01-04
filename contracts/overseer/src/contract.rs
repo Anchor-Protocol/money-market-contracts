@@ -33,12 +33,13 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             owner_addr: deps.api.canonical_address(&msg.owner_addr)?,
             oracle_contract: deps.api.canonical_address(&msg.oracle_contract)?,
             market_contract: deps.api.canonical_address(&msg.market_contract)?,
-            liquidation_model: deps.api.canonical_address(&msg.liquidation_model)?,
+            liquidation_contract: deps.api.canonical_address(&msg.liquidation_contract)?,
             stable_denom: msg.stable_denom,
             epoch_period: msg.epoch_period,
             distribution_threshold: msg.distribution_threshold,
             target_deposit_rate: msg.target_deposit_rate,
             buffer_distribution_rate: msg.buffer_distribution_rate,
+            price_timeframe: msg.price_timeframe,
         },
     )?;
 
@@ -64,21 +65,23 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::UpdateConfig {
             owner_addr,
             oracle_contract,
-            liquidation_model,
+            liquidation_contract,
             distribution_threshold,
             target_deposit_rate,
             buffer_distribution_rate,
             epoch_period,
+            price_timeframe,
         } => update_config(
             deps,
             env,
             owner_addr,
             oracle_contract,
-            liquidation_model,
+            liquidation_contract,
             distribution_threshold,
             target_deposit_rate,
             buffer_distribution_rate,
             epoch_period,
+            price_timeframe,
         ),
         HandleMsg::Whitelist {
             collateral_token,
@@ -103,11 +106,12 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     env: Env,
     owner_addr: Option<HumanAddr>,
     oracle_contract: Option<HumanAddr>,
-    liquidation_model: Option<HumanAddr>,
+    liquidation_contract: Option<HumanAddr>,
     distribution_threshold: Option<Decimal256>,
     target_deposit_rate: Option<Decimal256>,
     buffer_distribution_rate: Option<Decimal256>,
     epoch_period: Option<u64>,
+    price_timeframe: Option<u64>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
 
@@ -123,8 +127,8 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.oracle_contract = deps.api.canonical_address(&oracle_contract)?;
     }
 
-    if let Some(liquidation_model) = liquidation_model {
-        config.liquidation_model = deps.api.canonical_address(&liquidation_model)?;
+    if let Some(liquidation_contract) = liquidation_contract {
+        config.liquidation_contract = deps.api.canonical_address(&liquidation_contract)?;
     }
 
     if let Some(distribution_threshold) = distribution_threshold {
@@ -141,6 +145,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(epoch_period) = epoch_period {
         config.epoch_period = epoch_period;
+    }
+
+    if let Some(price_timeframe) = price_timeframe {
+        config.price_timeframe = price_timeframe;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -351,7 +359,10 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             to_binary(&query_all_collaterals(deps, start_after, limit)?)
         }
         QueryMsg::DistributionParams {} => to_binary(&query_distribution_params(deps)?),
-        QueryMsg::BorrowLimit { borrower } => to_binary(&query_borrow_limit(deps, borrower)?),
+        QueryMsg::BorrowLimit {
+            borrower,
+            block_time,
+        } => to_binary(&query_borrow_limit(deps, borrower, block_time)?),
     }
 }
 
@@ -363,12 +374,13 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         owner_addr: deps.api.human_address(&config.owner_addr)?,
         oracle_contract: deps.api.human_address(&config.oracle_contract)?,
         market_contract: deps.api.human_address(&config.market_contract)?,
-        liquidation_model: deps.api.human_address(&config.liquidation_model)?,
+        liquidation_contract: deps.api.human_address(&config.liquidation_contract)?,
         stable_denom: config.stable_denom,
         epoch_period: config.epoch_period,
         distribution_threshold: config.distribution_threshold,
         target_deposit_rate: config.target_deposit_rate,
         buffer_distribution_rate: config.buffer_distribution_rate,
+        price_timeframe: config.price_timeframe,
     })
 }
 

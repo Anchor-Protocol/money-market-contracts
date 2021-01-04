@@ -15,7 +15,7 @@ pub struct InitMsg {
     /// Market contract address to receive missing interest buffer
     pub market_contract: HumanAddr,
     /// Liquidation model contract address to compute liquidation amount
-    pub liquidation_model: HumanAddr,
+    pub liquidation_contract: HumanAddr,
     /// The base denomination used when fetching oracle price,
     /// reward distribution, and borrow
     pub stable_denom: String,
@@ -30,6 +30,8 @@ pub struct InitMsg {
     pub target_deposit_rate: Decimal256,
     /// Ratio to be distributed from the interest buffer
     pub buffer_distribution_rate: Decimal256,
+    /// Valid oracle price timeframe
+    pub price_timeframe: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -43,11 +45,12 @@ pub enum HandleMsg {
     UpdateConfig {
         owner_addr: Option<HumanAddr>,
         oracle_contract: Option<HumanAddr>,
-        liquidation_model: Option<HumanAddr>,
+        liquidation_contract: Option<HumanAddr>,
         distribution_threshold: Option<Decimal256>,
         target_deposit_rate: Option<Decimal256>,
         buffer_distribution_rate: Option<Decimal256>,
         epoch_period: Option<u64>,
+        price_timeframe: Option<u64>,
     },
 
     /// Create new custody contract for the given collateral token
@@ -105,6 +108,7 @@ pub enum QueryMsg {
     DistributionParams {},
     BorrowLimit {
         borrower: HumanAddr,
+        block_time: Option<u64>,
     },
 }
 
@@ -114,12 +118,13 @@ pub struct ConfigResponse {
     pub owner_addr: HumanAddr,
     pub oracle_contract: HumanAddr,
     pub market_contract: HumanAddr,
-    pub liquidation_model: HumanAddr,
-    pub stable_denom: String,
-    pub epoch_period: u64,
+    pub liquidation_contract: HumanAddr,
     pub distribution_threshold: Decimal256,
     pub target_deposit_rate: Decimal256,
     pub buffer_distribution_rate: Decimal256,
+    pub stable_denom: String,
+    pub epoch_period: u64,
+    pub price_timeframe: u64,
 }
 
 // We define a custom struct for each query response

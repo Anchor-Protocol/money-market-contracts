@@ -3,11 +3,11 @@ use crate::querier::{
     compute_tax, deduct_tax, query_borrow_limit, query_borrow_rate, query_distribution_params,
     query_epoch_state, query_liquidation_amount, query_loan_amount, query_price, query_tax_rate,
     BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse, EpochStateResponse,
-    LiquidationAmountResponse, LoanAmountResponse, PriceResponse,
+    LiquidationAmountResponse, LoanAmountResponse, PriceResponse, TimeConstraints,
 };
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::{Coin, Decimal, HumanAddr, Uint128};
+use cosmwasm_std::{Coin, Decimal, HumanAddr, StdError, Uint128};
 
 #[test]
 fn tax_rate_querier() {
@@ -147,6 +147,7 @@ fn oracle_price_querier() {
         &HumanAddr::from("oracle"),
         "terra123123".to_string(),
         "uusd".to_string(),
+        None,
     )
     .unwrap();
 
@@ -164,8 +165,25 @@ fn oracle_price_querier() {
         &HumanAddr::from("oracle"),
         "terra123123".to_string(),
         "ukrw".to_string(),
+        None,
     )
     .unwrap_err();
+
+    let res = query_price(
+        &deps,
+        &HumanAddr::from("oracle"),
+        "terra123123".to_string(),
+        "uusd".to_string(),
+        Some(TimeConstraints {
+            block_time: 500u64,
+            valid_timeframe: 60u64,
+        }),
+    );
+
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Price is too old"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
 }
 
 #[test]
@@ -205,6 +223,7 @@ fn borrow_limit_querier() {
         &deps,
         &HumanAddr::from("overseer"),
         &HumanAddr::from("addr0000"),
+        None,
     )
     .unwrap();
 

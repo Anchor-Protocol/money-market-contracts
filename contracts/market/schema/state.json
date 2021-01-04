@@ -6,7 +6,7 @@
     "global_interest_index",
     "last_interest_updated",
     "total_liabilities",
-    "total_reservess"
+    "total_reserves"
   ],
   "properties": {
     "global_interest_index": {
@@ -20,7 +20,7 @@
     "total_liabilities": {
       "$ref": "#/definitions/Decimal256"
     },
-    "total_reservess": {
+    "total_reserves": {
       "$ref": "#/definitions/Decimal256"
     }
   },

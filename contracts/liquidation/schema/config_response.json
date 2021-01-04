@@ -8,6 +8,7 @@
     "max_premium_rate",
     "oracle_contract",
     "owner",
+    "price_timeframe",
     "safe_ratio",
     "stable_denom"
   ],
@@ -26,6 +27,11 @@
     },
     "owner": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "price_timeframe": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     },
     "safe_ratio": {
       "$ref": "#/definitions/Decimal256"

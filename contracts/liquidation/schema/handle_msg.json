@@ -72,6 +72,14 @@
                 }
               ]
             },
+            "price_timeframe": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
             "safe_ratio": {
               "anyOf": [
                 {

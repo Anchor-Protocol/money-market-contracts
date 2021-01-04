@@ -33,6 +33,10 @@ pub enum HandleMsg {
     /// Overseer operations
     ////////////////////
 
+    /// Update config
+    UpdateConfig {
+        liquidation_contract: Option<HumanAddr>,
+    },
     /// Make specified amount of tokens unspendable
     LockCollateral {
         borrower: HumanAddr,

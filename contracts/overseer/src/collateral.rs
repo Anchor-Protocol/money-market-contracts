@@ -12,8 +12,8 @@ use crate::state::{
 
 use moneymarket::{
     query_balance, query_liquidation_amount, query_loan_amount, query_price, CustodyHandleMsg,
-    LiquidationAmountResponse, LoanAmountResponse, MarketHandleMsg, PriceResponse, Tokens,
-    TokensHuman, TokensMath, TokensToHuman, TokensToRaw,
+    LiquidationAmountResponse, LoanAmountResponse, MarketHandleMsg, PriceResponse, TimeConstraints,
+    Tokens, TokensHuman, TokensMath, TokensToHuman, TokensToRaw,
 };
 
 pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
@@ -78,7 +78,7 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     }
 
     // Compute borrow limit with collaterals except unlock target collaterals
-    let (borrow_limit, _) = compute_borrow_limit(deps, &cur_collaterals)?;
+    let (borrow_limit, _) = compute_borrow_limit(deps, &cur_collaterals, Some(env.block.time))?;
     let borrow_amount_res: LoanAmountResponse =
         query_loan_amount(deps, &market, &borrower, env.block.height)?;
     if borrow_limit < borrow_amount_res.loan_amount {
@@ -131,7 +131,8 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
     let mut cur_collaterals: Tokens = read_collaterals(&deps.storage, &borrower_raw);
 
     // Compute borrow limit with collaterals except unlock target collaterals
-    let (borrow_limit, collateral_prices) = compute_borrow_limit(deps, &cur_collaterals)?;
+    let (borrow_limit, collateral_prices) =
+        compute_borrow_limit(deps, &cur_collaterals, Some(env.block.time))?;
     let borrow_amount_res: LoanAmountResponse =
         query_loan_amount(deps, &market, &borrower, env.block.height)?;
     let borrow_amount = borrow_amount_res.loan_amount;
@@ -146,7 +147,7 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
 
     let liquidation_amount_res: LiquidationAmountResponse = query_liquidation_amount(
         &deps,
-        &deps.api.human_address(&config.liquidation_model)?,
+        &deps.api.human_address(&config.liquidation_contract)?,
         borrow_amount,
         borrow_limit,
         &cur_collaterals.to_human(&deps)?,
@@ -235,6 +236,7 @@ pub fn query_all_collaterals<S: Storage, A: Api, Q: Querier>(
 pub(crate) fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collaterals: &Tokens,
+    block_time: Option<u64>,
 ) -> StdResult<(Uint256, Vec<Decimal256>)> {
     let config: Config = read_config(&deps.storage)?;
     let oracle_contract = deps.api.human_address(&config.oracle_contract)?;
@@ -250,6 +252,10 @@ pub(crate) fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
             &oracle_contract,
             (deps.api.human_address(&collateral_token)?).to_string(),
             config.stable_denom.to_string(),
+            block_time.map(|block_time| TimeConstraints {
+                block_time,
+                valid_timeframe: config.price_timeframe,
+            }),
         )?;
 
         // TODO check price last_updated
@@ -267,11 +273,12 @@ pub(crate) fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
 pub fn query_borrow_limit<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     borrower: HumanAddr,
+    block_time: Option<u64>,
 ) -> StdResult<BorrowLimitResponse> {
     let collaterals = read_collaterals(&deps.storage, &deps.api.canonical_address(&borrower)?);
 
     // Compute borrow limit with collaterals
-    let (borrow_limit, _) = compute_borrow_limit(deps, &collaterals)?;
+    let (borrow_limit, _) = compute_borrow_limit(deps, &collaterals, block_time)?;
 
     Ok(BorrowLimitResponse {
         borrower,

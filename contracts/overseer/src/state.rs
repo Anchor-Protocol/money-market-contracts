@@ -21,12 +21,13 @@ pub struct Config {
     pub owner_addr: CanonicalAddr,
     pub oracle_contract: CanonicalAddr,
     pub market_contract: CanonicalAddr,
-    pub liquidation_model: CanonicalAddr,
+    pub liquidation_contract: CanonicalAddr,
     pub stable_denom: String,
     pub epoch_period: u64,
     pub distribution_threshold: Decimal256,
     pub target_deposit_rate: Decimal256,
     pub buffer_distribution_rate: Decimal256,
+    pub price_timeframe: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

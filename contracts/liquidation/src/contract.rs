@@ -30,6 +30,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             bid_fee: msg.bid_fee,
             max_premium_rate: msg.max_premium_rate,
             liquidation_threshold: msg.liquidation_threshold,
+            price_timeframe: msg.price_timeframe,
         },
     )?;
 
@@ -51,6 +52,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             bid_fee,
             max_premium_rate,
             liquidation_threshold,
+            price_timeframe,
         } => update_config(
             deps,
             env,
@@ -61,6 +63,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             bid_fee,
             max_premium_rate,
             liquidation_threshold,
+            price_timeframe,
         ),
         HandleMsg::SubmitBid {
             collateral_token,
@@ -117,6 +120,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     bid_fee: Option<Decimal256>,
     max_premium_rate: Option<Decimal256>,
     liquidation_threshold: Option<Uint256>,
+    price_timeframe: Option<u64>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.owner {
@@ -149,6 +153,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(liquidation_threshold) = liquidation_threshold {
         config.liquidation_threshold = liquidation_threshold;
+    }
+
+    if let Some(price_timeframe) = price_timeframe {
+        config.price_timeframe = price_timeframe;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -198,15 +206,16 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 fn query_config<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
 ) -> StdResult<ConfigResponse> {
-    let state = read_config(&deps.storage)?;
+    let config = read_config(&deps.storage)?;
     let resp = ConfigResponse {
-        owner: deps.api.human_address(&state.owner)?,
-        oracle_contract: deps.api.human_address(&state.oracle_contract)?,
-        stable_denom: state.stable_denom,
-        safe_ratio: state.safe_ratio,
-        bid_fee: state.bid_fee,
-        max_premium_rate: state.max_premium_rate,
-        liquidation_threshold: state.liquidation_threshold,
+        owner: deps.api.human_address(&config.owner)?,
+        oracle_contract: deps.api.human_address(&config.oracle_contract)?,
+        stable_denom: config.stable_denom,
+        safe_ratio: config.safe_ratio,
+        bid_fee: config.bid_fee,
+        max_premium_rate: config.max_premium_rate,
+        liquidation_threshold: config.liquidation_threshold,
+        price_timeframe: config.price_timeframe,
     };
 
     Ok(resp)

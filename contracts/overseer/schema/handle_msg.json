@@ -40,7 +40,7 @@
               "format": "uint64",
               "minimum": 0.0
             },
-            "liquidation_model": {
+            "liquidation_contract": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/HumanAddr"
@@ -69,6 +69,14 @@
                   "type": "null"
                 }
               ]
+            },
+            "price_timeframe": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
             },
             "target_deposit_rate": {
               "anyOf": [

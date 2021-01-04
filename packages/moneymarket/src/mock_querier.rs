@@ -235,8 +235,8 @@ pub(crate) fn liquidation_percent_to_map(
     liquidation_percent: &[(&HumanAddr, &Decimal256)],
 ) -> HashMap<HumanAddr, Decimal256> {
     let mut liquidation_percent_map: HashMap<HumanAddr, Decimal256> = HashMap::new();
-    for (liquidation_model, liquidation_percent) in liquidation_percent.iter() {
-        liquidation_percent_map.insert((*liquidation_model).clone(), **liquidation_percent);
+    for (liquidation_contract, liquidation_percent) in liquidation_percent.iter() {
+        liquidation_percent_map.insert((*liquidation_contract).clone(), **liquidation_percent);
     }
     liquidation_percent_map
 }
@@ -351,18 +351,19 @@ impl WasmMockQuerier {
                             request: msg.as_slice().into(),
                         }),
                     },
-                    QueryMsg::BorrowLimit { borrower } => {
-                        match self.borrow_limit_querier.borrow_limit.get(&borrower) {
-                            Some(v) => Ok(to_binary(&BorrowLimitResponse {
-                                borrower,
-                                borrow_limit: *v,
-                            })),
-                            None => Err(SystemError::InvalidRequest {
-                                error: "No borrow limit exists".to_string(),
-                                request: msg.as_slice().into(),
-                            }),
-                        }
-                    }
+                    QueryMsg::BorrowLimit {
+                        borrower,
+                        block_time: _,
+                    } => match self.borrow_limit_querier.borrow_limit.get(&borrower) {
+                        Some(v) => Ok(to_binary(&BorrowLimitResponse {
+                            borrower,
+                            borrow_limit: *v,
+                        })),
+                        None => Err(SystemError::InvalidRequest {
+                            error: "No borrow limit exists".to_string(),
+                            request: msg.as_slice().into(),
+                        }),
+                    },
                     QueryMsg::LiquidationAmount {
                         borrow_amount,
                         borrow_limit,

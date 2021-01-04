@@ -24,7 +24,10 @@ pub enum QueryMsg {
         total_reserves: Decimal256,
     },
     /// Query borrow limit to overseer contract
-    BorrowLimit { borrower: HumanAddr },
+    BorrowLimit {
+        borrower: HumanAddr,
+        block_time: Option<u64>,
+    },
 }
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -214,18 +217,19 @@ impl WasmMockQuerier {
                             request: msg.as_slice().into(),
                         }),
                     },
-                    QueryMsg::BorrowLimit { borrower } => {
-                        match self.borrow_limit_querier.borrow_limit.get(&borrower) {
-                            Some(v) => Ok(to_binary(&BorrowLimitResponse {
-                                borrower,
-                                borrow_limit: *v,
-                            })),
-                            None => Err(SystemError::InvalidRequest {
-                                error: "No borrow limit exists".to_string(),
-                                request: msg.as_slice().into(),
-                            }),
-                        }
-                    }
+                    QueryMsg::BorrowLimit {
+                        borrower,
+                        block_time: _,
+                    } => match self.borrow_limit_querier.borrow_limit.get(&borrower) {
+                        Some(v) => Ok(to_binary(&BorrowLimitResponse {
+                            borrower,
+                            borrow_limit: *v,
+                        })),
+                        None => Err(SystemError::InvalidRequest {
+                            error: "No borrow limit exists".to_string(),
+                            request: msg.as_slice().into(),
+                        }),
+                    },
                 }
             }
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {

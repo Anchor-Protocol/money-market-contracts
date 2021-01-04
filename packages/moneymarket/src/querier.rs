@@ -126,7 +126,10 @@ pub enum QueryMsg {
         total_reserves: Decimal256,
     },
     /// Query borrow limit to overseer contract
-    BorrowLimit { borrower: HumanAddr },
+    BorrowLimit {
+        borrower: HumanAddr,
+        block_time: Option<u64>,
+    },
     /// Query liquidation amount to liquidation model contract
     LiquidationAmount {
         borrow_amount: Uint256,
@@ -232,17 +235,33 @@ pub struct PriceResponse {
     pub last_updated_quote: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TimeConstraints {
+    pub block_time: u64,
+    pub valid_timeframe: u64,
+}
+
 pub fn query_price<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     oracle_addr: &HumanAddr,
     base: String,
     quote: String,
+    time_contraints: Option<TimeConstraints>,
 ) -> StdResult<PriceResponse> {
     let oracle_price: PriceResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(oracle_addr),
             msg: to_binary(&QueryMsg::Price { base, quote })?,
         }))?;
+
+    if let Some(time_contraints) = time_contraints {
+        let valid_update_time = time_contraints.block_time - time_contraints.valid_timeframe;
+        if oracle_price.last_updated_base < valid_update_time
+            || oracle_price.last_updated_quote < valid_update_time
+        {
+            return Err(StdError::generic_err("Price is too old"));
+        }
+    }
 
     Ok(oracle_price)
 }
@@ -282,12 +301,14 @@ pub fn query_borrow_limit<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     overseer_addr: &HumanAddr,
     borrower: &HumanAddr,
+    block_time: Option<u64>,
 ) -> StdResult<BorrowLimitResponse> {
     let borrow_limit: BorrowLimitResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(overseer_addr),
             msg: to_binary(&QueryMsg::BorrowLimit {
                 borrower: HumanAddr::from(borrower),
+                block_time,
             })?,
         }))?;
 
@@ -303,7 +324,7 @@ pub struct LiquidationAmountResponse {
 #[allow(clippy::ptr_arg)]
 pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
-    liquidation_model: &HumanAddr,
+    liquidation_contract: &HumanAddr,
     borrow_amount: Uint256,
     borrow_limit: Uint256,
     collaterals: &TokensHuman,
@@ -311,7 +332,7 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<LiquidationAmountResponse> {
     let liquidation_amount_res: LiquidationAmountResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: HumanAddr::from(liquidation_model),
+            contract_addr: HumanAddr::from(liquidation_contract),
             msg: to_binary(&QueryMsg::LiquidationAmount {
                 borrow_amount,
                 borrow_limit,
