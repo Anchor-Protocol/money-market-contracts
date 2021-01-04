@@ -6,13 +6,15 @@ use cosmwasm_std::{
 
 use crate::contract::{handle, init, query};
 use crate::external::handle::RewardContractHandleMsg;
-use crate::msg::{BorrowerResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
+use crate::state::read_borrower_info;
 use crate::testing::mock_querier::mock_dependencies;
 
-use crate::state::read_borrower_info;
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-use moneymarket::LiquidationCw20HookMsg;
+use moneymarket::custody::{
+    BorrowerResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg,
+};
+use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
 use terra_cosmwasm::create_swap_msg;
 
 #[test]

@@ -1,10 +1,6 @@
 use crate::mock_querier::mock_dependencies;
-use crate::querier::{
-    compute_tax, deduct_tax, query_borrow_limit, query_borrow_rate, query_distribution_params,
-    query_epoch_state, query_liquidation_amount, query_loan_amount, query_price, query_tax_rate,
-    BorrowLimitResponse, BorrowRateResponse, DistributionParamsResponse, EpochStateResponse,
-    LiquidationAmountResponse, LoanAmountResponse, PriceResponse, TimeConstraints,
-};
+use crate::oracle::PriceResponse;
+use crate::querier::{compute_tax, deduct_tax, query_price, query_tax_rate, TimeConstraints};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{Coin, Decimal, HumanAddr, StdError, Uint128};
@@ -15,29 +11,6 @@ fn tax_rate_querier() {
 
     deps.querier.with_tax(Decimal::percent(1), &[]);
     assert_eq!(query_tax_rate(&deps).unwrap(), Decimal256::percent(1),);
-}
-
-#[test]
-fn distribution_param_querier() {
-    let mut deps = mock_dependencies(20, &[]);
-
-    deps.querier.with_distribution_params(&[(
-        &HumanAddr::from("overseer"),
-        &(
-            Decimal256::percent(1),
-            Decimal256::percent(2),
-            Decimal256::percent(3),
-        ),
-    )]);
-
-    assert_eq!(
-        query_distribution_params(&deps, &HumanAddr::from("overseer"),).unwrap(),
-        DistributionParamsResponse {
-            deposit_rate: Decimal256::percent(1),
-            target_deposit_rate: Decimal256::percent(2),
-            distribution_threshold: Decimal256::percent(3)
-        }
-    );
 }
 
 #[test]
@@ -86,49 +59,6 @@ fn test_deduct_tax() {
         Coin {
             denom: "uusd".to_string(),
             amount: Uint128(49504951u128)
-        }
-    );
-}
-
-#[test]
-fn epoch_state_querier() {
-    let mut deps = mock_dependencies(20, &[]);
-
-    deps.querier.with_epoch_state(&[(
-        &HumanAddr::from("market"),
-        &(Uint256::from(100u128), Decimal256::percent(53)),
-    )]);
-
-    let epoch_state = query_epoch_state(&deps, &HumanAddr::from("market")).unwrap();
-    assert_eq!(
-        epoch_state,
-        EpochStateResponse {
-            a_token_supply: Uint256::from(100u128),
-            exchange_rate: Decimal256::percent(53),
-        }
-    );
-}
-
-#[test]
-fn borrow_amount_querier() {
-    let mut deps = mock_dependencies(20, &[]);
-
-    deps.querier
-        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(100u128))]);
-
-    let borrow_amount = query_loan_amount(
-        &deps,
-        &HumanAddr::from("market"),
-        &HumanAddr::from("addr0000"),
-        100u64,
-    )
-    .unwrap();
-
-    assert_eq!(
-        borrow_amount,
-        LoanAmountResponse {
-            borrower: HumanAddr::from("addr0000"),
-            loan_amount: Uint256::from(100u128),
         }
     );
 }
@@ -184,113 +114,4 @@ fn oracle_price_querier() {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Price is too old"),
         _ => panic!("DO NOT ENTER HERE"),
     }
-}
-
-#[test]
-fn borrow_rate_querier() {
-    let mut deps = mock_dependencies(20, &[]);
-
-    deps.querier.with_borrow_rate(&[(
-        &HumanAddr::from("interest"),
-        &Decimal256::from_uint256(100u128),
-    )]);
-
-    let borrow_rate = query_borrow_rate(
-        &deps,
-        &HumanAddr::from("interest"),
-        Uint256::zero(),
-        Decimal256::zero(),
-        Decimal256::zero(),
-    )
-    .unwrap();
-
-    assert_eq!(
-        borrow_rate,
-        BorrowRateResponse {
-            rate: Decimal256::from_uint256(100u128),
-        }
-    );
-}
-
-#[test]
-fn borrow_limit_querier() {
-    let mut deps = mock_dependencies(20, &[]);
-
-    deps.querier
-        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint256::from(1000u128))]);
-
-    let borrow_limit = query_borrow_limit(
-        &deps,
-        &HumanAddr::from("overseer"),
-        &HumanAddr::from("addr0000"),
-        None,
-    )
-    .unwrap();
-
-    assert_eq!(
-        borrow_limit,
-        BorrowLimitResponse {
-            borrower: HumanAddr::from("addr0000"),
-            borrow_limit: Uint256::from(1000u128),
-        }
-    );
-}
-
-#[test]
-fn liquidation_amount_querier() {
-    let mut deps = mock_dependencies(20, &[]);
-    deps.querier
-        .with_liquidation_percent(&[(&HumanAddr::from("model0000"), &Decimal256::percent(1))]);
-
-    let liquidation_amount = query_liquidation_amount(
-        &deps,
-        &HumanAddr::from("model0000"),
-        Uint256::from(1000000u128),
-        Uint256::from(1000000u128),
-        &vec![
-            (HumanAddr::from("token0000"), Uint256::from(1000000u128)),
-            (HumanAddr::from("token0001"), Uint256::from(2000000u128)),
-            (HumanAddr::from("token0002"), Uint256::from(3000000u128)),
-        ],
-        vec![
-            Decimal256::percent(1),
-            Decimal256::percent(2),
-            Decimal256::percent(3),
-        ],
-    )
-    .unwrap();
-    assert_eq!(
-        liquidation_amount,
-        LiquidationAmountResponse {
-            collaterals: vec![],
-        }
-    );
-
-    let liquidation_amount = query_liquidation_amount(
-        &deps,
-        &HumanAddr::from("model0000"),
-        Uint256::from(1000001u128),
-        Uint256::from(1000000u128),
-        &vec![
-            (HumanAddr::from("token0000"), Uint256::from(1000000u128)),
-            (HumanAddr::from("token0001"), Uint256::from(2000000u128)),
-            (HumanAddr::from("token0002"), Uint256::from(3000000u128)),
-        ],
-        vec![
-            Decimal256::percent(1),
-            Decimal256::percent(2),
-            Decimal256::percent(3),
-        ],
-    )
-    .unwrap();
-    assert_eq!(
-        liquidation_amount,
-        LiquidationAmountResponse {
-            collaterals: vec![
-                (HumanAddr::from("token0000"), Uint256::from(10000u128)),
-                (HumanAddr::from("token0001"), Uint256::from(20000u128)),
-                (HumanAddr::from("token0002"), Uint256::from(30000u128)),
-            ]
-        }
-    );
 }

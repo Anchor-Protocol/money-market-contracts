@@ -3,7 +3,7 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
-use moneymarket_market::msg::{
+use moneymarket::market::{
     ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, LiabilitiesResponse,
     LiabilityResponse, LoanAmountResponse, QueryMsg,
 };

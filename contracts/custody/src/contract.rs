@@ -8,10 +8,10 @@ use crate::collateral::{
     unlock_collateral, withdraw_collateral,
 };
 use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
-use crate::msg::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20ReceiveMsg;
+use moneymarket::custody::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
 use terra_cosmwasm::TerraMsgWrapper;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(

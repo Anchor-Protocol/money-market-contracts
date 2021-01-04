@@ -1,19 +1,22 @@
+use crate::contract::{handle, init, query};
+use crate::querier::query_epoch_state;
+use crate::state::{read_epoch_state, EpochState};
+use crate::testing::mock_querier::mock_dependencies;
+
 use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, log, to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
     WasmMsg,
 };
 
-use crate::contract::{handle, init, query};
-use crate::msg::{
+use moneymarket::custody::HandleMsg as CustodyHandleMsg;
+use moneymarket::market::HandleMsg as MarketHandleMsg;
+use moneymarket::overseer::{
     AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse, ConfigResponse, HandleMsg,
     InitMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
-use crate::state::{read_epoch_state, EpochState};
-use crate::testing::mock_querier::mock_dependencies;
-
-use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
-use moneymarket::{deduct_tax, query_epoch_state, CustodyHandleMsg, MarketHandleMsg};
+use moneymarket::querier::deduct_tax;
 
 #[test]
 fn proper_initialization() {

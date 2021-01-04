@@ -1,19 +1,19 @@
+use crate::bid::{
+    execute_bid, query_bid, query_bids_by_collateral, query_bids_by_user, retract_bid, submit_bid,
+};
+use crate::state::{read_config, store_config, Config};
+
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     from_binary, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr,
     InitResponse, Querier, StdError, StdResult, Storage,
 };
 use cw20::Cw20ReceiveMsg;
-
-use crate::bid::{
-    execute_bid, query_bid, query_bids_by_collateral, query_bids_by_user, retract_bid, submit_bid,
-};
-use crate::msg::{
+use moneymarket::liquidation::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LiquidationAmountResponse, QueryMsg,
 };
-use crate::state::{read_config, store_config, Config};
-
-use moneymarket::{query_tax_rate, TokensHuman};
+use moneymarket::querier::query_tax_rate;
+use moneymarket::tokens::TokensHuman;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,

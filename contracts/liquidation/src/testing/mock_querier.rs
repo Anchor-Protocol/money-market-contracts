@@ -9,7 +9,7 @@ use cosmwasm_std::{
 };
 use std::collections::HashMap;
 
-use moneymarket::PriceResponse;
+use moneymarket::oracle::PriceResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

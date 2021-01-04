@@ -1,14 +1,15 @@
+use crate::state::{
+    read_config, read_price, read_prices, store_config, store_price, Config, PriceInfo,
+};
+
 use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::{
     log, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr,
     InitResponse, Querier, StdError, StdResult, Storage,
 };
 
-use crate::msg::{
+use moneymarket::oracle::{
     ConfigResponse, HandleMsg, InitMsg, PriceResponse, PricesResponse, PricesResponseElem, QueryMsg,
-};
-use crate::state::{
-    read_config, read_price, read_prices, store_config, store_price, Config, PriceInfo,
 };
 
 pub fn init<S: Storage, A: Api, Q: Querier>(

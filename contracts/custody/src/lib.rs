@@ -1,7 +1,6 @@
 pub mod collateral;
 pub mod contract;
 pub mod distribution;
-pub mod msg;
 pub mod state;
 
 mod external;

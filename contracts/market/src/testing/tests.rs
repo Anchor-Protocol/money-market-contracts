@@ -1,8 +1,4 @@
 use crate::contract::{handle, init, query};
-use crate::msg::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LiabilityResponse, LoanAmountResponse,
-    QueryMsg,
-};
 use crate::state::{read_liabilities, read_state, store_state, State};
 use crate::testing::mock_querier::mock_dependencies;
 
@@ -13,7 +9,11 @@ use cosmwasm_std::{
     WasmMsg,
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg, MinterResponse};
-use moneymarket::deduct_tax;
+use moneymarket::market::{
+    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LiabilityResponse, LoanAmountResponse,
+    QueryMsg,
+};
+use moneymarket::querier::deduct_tax;
 use terraswap::{InitHook, TokenInitMsg};
 
 #[test]

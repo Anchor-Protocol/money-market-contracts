@@ -1,4 +1,3 @@
-use crate::msg::{BorrowerResponse, BorrowersResponse};
 use crate::state::{
     read_borrower_info, read_borrowers, read_config, remove_borrower_info, store_borrower_info,
     BorrowerInfo, Config,
@@ -10,7 +9,8 @@ use cosmwasm_std::{
     HumanAddr, Querier, StdError, StdResult, Storage, WasmMsg,
 };
 use cw20::Cw20HandleMsg;
-use moneymarket::LiquidationCw20HookMsg;
+use moneymarket::custody::{BorrowerResponse, BorrowersResponse};
+use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
 use terra_cosmwasm::TerraMsgWrapper;
 
 /// Deposit new collateral

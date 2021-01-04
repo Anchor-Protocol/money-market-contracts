@@ -8,7 +8,7 @@ use crate::borrow::compute_interest;
 use crate::state::{read_config, read_state, store_state, Config, State};
 
 use cw20::Cw20HandleMsg;
-use moneymarket::{deduct_tax, query_balance, query_supply};
+use moneymarket::querier::{deduct_tax, query_balance, query_supply};
 
 pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,

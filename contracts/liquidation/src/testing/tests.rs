@@ -1,3 +1,6 @@
+use crate::contract::{handle, init, query};
+use crate::testing::mock_querier::mock_dependencies;
+
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
@@ -5,13 +8,10 @@ use cosmwasm_std::{
     WasmMsg,
 };
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-
-use crate::contract::{handle, init, query};
-use crate::msg::{
+use moneymarket::liquidation::{
     BidResponse, BidsResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg,
     LiquidationAmountResponse, QueryMsg,
 };
-use crate::testing::mock_querier::mock_dependencies;
 
 #[test]
 fn proper_initialization() {

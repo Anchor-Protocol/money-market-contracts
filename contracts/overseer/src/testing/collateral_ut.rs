@@ -1,11 +1,13 @@
 use crate::collateral::compute_borrow_limit;
 use crate::contract::{handle, init};
-use crate::msg::{HandleMsg, InitMsg};
 use crate::testing::mock_querier::mock_dependencies;
+
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::mock_env;
 use cosmwasm_std::{Api, HumanAddr};
-use moneymarket::{Token, Tokens};
+
+use moneymarket::overseer::{HandleMsg, InitMsg};
+use moneymarket::tokens::{Token, Tokens};
 
 #[test]
 fn proper_compute_borrow_limit() {

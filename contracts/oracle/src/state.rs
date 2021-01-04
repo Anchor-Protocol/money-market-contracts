@@ -1,10 +1,11 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::msg::PricesResponseElem;
 use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::{CanonicalAddr, Order, StdError, StdResult, Storage};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
+
+use moneymarket::oracle::PricesResponseElem;
 
 static PREFIX_PRICE: &[u8] = b"price";
 static KEY_CONFIG: &[u8] = b"config";

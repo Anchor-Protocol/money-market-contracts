@@ -7,8 +7,7 @@ use cosmwasm_std::{
     Storage,
 };
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
-
-use crate::msg::BidResponse;
+use moneymarket::liquidation::BidResponse;
 
 static KEY_CONFIG: &[u8] = b"config";
 
