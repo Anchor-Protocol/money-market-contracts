@@ -1,6 +1,6 @@
 use crate::contract::{handle, init, query};
 use crate::querier::query_epoch_state;
-use crate::state::{read_epoch_state, EpochState};
+use crate::state::{read_epoch_state, store_epoch_state, EpochState};
 use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
@@ -17,6 +17,8 @@ use moneymarket::overseer::{
     InitMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
 use moneymarket::querier::deduct_tax;
+
+use std::str::FromStr;
 
 #[test]
 fn proper_initialization() {
@@ -361,6 +363,11 @@ fn execute_epoch_operations() {
                 send: vec![],
                 msg: to_binary(&CustodyHandleMsg::DistributeRewards {}).unwrap(),
             }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                send: vec![],
+                msg: to_binary(&HandleMsg::UpdateEpochState {}).unwrap(),
+            })
         ]
     );
 
@@ -368,12 +375,24 @@ fn execute_epoch_operations() {
         res.log,
         vec![
             log("action", "epoch_operations"),
-            log("distributed_interest", "0"),
             log("deposit_rate", "0.000002314814814814"),
             log("exchange_rate", "1.2"),
             log("a_token_supply", "1000000"),
+            log("distributed_interest", "0"),
         ]
     );
+
+    // store epoch state for test purpose
+    store_epoch_state(
+        &mut deps.storage,
+        &EpochState {
+            last_executed_height: env.block.height,
+            prev_exchange_rate: Decimal256::from_str("1.2").unwrap(),
+            prev_a_token_supply: Uint256::from_str("1000000").unwrap(),
+            deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
+        },
+    )
+    .unwrap();
 
     // If deposit rate is bigger than threshold
     deps.querier.with_epoch_state(&[(
@@ -416,6 +435,11 @@ fn execute_epoch_operations() {
                 send: vec![],
                 msg: to_binary(&CustodyHandleMsg::DistributeRewards {}).unwrap(),
             }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                send: vec![],
+                msg: to_binary(&HandleMsg::UpdateEpochState {}).unwrap(),
+            })
         ]
     );
 
@@ -423,7 +447,100 @@ fn execute_epoch_operations() {
         res.log,
         vec![
             log("action", "epoch_operations"),
+            log("deposit_rate", "0.000000482253086419"),
+            log("exchange_rate", "1.25"),
+            log("a_token_supply", "1000000"),
             log("distributed_interest", "53680"),
+        ]
+    );
+}
+
+#[test]
+fn update_epoch_state() {
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(10000000000u128),
+        }],
+    );
+
+    let env = mock_env("owner", &[]);
+    let msg = InitMsg {
+        owner_addr: HumanAddr::from("owner"),
+        oracle_contract: HumanAddr::from("oracle"),
+        market_contract: HumanAddr::from("market"),
+        liquidation_contract: HumanAddr::from("liquidation"),
+        stable_denom: "uusd".to_string(),
+        epoch_period: 86400u64,
+        distribution_threshold: Decimal256::from_ratio(1u64, 1000000u64),
+        target_deposit_rate: Decimal256::permille(5),
+        buffer_distribution_rate: Decimal256::percent(20),
+        price_timeframe: 60u64,
+    };
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // store whitelist elems
+    let msg = HandleMsg::Whitelist {
+        collateral_token: HumanAddr::from("bluna"),
+        custody_contract: HumanAddr::from("custody_bluna"),
+        ltv: Decimal256::percent(60),
+    };
+
+    let _res = handle(&mut deps, env.clone(), msg);
+
+    let msg = HandleMsg::Whitelist {
+        collateral_token: HumanAddr::from("batom"),
+        custody_contract: HumanAddr::from("custody_batom"),
+        ltv: Decimal256::percent(60),
+    };
+
+    let _res = handle(&mut deps, env.clone(), msg);
+
+    // only contract itself can execute update_epoch_state
+    let msg = HandleMsg::UpdateEpochState {};
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    // Assume execute epoch operation is executed
+    let mut env = mock_env(MOCK_CONTRACT_ADDR, &[]);
+    env.block.height += 86400u64;
+
+    deps.querier.with_epoch_state(&[(
+        &HumanAddr::from("market"),
+        &(Uint256::from(1000000u64), Decimal256::percent(120)),
+    )]);
+
+    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    assert_eq!(res.messages.len(), 0);
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "update_epoch_state"),
+            log("deposit_rate", "0.000002314814814814"),
+            log("exchange_rate", "1.2"),
+            log("a_token_supply", "1000000"),
+        ]
+    );
+
+    // Deposit rate increased
+    deps.querier.with_epoch_state(&[(
+        &HumanAddr::from("market"),
+        &(Uint256::from(1000000u64), Decimal256::percent(125)),
+    )]);
+
+    env.block.height += 86400u64;
+    let res = handle(&mut deps, env.clone(), msg).unwrap();
+    assert_eq!(res.messages.len(), 0);
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "update_epoch_state"),
             log("deposit_rate", "0.000000482253086419"),
             log("exchange_rate", "1.25"),
             log("a_token_supply", "1000000"),

@@ -95,6 +95,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             ltv,
         } => update_whitelist(deps, env, collateral_token, custody_contract, ltv),
         HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
+        HandleMsg::UpdateEpochState {} => update_eposh_state(deps, env),
         HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
         HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
         HandleMsg::LiquidateCollateral { borrower } => liquidate_collateral(deps, env, borrower),
@@ -291,7 +292,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
         if !distributed_interest.is_zero() {
             // Send some portion of interest buffer to Market contract
             messages.push(CosmosMsg::Bank(BankMsg::Send {
-                from_address: env.contract.address,
+                from_address: env.contract.address.clone(),
                 to_address: deps.api.human_address(&config.market_contract)?,
                 amount: vec![deduct_tax(
                     &deps,
@@ -314,7 +315,50 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
         }));
     }
 
-    // update last_executed_height
+    // Execute store epoch state operation
+    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: env.contract.address,
+        send: vec![],
+        msg: to_binary(&HandleMsg::UpdateEpochState {})?,
+    }));
+
+    Ok(HandleResponse {
+        messages,
+        log: vec![
+            log("action", "epoch_operations"),
+            log("deposit_rate", deposit_rate),
+            log("exchange_rate", epoch_state.exchange_rate),
+            log("a_token_supply", epoch_state.a_token_supply),
+            log("distributed_interest", distributed_interest),
+        ],
+        data: None,
+    })
+}
+
+pub fn update_eposh_state<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
+    let state: EpochState = read_epoch_state(&deps.storage)?;
+    if env.message.sender != env.contract.address {
+        return Err(StdError::unauthorized());
+    }
+
+    // # of blocks from the last executed height
+    let blocks = Uint256::from(env.block.height - state.last_executed_height);
+
+    // Compute next epoch state
+    let market_contract: HumanAddr = deps.api.human_address(&config.market_contract)?;
+    let epoch_state: EpochStateResponse = query_epoch_state(&deps, &market_contract)?;
+
+    // effective_deposit_rate = cur_exchange_rate / prev_exchange_rate
+    // deposit_rate = (effective_deposit_rate - 1) / blocks
+    let effective_deposit_rate = epoch_state.exchange_rate / state.prev_exchange_rate;
+    let deposit_rate =
+        (effective_deposit_rate - Decimal256::one()) / Decimal256::from_uint256(blocks);
+
+    // store updated epoch state
     store_epoch_state(
         &mut deps.storage,
         &EpochState {
@@ -326,10 +370,9 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     )?;
 
     Ok(HandleResponse {
-        messages,
+        messages: vec![],
         log: vec![
-            log("action", "epoch_operations"),
-            log("distributed_interest", distributed_interest),
+            log("action", "update_epoch_state"),
             log("deposit_rate", deposit_rate),
             log("exchange_rate", epoch_state.exchange_rate),
             log("a_token_supply", epoch_state.a_token_supply),
