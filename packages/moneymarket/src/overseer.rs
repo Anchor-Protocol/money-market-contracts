@@ -70,7 +70,9 @@ pub enum HandleMsg {
     /// and also do a epoch basis updates
     /// 1. Distribute interest buffers to depositors
     /// 2. Invoke [Custody] DistributeRewards
+    /// 3. Update epoch state
     ExecuteEpochOperations {},
+    UpdateEpochState {},
 
     ////////////////////
     /// User operations
