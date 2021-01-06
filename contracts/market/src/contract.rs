@@ -1,22 +1,25 @@
+use crate::borrow::{
+    borrow_stable, compute_interest, compute_interest_raw, query_liabilities, query_liability,
+    query_loan_amount, repay_stable, repay_stable_from_liquidation,
+};
+use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
+use crate::querier::query_borrow_rate;
+use crate::state::{read_config, read_state, store_config, store_state, Config, State};
+
+use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Env, Extern,
     HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError,
     StdResult, Storage, WasmMsg,
 };
-
-use crate::borrow::{
-    borrow_stable, compute_interest, query_liabilities, query_liability, query_loan_amount,
-    repay_stable, repay_stable_from_liquidation,
-};
-use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
-use crate::state::{read_config, read_state, store_config, store_state, Config, State};
-
-use cosmwasm_bignumber::Decimal256;
 use cw20::{Cw20ReceiveMsg, MinterResponse};
+
+use moneymarket::interest::BorrowRateResponse;
 use moneymarket::market::{
     ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, QueryMsg,
 };
 use moneymarket::querier::{query_balance, query_supply};
+
 use terraswap::{InitHook, TokenInitMsg};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -201,7 +204,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State {} => to_binary(&query_state(deps)?),
-        QueryMsg::EpochState {} => to_binary(&query_epoch_state(deps)?),
+        QueryMsg::EpochState { block_height } => to_binary(&query_epoch_state(deps, block_height)?),
         QueryMsg::Liability { borrower } => to_binary(&query_liability(deps, borrower)?),
         QueryMsg::Liabilities { start_after, limit } => {
             to_binary(&query_liabilities(deps, start_after, limit)?)
@@ -234,17 +237,36 @@ pub fn query_state<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> St
 
 pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
+    block_height: Option<u64>,
 ) -> StdResult<EpochStateResponse> {
     let config: Config = read_config(&deps.storage)?;
-    let state: State = read_state(&deps.storage)?;
+    let mut state: State = read_state(&deps.storage)?;
 
+    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
     let balance = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
         config.stable_denom.to_string(),
     )?;
-    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
+
     let exchange_rate = compute_exchange_rate_raw(&state, a_token_supply, balance)?;
+
+    if let Some(block_height) = block_height {
+        let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
+            &deps,
+            &deps.api.human_address(&config.interest_model)?,
+            balance,
+            state.total_liabilities,
+            state.total_reserves,
+        )?;
+        // Compute interest rate to return latest epoch state
+        compute_interest_raw(
+            &mut state,
+            block_height,
+            borrow_rate_res.rate,
+            config.reserve_factor,
+        );
+    }
 
     Ok(EpochStateResponse {
         exchange_rate,

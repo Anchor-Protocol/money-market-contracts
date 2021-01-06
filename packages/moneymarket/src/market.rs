@@ -87,7 +87,9 @@ pub enum Cw20HookMsg {
 pub enum QueryMsg {
     Config {},
     State {},
-    EpochState {},
+    EpochState {
+        block_height: Option<u64>,
+    },
     Liability {
         borrower: HumanAddr,
     },

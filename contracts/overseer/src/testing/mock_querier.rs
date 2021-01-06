@@ -20,7 +20,7 @@ use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrap
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     /// Query epoch state to market contract
-    EpochState {},
+    EpochState { block_height: Option<u64> },
     /// Query loan amount to market contract
     LoanAmount {
         borrower: HumanAddr,
@@ -232,7 +232,7 @@ impl WasmMockQuerier {
             }
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
                 match from_binary(&msg).unwrap() {
-                    QueryMsg::EpochState {} => {
+                    QueryMsg::EpochState { block_height: _ } => {
                         match self.epoch_state_querier.epoch_state.get(&contract_addr) {
                             Some(v) => Ok(to_binary(&EpochStateResponse {
                                 a_token_supply: v.0,

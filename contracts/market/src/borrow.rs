@@ -4,10 +4,10 @@ use cosmwasm_std::{
     Querier, StdError, StdResult, Storage,
 };
 use moneymarket::interest::BorrowRateResponse;
+use moneymarket::market::{LiabilitiesResponse, LiabilityResponse, LoanAmountResponse};
 use moneymarket::overseer::BorrowLimitResponse;
 use moneymarket::querier::{deduct_tax, query_balance};
 
-use crate::msg::{LiabilitiesResponse, LiabilityResponse, LoanAmountResponse};
 use crate::querier::{query_borrow_limit, query_borrow_rate};
 use crate::state::{
     read_config, read_liabilities, read_liability, read_state, store_liability, store_state,
@@ -185,18 +185,32 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
         state.total_reserves,
     )?;
 
+    compute_interest_raw(
+        state,
+        block_height,
+        borrow_rate_res.rate,
+        config.reserve_factor,
+    );
+
+    Ok(())
+}
+
+pub fn compute_interest_raw(
+    state: &mut State,
+    block_height: u64,
+    borrow_rate: Decimal256,
+    reserve_factor: Decimal256,
+) {
     let passed_blocks = block_height - state.last_interest_updated;
-    let interest_factor = Decimal256::from_uint256(passed_blocks) * borrow_rate_res.rate;
+    let interest_factor = Decimal256::from_uint256(passed_blocks) * borrow_rate;
 
     let interest_accrued = state.total_liabilities * interest_factor;
 
     state.global_interest_index =
         state.global_interest_index * (Decimal256::one() + interest_factor);
     state.total_liabilities += interest_accrued;
-    state.total_reserves += interest_accrued * config.reserve_factor;
+    state.total_reserves += interest_accrued * reserve_factor;
     state.last_interest_updated = block_height;
-
-    Ok(())
 }
 
 /// Compute new interest and apply to liability

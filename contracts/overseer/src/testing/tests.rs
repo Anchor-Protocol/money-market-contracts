@@ -547,7 +547,8 @@ fn update_epoch_state() {
         ]
     );
 
-    let epoch_state_response = query_epoch_state(&deps, &HumanAddr::from("market")).unwrap();
+    let epoch_state_response =
+        query_epoch_state(&deps, &HumanAddr::from("market"), env.block.height).unwrap();
     let epoch_state = read_epoch_state(&deps.storage).unwrap();
 
     // deposit rate = 0.000000482253078703

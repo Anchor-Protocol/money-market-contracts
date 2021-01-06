@@ -5,7 +5,7 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Order, Querier, StdResult, Storage};
 use cosmwasm_storage::{bucket, bucket_read, ReadonlyBucket, ReadonlySingleton, Singleton};
 
-use crate::msg::LiabilityResponse;
+use moneymarket::market::LiabilityResponse;
 
 const KEY_CONFIG: &[u8] = b"config";
 const KEY_STATE: &[u8] = b"state";

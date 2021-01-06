@@ -75,6 +75,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     // Update interest related state
     let mut state: State = read_state(&deps.storage)?;
     compute_interest(&deps, &config, &mut state, env.block.height, None)?;
+
     // Load anchor token exchange rate with updated state
     let exchange_rate = compute_exchange_rate(deps, &config, &state, None)?;
     let redeem_amount = Uint256::from(burn_amount) * exchange_rate;
