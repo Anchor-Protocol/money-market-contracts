@@ -249,7 +249,7 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
         config.stable_denom.to_string(),
     )?;
 
-    let exchange_rate = compute_exchange_rate_raw(&state, a_token_supply, balance)?;
+    let exchange_rate = compute_exchange_rate_raw(&state, a_token_supply, balance);
 
     if let Some(block_height) = block_height {
         let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
