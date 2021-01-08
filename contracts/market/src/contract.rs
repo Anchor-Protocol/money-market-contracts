@@ -249,8 +249,6 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
         config.stable_denom.to_string(),
     )?;
 
-    let exchange_rate = compute_exchange_rate_raw(&state, a_token_supply, balance);
-
     if let Some(block_height) = block_height {
         let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
             &deps,
@@ -259,6 +257,7 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
             state.total_liabilities,
             state.total_reserves,
         )?;
+
         // Compute interest rate to return latest epoch state
         compute_interest_raw(
             &mut state,
@@ -267,6 +266,8 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
             config.reserve_factor,
         );
     }
+
+    let exchange_rate = compute_exchange_rate_raw(&state, a_token_supply, balance);
 
     Ok(EpochStateResponse {
         exchange_rate,
