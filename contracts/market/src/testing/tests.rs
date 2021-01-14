@@ -273,7 +273,7 @@ fn deposit_stable_huge_amount() {
         &HumanAddr::from("AT-uusd"),
         &[(
             &HumanAddr::from(MOCK_CONTRACT_ADDR),
-            &Uint128::from(1000000u128),
+            &Uint128::from(INITIAL_DEPOSIT_AMOUNT),
         )],
     )]);
     deps.querier.update_balance(
@@ -434,7 +434,7 @@ fn deposit_stable() {
         &HumanAddr::from("AT-uusd"),
         &[(
             &HumanAddr::from(MOCK_CONTRACT_ADDR),
-            &Uint128::from(1000000u128),
+            &Uint128::from(INITIAL_DEPOSIT_AMOUNT),
         )],
     )]);
     deps.querier.update_balance(
@@ -1160,12 +1160,15 @@ fn repay_stable_from_liquidation() {
         vec![Coin {
             denom: "ukrw".to_string(),
             amount: Uint128(100000u128),
+        }, Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
         }],
     );
 
     let msg = HandleMsg::RepayStableFromLiquidation {
         borrower: HumanAddr::from("addr0000"),
-        prev_balance: Uint256::zero(),
+        prev_balance: Uint256::from(INITIAL_DEPOSIT_AMOUNT),
     };
 
     let res = handle(&mut deps, env.clone(), msg.clone());
