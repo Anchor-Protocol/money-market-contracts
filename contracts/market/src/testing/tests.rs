@@ -1,4 +1,4 @@
-use crate::contract::{handle, init, query};
+use crate::contract::{handle, init, query, INITIAL_DEPOSIT_AMOUNT};
 use crate::state::{read_liabilities, read_state, store_state, State};
 use crate::testing::mock_querier::mock_dependencies;
 
@@ -8,7 +8,7 @@ use cosmwasm_std::{
     from_binary, log, to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
     WasmMsg,
 };
-use cw20::{Cw20HandleMsg, Cw20ReceiveMsg, MinterResponse};
+use cw20::{Cw20CoinHuman, Cw20HandleMsg, Cw20ReceiveMsg, MinterResponse};
 use moneymarket::market::{
     ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LiabilityResponse, LoanAmountResponse,
     QueryMsg,
@@ -18,7 +18,13 @@ use terraswap::{InitHook, TokenInitMsg};
 
 #[test]
 fn proper_initialization() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
@@ -28,7 +34,13 @@ fn proper_initialization() {
         anchor_token_code_id: 123u64,
     };
 
-    let env = mock_env("addr0000", &[]);
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
 
     // we can just call .unwrap() to assert this was a success
     let res = init(&mut deps, env.clone(), msg).unwrap();
@@ -42,7 +54,10 @@ fn proper_initialization() {
                 name: "Anchor Token for uusd".to_string(),
                 symbol: "AT-uusd".to_string(),
                 decimals: 6u8,
-                initial_balances: vec![],
+                initial_balances: vec![Cw20CoinHuman {
+                    address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                    amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+                }],
                 mint: Some(MinterResponse {
                     minter: HumanAddr::from(MOCK_CONTRACT_ADDR),
                     cap: None,
@@ -99,7 +114,13 @@ fn proper_initialization() {
 
 #[test]
 fn update_config() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
     deps.querier
         .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
 
@@ -111,7 +132,13 @@ fn update_config() {
         anchor_token_code_id: 123u64,
     };
 
-    let env = mock_env("addr0000", &[]);
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
 
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
@@ -178,7 +205,13 @@ fn update_config() {
 
 #[test]
 fn deposit_stable_huge_amount() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
@@ -188,7 +221,13 @@ fn deposit_stable_huge_amount() {
         anchor_token_code_id: 123u64,
     };
 
-    let env = mock_env("addr0000", &[]);
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
 
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
@@ -230,13 +269,18 @@ fn deposit_stable_huge_amount() {
 
     deps.querier
         .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
-    deps.querier
-        .with_token_balances(&[(&HumanAddr::from("AT-uusd"), &[])]);
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("AT-uusd"),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128::from(1000000u128),
+        )],
+    )]);
     deps.querier.update_balance(
         HumanAddr::from(MOCK_CONTRACT_ADDR),
         vec![Coin {
             denom: "uusd".to_string(),
-            amount: Uint128::from(55_555_555_000_000u128),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 55_555_555_000_000u128),
         }],
     );
 
@@ -311,7 +355,7 @@ fn deposit_stable() {
         20,
         &[Coin {
             denom: "uusd".to_string(),
-            amount: Uint128::from(2000000u128),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
         }],
     );
 
@@ -323,7 +367,13 @@ fn deposit_stable() {
         anchor_token_code_id: 123u64,
     };
 
-    let env = mock_env("addr0000", &[]);
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
 
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
@@ -355,7 +405,7 @@ fn deposit_stable() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    //base denom, zero deposit
+    // base denom, zero deposit
     let env = mock_env(
         "addr0000",
         &[Coin {
@@ -380,11 +430,22 @@ fn deposit_stable() {
 
     deps.querier
         .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
-    deps.querier
-        .with_token_balances(&[(&HumanAddr::from("AT-uusd"), &[])]);
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("AT-uusd"),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128::from(1000000u128),
+        )],
+    )]);
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 1000000u128),
+        }],
+    );
 
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
-
     //1- As the last place to modify the state is compute_interest, a check on the state ensures the invocation of compute_interest.
     //However, because passed_blocks = 0, interest factor & interest accrued are also 0, and thus the values do not change
     // (looking as if the function might not have been invoked at all.)
@@ -434,14 +495,6 @@ fn deposit_stable() {
     )
     .unwrap();
 
-    deps.querier.with_token_balances(&[(
-        &HumanAddr::from("AT-uusd"),
-        &[(
-            &HumanAddr::from(MOCK_CONTRACT_ADDR),
-            &Uint128::from(1000000u128),
-        )],
-    )]);
-
     let res = handle(&mut deps, env, msg.clone()).unwrap();
     assert_eq!(
         res.log,
@@ -486,16 +539,7 @@ fn deposit_stable() {
     )
     .unwrap();
 
-    deps.querier.with_token_balances(&[(
-        &HumanAddr::from("AT-uusd"),
-        &[(
-            &HumanAddr::from(MOCK_CONTRACT_ADDR),
-            &Uint128::from(1000000u128),
-        )],
-    )]);
-
     env.block.height += 100;
-
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
     //State: global_interest_index: 1
@@ -519,7 +563,7 @@ fn redeem_stable() {
         20,
         &[Coin {
             denom: "uusd".to_string(),
-            amount: Uint128::from(2000000u128),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
         }],
     );
 
@@ -531,7 +575,13 @@ fn redeem_stable() {
         anchor_token_code_id: 123u64,
     };
 
-    let env = mock_env("addr0000", &[]);
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
 
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
@@ -566,6 +616,13 @@ fn redeem_stable() {
             &Uint128::from(1000000u128),
         )],
     )]);
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 1000000u128),
+        }],
+    );
 
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -684,7 +741,13 @@ fn redeem_stable() {
 
 #[test]
 fn borrow_stable() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
     deps.querier.with_tax(
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
@@ -698,7 +761,13 @@ fn borrow_stable() {
         anchor_token_code_id: 123u64,
     };
 
-    let env = mock_env("addr0000", &[]);
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
 
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
@@ -855,7 +924,7 @@ fn repay_stable() {
         20,
         &[Coin {
             denom: "uusd".to_string(),
-            amount: Uint128(2000000u128),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
         }],
     );
     deps.querier.with_tax(
@@ -871,7 +940,13 @@ fn repay_stable() {
         anchor_token_code_id: 123u64,
     };
 
-    let env = mock_env("addr0000", &[]);
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
 
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
@@ -933,6 +1008,14 @@ fn repay_stable() {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot repay zero coins"),
         _ => panic!("DO NOT ENTER HERE"),
     }
+
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 100000u128),
+        }],
+    );
 
     env.message.sent_funds = vec![Coin {
         denom: "uusd".to_string(),
@@ -1005,7 +1088,13 @@ fn repay_stable() {
 
 #[test]
 fn repay_stable_from_liquidation() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
     deps.querier.with_tax(
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
@@ -1019,7 +1108,13 @@ fn repay_stable_from_liquidation() {
         anchor_token_code_id: 123u64,
     };
 
-    let env = mock_env("addr0000", &[]);
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
 
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
@@ -1094,7 +1189,7 @@ fn repay_stable_from_liquidation() {
         HumanAddr::from(MOCK_CONTRACT_ADDR),
         vec![Coin {
             denom: "uusd".to_string(),
-            amount: Uint128(100000u128),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT + 100000u128),
         }],
     );
 
@@ -1112,7 +1207,7 @@ fn repay_stable_from_liquidation() {
         HumanAddr::from(MOCK_CONTRACT_ADDR),
         vec![Coin {
             denom: "uusd".to_string(),
-            amount: Uint128(500000u128),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT + 500000u128),
         }],
     );
 

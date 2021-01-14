@@ -129,10 +129,6 @@ pub(crate) fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
     deposit_amount: Option<Uint256>,
 ) -> StdResult<Decimal256> {
     let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
-    if a_token_supply.is_zero() {
-        return Ok(Decimal256::one());
-    }
-
     let balance = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
@@ -147,13 +143,8 @@ pub fn compute_exchange_rate_raw(
     a_token_supply: Uint256,
     contract_balance: Uint256,
 ) -> Decimal256 {
-    if a_token_supply.is_zero() {
-        return Decimal256::one();
-    }
-
     // (anchor_token / stable_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / anchor_token_supply
-
     (Decimal256::from_uint256(contract_balance) + state.total_liabilities - state.total_reserves)
         / Decimal256::from_uint256(a_token_supply)
 }
