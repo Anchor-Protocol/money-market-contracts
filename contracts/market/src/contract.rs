@@ -10,23 +10,39 @@ use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Env, Extern,
     HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError,
-    StdResult, Storage, WasmMsg,
+    StdResult, Storage, Uint128, WasmMsg,
 };
-use cw20::{Cw20ReceiveMsg, MinterResponse};
+use cw20::{Cw20CoinHuman, Cw20ReceiveMsg, MinterResponse};
 
 use moneymarket::interest::BorrowRateResponse;
 use moneymarket::market::{
     ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, QueryMsg,
 };
 use moneymarket::querier::{query_balance, query_supply};
-
 use terraswap::{InitHook, TokenInitMsg};
 
+pub const INITIAL_DEPOSIT_AMOUNT: u128 = 1000000;
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: InitMsg,
 ) -> InitResult {
+    let initial_deposit = env
+        .message
+        .sent_funds
+        .iter()
+        .find(|c| c.denom == msg.stable_denom)
+        .map(|c| c.amount)
+        .unwrap_or_else(|| Uint128::zero());
+
+    if initial_deposit != Uint128(INITIAL_DEPOSIT_AMOUNT) {
+        return Err(StdError::generic_err(format!(
+            "Must deposit initial funds {:?}{:?}",
+            INITIAL_DEPOSIT_AMOUNT,
+            msg.stable_denom.clone()
+        )));
+    }
+
     store_config(
         &mut deps.storage,
         &Config {
@@ -59,7 +75,10 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
                 name: format!("Anchor Token for {}", msg.stable_denom),
                 symbol: format!("AT-{}", msg.stable_denom),
                 decimals: 6u8,
-                initial_balances: vec![],
+                initial_balances: vec![Cw20CoinHuman {
+                    address: env.contract.address.clone(),
+                    amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+                }],
                 mint: Some(MinterResponse {
                     minter: env.contract.address.clone(),
                     cap: None,
