@@ -249,6 +249,18 @@ fn withdraw_collateral() {
             log("amount", "50"),
         ]
     );
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("bluna"),
+            send: vec![],
+            msg: to_binary(&Cw20HandleMsg::Transfer {
+                recipient: HumanAddr::from("addr0000"),
+                amount: Uint128::from(50u128),
+            })
+            .unwrap(),
+        })]
+    );
 
     let query_res = query(
         &deps,

@@ -47,6 +47,8 @@ pub fn withdraw_collateral<S: Storage, A: Api, Q: Querier>(
     env: Env,
     amount: Option<Uint256>,
 ) -> HandleResult<TerraMsgWrapper> {
+    let config: Config = read_config(&deps.storage)?;
+
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
     let mut borrower_info: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
@@ -71,7 +73,14 @@ pub fn withdraw_collateral<S: Storage, A: Api, Q: Querier>(
     }
 
     Ok(HandleResponse {
-        messages: vec![],
+        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps.api.human_address(&config.collateral_token)?,
+            send: vec![],
+            msg: to_binary(&Cw20HandleMsg::Transfer {
+                recipient: borrower.clone(),
+                amount: amount.into(),
+            })?,
+        })],
         log: vec![
             log("action", "withdraw_collateral"),
             log("borrower", borrower.as_str()),
