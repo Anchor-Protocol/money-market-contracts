@@ -178,7 +178,7 @@ fn submit_bid() {
     let res = handle(&mut deps, env.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "premium_rate cannot be bigger than max_premium_rate")
+            assert_eq!(msg, "Premium rate cannot exceed the max premium rate: 0.05")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -189,7 +189,9 @@ fn submit_bid() {
     };
     let res = handle(&mut deps, env.clone(), msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Must provide stable_denom asset"),
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "No uusd assets have been provided")
+        }
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -263,7 +265,7 @@ fn retract_bid() {
     let res = handle(&mut deps, env.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot retract bigger amount than the bid balance")
+            assert_eq!(msg, "Retract amount cannot exceed bid balance: 1000000")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -358,7 +360,7 @@ fn execute_bid() {
     let res = handle(&mut deps, env.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Bid amount is smaller than required_stable")
+            assert_eq!(msg, "Insufficient bid balance; Required balance: 1000001")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -488,7 +490,7 @@ fn query_liquidation_amount() {
     let res = query(&mut deps, msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "cannot liquidate a undercollateralized loan")
+            assert_eq!(msg, "Cannot liquidate an undercollateralized loan")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }

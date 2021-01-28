@@ -255,7 +255,9 @@ fn deposit_stable_huge_amount() {
 
     let res = handle(&mut deps, env, msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot deposit zero coins"),
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Deposit amount must be greater than 0 uusd")
+        }
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -401,7 +403,9 @@ fn deposit_stable() {
 
     let res = handle(&mut deps, env, msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot deposit zero coins"),
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Deposit amount must be greater than 0 uusd")
+        }
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -416,7 +420,9 @@ fn deposit_stable() {
 
     let res = handle(&mut deps, env, msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot deposit zero coins"),
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Deposit amount must be greater than 0 uusd")
+        }
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -698,7 +704,7 @@ fn redeem_stable() {
     let res = handle(&mut deps, env.clone(), msg.clone());
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Failed to redeem stable; not enough contract balance")
+            assert_eq!(msg, "Not enough uusd available; borrow demand too high")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -913,7 +919,10 @@ fn borrow_stable() {
     };
     let res = handle(&mut deps, env.clone(), msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot borrow more than limit"),
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(
+            msg,
+            "Borrow amount too high; Loan liability becomes greater than borrow limit: 1000000"
+        ),
         _ => panic!("DO NOT ENTER HERE"),
     }
 }
@@ -994,7 +1003,9 @@ fn repay_stable() {
 
     let res = handle(&mut deps, env.clone(), msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot repay zero coins"),
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Repay amount must be greater than 0 uusd")
+        }
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -1005,7 +1016,9 @@ fn repay_stable() {
 
     let res2 = handle(&mut deps, env.clone(), msg.clone());
     match res2 {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot repay zero coins"),
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Repay amount must be greater than 0 uusd")
+        }
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -1157,13 +1170,16 @@ fn repay_stable_from_liquidation() {
     // update balance to make repay
     deps.querier.update_balance(
         HumanAddr::from(MOCK_CONTRACT_ADDR),
-        vec![Coin {
-            denom: "ukrw".to_string(),
-            amount: Uint128(100000u128),
-        }, Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
-        }],
+        vec![
+            Coin {
+                denom: "ukrw".to_string(),
+                amount: Uint128(100000u128),
+            },
+            Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+            },
+        ],
     );
 
     let msg = HandleMsg::RepayStableFromLiquidation {
@@ -1183,7 +1199,9 @@ fn repay_stable_from_liquidation() {
 
     let res = handle(&mut deps, env.clone(), msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Cannot repay zero coins"),
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Repay amount must be greater than 0 uusd")
+        }
         _ => panic!("DO NOT ENTER HERE"),
     }
 

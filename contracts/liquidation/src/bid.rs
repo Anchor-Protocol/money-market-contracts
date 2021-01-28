@@ -22,14 +22,18 @@ pub fn submit_bid<S: Storage, A: Api, Q: Querier>(
     let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
     let bidder_raw = deps.api.canonical_address(&env.message.sender)?;
     if read_bid(&deps.storage, &bidder_raw, &collateral_token_raw).is_ok() {
-        return Err(StdError::generic_err("Bid already exists"));
+        return Err(StdError::generic_err(format!(
+            "User already has bid for specified collateral: {}",
+            collateral_token
+        )));
     }
 
     let config: Config = read_config(&deps.storage)?;
     if config.max_premium_rate < premium_rate {
-        return Err(StdError::generic_err(
-            "premium_rate cannot be bigger than max_premium_rate",
-        ));
+        return Err(StdError::generic_err(format!(
+            "Premium rate cannot exceed the max premium rate: {}",
+            config.max_premium_rate
+        )));
     }
 
     let amount: Uint256 = Uint256::from(
@@ -38,7 +42,12 @@ pub fn submit_bid<S: Storage, A: Api, Q: Querier>(
             .iter()
             .find(|c| c.denom == config.stable_denom)
             .map(|c| c.amount)
-            .ok_or_else(|| StdError::generic_err("Must provide stable_denom asset"))?,
+            .ok_or_else(|| {
+                StdError::generic_err(format!(
+                    "No {} assets have been provided",
+                    config.stable_denom
+                ))
+            })?,
     );
 
     store_bid(
@@ -75,9 +84,10 @@ pub fn retract_bid<S: Storage, A: Api, Q: Querier>(
 
     let amount = amount.unwrap_or(bid.amount);
     if amount > bid.amount {
-        return Err(StdError::generic_err(
-            "Cannot retract bigger amount than the bid balance",
-        ));
+        return Err(StdError::generic_err(format!(
+            "Retract amount cannot exceed bid balance: {}",
+            bid.amount
+        )));
     }
 
     if amount == bid.amount {
@@ -146,9 +156,10 @@ pub fn execute_bid<S: Storage, A: Api, Q: Querier>(
     let required_stable = collateral_value
         * (Decimal256::one() - std::cmp::min(bid.premium_rate, config.max_premium_rate));
     if required_stable > bid.amount {
-        return Err(StdError::generic_err(
-            "Bid amount is smaller than required_stable",
-        ));
+        return Err(StdError::generic_err(format!(
+            "Insufficient bid balance; Required balance: {}",
+            required_stable
+        )));
     }
 
     // Update bid

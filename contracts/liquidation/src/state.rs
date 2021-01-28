@@ -94,7 +94,7 @@ pub fn read_bid<'a, S: Storage>(
 
     bid_bucket
         .load(&[bidder.as_slice(), collateral_token.as_slice()].concat())
-        .map_err(|_| StdError::generic_err("Bid not exists"))
+        .map_err(|_| StdError::generic_err("No bids with the specified information exist"))
 }
 
 // settings for pagination

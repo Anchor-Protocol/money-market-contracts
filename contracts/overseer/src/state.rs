@@ -79,7 +79,9 @@ pub fn read_whitelist_elem<S: Storage>(
         ReadonlyBucket::new(PREFIX_WHITELIST, storage);
     match whitelist_bucket.load(&collateral_token.as_slice()) {
         Ok(v) => Ok(v),
-        _ => Err(StdError::generic_err("No whitelist data is stored")),
+        _ => Err(StdError::generic_err(
+            "Token is not registered as collateral",
+        )),
     }
 }
 

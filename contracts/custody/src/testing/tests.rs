@@ -129,7 +129,10 @@ fn deposit_collateral() {
     });
     let res2 = handle(&mut deps, env.clone(), msg2.clone());
     match res2 {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "data should be given"),
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(
+            msg,
+            "Invalid request: \"deposit collateral\" message not included in request"
+        ),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -232,7 +235,10 @@ fn withdraw_collateral() {
     let res = handle(&mut deps, env.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot withdraw more than spendable balance 100")
+            assert_eq!(
+                msg,
+                "Withdraw amount cannot exceed the user's spendable amount: 100"
+            )
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -375,7 +381,9 @@ fn lock_collateral() {
 
     assert_eq!(
         res2,
-        StdError::generic_err(format!("Cannot lock more than spendable 100"))
+        StdError::generic_err(format!(
+            "Lock amount cannot excceed the user's spendable amount: 100"
+        ))
     );
 
     let env = mock_env("overseer", &[]);
@@ -407,7 +415,10 @@ fn lock_collateral() {
     let res = handle(&mut deps, env.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot withdraw more than spendable balance 50")
+            assert_eq!(
+                msg,
+                "Withdraw amount cannot exceed the user's spendable amount: 50"
+            )
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -466,7 +477,7 @@ fn lock_collateral() {
     let res3 = handle(&mut deps, env3, msg3);
     match res3 {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot unlock more than borrowed 50")
+            assert_eq!(msg, "Unlock amount cannot exceed locked amount: 50")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -806,7 +817,7 @@ fn liquidate_collateral() {
     let res = handle(&mut deps, env.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot liquidate more than locked 50")
+            assert_eq!(msg, "Liquidation amount cannot exceed locked amount: 50")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }

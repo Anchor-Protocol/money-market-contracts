@@ -27,7 +27,10 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
 
     // Cannot deposit zero amount
     if deposit_amount.is_zero() {
-        return Err(StdError::generic_err("Cannot deposit zero coins"));
+        return Err(StdError::generic_err(format!(
+            "Deposit amount must be greater than 0 {}",
+            config.stable_denom,
+        )));
     }
 
     // Update interest related state
@@ -86,9 +89,10 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
             config.stable_denom.to_string(),
         )?
     {
-        return Err(StdError::generic_err(
-            "Failed to redeem stable; not enough contract balance",
-        ));
+        return Err(StdError::generic_err(format!(
+            "Not enough {} available; borrow demand too high",
+            config.stable_denom
+        )));
     }
 
     store_state(&mut deps.storage, &state)?;

@@ -105,7 +105,9 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
             }
         }
     } else {
-        Err(StdError::generic_err("data should be given"))
+        Err(StdError::generic_err(
+            "Invalid request: \"execute bid\" message not included in request",
+        ))
     }
 }
 
@@ -254,7 +256,7 @@ fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     let expected_repay_amount = collaterals_value * fee_deductor;
     if expected_repay_amount <= borrow_amount {
         return Err(StdError::generic_err(
-            "cannot liquidate a undercollateralized loan",
+            "Cannot liquidate an undercollateralized loan",
         ));
     }
 

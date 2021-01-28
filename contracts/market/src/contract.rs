@@ -140,7 +140,9 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
             }
         }
     } else {
-        Err(StdError::generic_err("data should be given"))
+        Err(StdError::generic_err(
+            "Invalid request: \"redeem stable\" message not included in request",
+        ))
     }
 }
 
