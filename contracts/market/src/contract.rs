@@ -19,7 +19,8 @@ use moneymarket::market::{
     ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, QueryMsg,
 };
 use moneymarket::querier::{query_balance, query_supply};
-use terraswap::{InitHook, TokenInitMsg};
+use terraswap::hook::InitHook;
+use terraswap::token::InitMsg as TokenInitMsg;
 
 pub const INITIAL_DEPOSIT_AMOUNT: u128 = 1000000;
 pub fn init<S: Storage, A: Api, Q: Querier>(

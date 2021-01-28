@@ -14,7 +14,8 @@ use moneymarket::market::{
     QueryMsg,
 };
 use moneymarket::querier::deduct_tax;
-use terraswap::{InitHook, TokenInitMsg};
+use terraswap::hook::InitHook;
+use terraswap::token::InitMsg as TokenInitMsg;
 
 #[test]
 fn proper_initialization() {
@@ -1157,13 +1158,16 @@ fn repay_stable_from_liquidation() {
     // update balance to make repay
     deps.querier.update_balance(
         HumanAddr::from(MOCK_CONTRACT_ADDR),
-        vec![Coin {
-            denom: "ukrw".to_string(),
-            amount: Uint128(100000u128),
-        }, Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
-        }],
+        vec![
+            Coin {
+                denom: "ukrw".to_string(),
+                amount: Uint128(100000u128),
+            },
+            Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+            },
+        ],
     );
 
     let msg = HandleMsg::RepayStableFromLiquidation {
