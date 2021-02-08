@@ -197,16 +197,18 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.owner_addr = deps.api.canonical_address(&owner_addr)?;
     }
 
-    if let Some(interest_model) = interest_model {
+    if reserve_factor.clone().is_some() || interest_model.clone().is_some() {
         let mut state: State = read_state(&deps.storage)?;
         compute_interest(&deps, &config, &mut state, env.block.height, None)?;
         store_state(&mut deps.storage, &state)?;
 
-        config.interest_model = deps.api.canonical_address(&interest_model)?;
-    }
+        if let Some(interest_model) = interest_model {
+            config.interest_model = deps.api.canonical_address(&interest_model)?;
+        }
 
-    if let Some(reserve_factor) = reserve_factor {
-        config.reserve_factor = reserve_factor;
+        if let Some(reserve_factor) = reserve_factor {
+            config.reserve_factor = reserve_factor;
+        }
     }
 
     store_config(&mut deps.storage, &config)?;
