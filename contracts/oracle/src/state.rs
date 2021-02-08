@@ -40,7 +40,7 @@ pub fn read_price<S: Storage>(storage: &S, asset: &str) -> StdResult<PriceInfo> 
     let res = price_bucket.load(asset.as_bytes());
     match res {
         Ok(data) => Ok(data),
-        Err(_err) => Err(StdError::generic_err("no price data stored")),
+        Err(_err) => Err(StdError::generic_err("No price data for the specified asset exist")),
     }
 }
 

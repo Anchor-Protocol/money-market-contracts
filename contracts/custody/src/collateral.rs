@@ -57,7 +57,7 @@ pub fn withdraw_collateral<S: Storage, A: Api, Q: Querier>(
     let amount = amount.unwrap_or(borrower_info.spendable);
     if borrower_info.spendable < amount {
         return Err(StdError::generic_err(format!(
-            "Cannot withdraw more than spendable balance {}",
+            "Withdraw amount cannot exceed the user's spendable amount: {}",
             borrower_info.spendable
         )));
     }
@@ -108,7 +108,7 @@ pub fn lock_collateral<S: Storage, A: Api, Q: Querier>(
     let mut borrower_info: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
     if amount > borrower_info.spendable {
         return Err(StdError::generic_err(format!(
-            "Cannot lock more than spendable {}",
+            "Lock amount cannot excceed the user's spendable amount: {}",
             borrower_info.spendable
         )));
     }
@@ -145,7 +145,7 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     let borrowed_amt = borrower_info.balance - borrower_info.spendable;
     if amount > borrowed_amt {
         return Err(StdError::generic_err(format!(
-            "Cannot unlock more than borrowed {}",
+            "Unlock amount cannot exceed locked amount: {}",
             borrowed_amt
         )));
     }
@@ -181,7 +181,7 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
     let borrowed_amt = borrower_info.balance - borrower_info.spendable;
     if amount > borrowed_amt {
         return Err(StdError::generic_err(format!(
-            "Cannot liquidate more than locked {}",
+            "Liquidation amount cannot exceed locked amount: {}",
             borrowed_amt
         )));
     }

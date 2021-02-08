@@ -105,7 +105,9 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
             }
         }
     } else {
-        Err(StdError::generic_err("data should be given"))
+        Err(StdError::generic_err(
+            "Invalid request: \"execute bid\" message not included in request",
+        ))
     }
 }
 
@@ -229,10 +231,9 @@ fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     collateral_prices: Vec<Decimal256>,
 ) -> StdResult<LiquidationAmountResponse> {
     let config: Config = read_config(&deps.storage)?;
-    let safe_borrow_amount = borrow_limit * config.safe_ratio;
 
     // Safely collateralized check
-    if borrow_amount <= safe_borrow_amount {
+    if borrow_amount <= borrow_limit {
         return Ok(LiquidationAmountResponse {
             collaterals: vec![],
         });
@@ -255,12 +256,13 @@ fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     let expected_repay_amount = collaterals_value * fee_deductor;
     if expected_repay_amount <= borrow_amount {
         return Err(StdError::generic_err(
-            "cannot liquidate a undercollateralized loan",
+            "Cannot liquidate an undercollateralized loan",
         ));
     }
 
     // When collaterals_value is smaller than liquidation_threshold,
     // liquidate all collaterals
+    let safe_borrow_amount = borrow_limit * config.safe_ratio;
     let liquidation_ratio = if collaterals_value < config.liquidation_threshold {
         Decimal256::from_uint256(borrow_amount) / Decimal256::from_uint256(expected_repay_amount)
     } else {

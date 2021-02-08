@@ -177,7 +177,7 @@ pub fn register_whitelist<S: Storage, A: Api, Q: Querier>(
     let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
     if read_whitelist_elem(&deps.storage, &collateral_token_raw).is_ok() {
         return Err(StdError::generic_err(
-            "The collateral token was already registered",
+            "Token is already registered as collateral",
         ));
     }
 
@@ -250,7 +250,10 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
     let state: EpochState = read_epoch_state(&deps.storage)?;
     if env.block.height < state.last_executed_height + config.epoch_period {
-        return Err(StdError::generic_err("Epoch period is not passed"));
+        return Err(StdError::generic_err(format!(
+            "An epoch has not passed yet; last executed height: {}",
+            state.last_executed_height
+        )));
     }
 
     // # of blocks from the last executed height

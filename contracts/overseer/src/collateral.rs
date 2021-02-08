@@ -76,7 +76,9 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
 
     // Underflow check is done in sub_collateral
     if cur_collaterals.sub(collaterals.clone()).is_err() {
-        return Err(StdError::generic_err("Cannot unlock more than you have"));
+        return Err(StdError::generic_err(
+            "Unlock amount cannot exceed locked amount",
+        ));
     }
 
     // Compute borrow limit with collaterals except unlock target collaterals
@@ -84,9 +86,10 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
     let borrow_amount_res: LoanAmountResponse =
         query_loan_amount(deps, &market, &borrower, env.block.height)?;
     if borrow_limit < borrow_amount_res.loan_amount {
-        return Err(StdError::generic_err(
-            "Cannot unlock collateral more than LTV",
-        ));
+        return Err(StdError::generic_err(format!(
+            "Unlock amount too high; Loan liability becomes greater than borrow limit: {}",
+            borrow_limit
+        )));
     }
 
     store_collaterals(&mut deps.storage, &borrower_raw, &cur_collaterals)?;
@@ -143,7 +146,7 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
     // cannot liquidation collaterals
     if borrow_limit >= borrow_amount {
         return Err(StdError::generic_err(
-            "Cannot liquidate safely collateralized borrower",
+            "Cannot liquidate safely collateralized loan",
         ));
     }
 
