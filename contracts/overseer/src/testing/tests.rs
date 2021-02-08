@@ -236,7 +236,7 @@ fn whitelist() {
     let res = handle(&mut deps, env, msg).unwrap_err();
     match res {
         StdError::GenericErr { msg, .. } => {
-            assert_eq!(msg, "The collateral token was already registered")
+            assert_eq!(msg, "Token is already registered as collateral")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -335,7 +335,10 @@ fn execute_epoch_operations() {
     let msg = HandleMsg::ExecuteEpochOperations {};
     let res = handle(&mut deps, env.clone(), msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Epoch period is not passed"),
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(
+            msg,
+            "An epoch has not passed yet; last executed height: 12345"
+        ),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -745,7 +748,7 @@ fn unlock_collateral() {
     let res = handle(&mut deps, env.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot unlock more than you have")
+            assert_eq!(msg, "Unlock amount cannot exceed locked amount")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -782,7 +785,10 @@ fn unlock_collateral() {
     let res = handle(&mut deps, env.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot unlock collateral more than LTV")
+            assert_eq!(
+                msg,
+                "Unlock amount too high; Loan liability becomes greater than borrow limit: 12599999400"
+            )
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -793,7 +799,10 @@ fn unlock_collateral() {
     let res = handle(&mut deps, env.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot unlock collateral more than LTV")
+            assert_eq!(
+                msg,
+                "Unlock amount too high; Loan liability becomes greater than borrow limit: 12599998800"
+            )
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -820,7 +829,7 @@ fn unlock_collateral() {
     let res = handle(&mut deps, env.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot unlock collateral more than LTV")
+            assert_eq!(msg, "Unlock amount too high; Loan liability becomes greater than borrow limit: 12599998800")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -976,7 +985,7 @@ fn liquidate_collateral() {
     let res = handle(&mut deps, env.clone(), msg.clone());
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot liquidate safely collateralized borrower")
+            assert_eq!(msg, "Cannot liquidate safely collateralized loan")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }

@@ -36,7 +36,10 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
         query_borrow_limit(deps, &overseer, &borrower, Some(env.block.time))?;
 
     if borrow_limit_res.borrow_limit < borrow_amount + liability.loan_amount {
-        return Err(StdError::generic_err("Cannot borrow more than limit"));
+        return Err(StdError::generic_err(format!(
+            "Borrow amount too high; Loan liability becomes greater than borrow limit: {}",
+            borrow_limit_res.borrow_limit,
+        )));
     }
 
     liability.loan_amount += borrow_amount;
@@ -111,7 +114,10 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
 
     // Cannot deposit zero amount
     if amount.is_zero() {
-        return Err(StdError::generic_err("Cannot repay zero coins"));
+        return Err(StdError::generic_err(format!(
+            "Repay amount must be greater than 0 {}",
+            config.stable_denom
+        )));
     }
 
     // Update interest related state
