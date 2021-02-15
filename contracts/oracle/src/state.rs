@@ -8,6 +8,8 @@ use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
 use moneymarket::oracle::PricesResponseElem;
 
 static PREFIX_PRICE: &[u8] = b"price";
+static PREFIX_FEEDER: &[u8] = b"feeder";
+
 static KEY_CONFIG: &[u8] = b"config";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -40,7 +42,9 @@ pub fn read_price<S: Storage>(storage: &S, asset: &str) -> StdResult<PriceInfo> 
     let res = price_bucket.load(asset.as_bytes());
     match res {
         Ok(data) => Ok(data),
-        Err(_err) => Err(StdError::generic_err("No price data for the specified asset exist")),
+        Err(_err) => Err(StdError::generic_err(
+            "No price data for the specified asset exist",
+        )),
     }
 }
 
@@ -71,6 +75,26 @@ pub fn read_prices<S: Storage>(
             })
         })
         .collect()
+}
+
+pub fn store_feeder<S: Storage>(
+    storage: &mut S,
+    asset: &str,
+    feeder: &CanonicalAddr,
+) -> StdResult<()> {
+    let mut price_bucket: Bucket<S, CanonicalAddr> = Bucket::new(PREFIX_FEEDER, storage);
+    price_bucket.save(asset.as_bytes(), &feeder)
+}
+
+pub fn read_feeder<S: Storage>(storage: &S, asset: &str) -> StdResult<CanonicalAddr> {
+    let price_bucket: ReadonlyBucket<S, CanonicalAddr> = ReadonlyBucket::new(PREFIX_FEEDER, storage);
+    let res = price_bucket.load(asset.as_bytes());
+    match res {
+        Ok(data) => Ok(data),
+        Err(_err) => Err(StdError::generic_err(
+            "No feeder data for the specified asset exist",
+        )),
+    }
 }
 
 // this will set the first key after the provided key, by appending a 1 byte

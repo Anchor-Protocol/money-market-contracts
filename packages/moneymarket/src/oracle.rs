@@ -16,6 +16,10 @@ pub enum HandleMsg {
     UpdateConfig {
         owner: Option<HumanAddr>,
     },
+    RegisterFeeder {
+        asset: String,
+        feeder: HumanAddr,
+    },
     FeedPrice {
         prices: Vec<(String, Decimal256)>, // (asset, price)
     },
@@ -25,6 +29,9 @@ pub enum HandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
+    Feeder {
+        asset: String,
+    },
     Price {
         base: String,
         quote: String,
@@ -40,6 +47,13 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub owner: HumanAddr,
     pub base_asset: String,
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct FeederResponse {
+    pub asset: String,
+    pub feeder: HumanAddr,
 }
 
 // We define a custom struct for each query response
