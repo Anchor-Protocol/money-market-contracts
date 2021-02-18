@@ -5,14 +5,14 @@ use cosmwasm_std::{
     HumanAddr, Querier, StdError, StdResult, Storage, WasmMsg,
 };
 use moneymarket::interest_model::BorrowRateResponse;
-use moneymarket::market::{LiabilitiesResponse, LiabilityResponse, LoanAmountResponse};
+use moneymarket::market::{BorrowerInfoResponse, BorrowerInfosResponse, LoanAmountResponse};
 use moneymarket::overseer::BorrowLimitResponse;
 use moneymarket::querier::{deduct_tax, query_balance};
 
 use crate::querier::{query_borrow_limit, query_borrow_rate};
 use crate::state::{
-    read_config, read_liabilities, read_liability, read_state, store_liability, store_state,
-    Config, Liability, State,
+    read_borrower_info, read_borrower_infos, read_config, read_state, store_borrower_info,
+    store_state, BorrowerInfo, Config, State,
 };
 
 pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
@@ -27,7 +27,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
 
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
-    let mut liability: Liability = read_liability(&deps.storage, &borrower_raw);
+    let mut liability: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
 
     // Compute interest
     compute_interest(&deps, &config, &mut state, env.block.height, None)?;
@@ -51,7 +51,7 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     liability.loan_amount += borrow_amount;
     state.total_liabilities += Decimal256::from_uint256(borrow_amount);
     store_state(&mut deps.storage, &state)?;
-    store_liability(&mut deps.storage, &borrower_raw, &liability)?;
+    store_borrower_info(&mut deps.storage, &borrower_raw, &liability)?;
 
     let current_balance = query_balance(
         &deps,
@@ -139,7 +139,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
 
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
-    let mut liability: Liability = read_liability(&deps.storage, &borrower_raw);
+    let mut liability: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
 
     // Compute interest
     compute_interest(&deps, &config, &mut state, env.block.height, Some(amount))?;
@@ -174,7 +174,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
 
     state.total_liabilities = state.total_liabilities - Decimal256::from_uint256(repay_amount);
 
-    store_liability(&mut deps.storage, &borrower_raw, &liability)?;
+    store_borrower_info(&mut deps.storage, &borrower_raw, &liability)?;
     store_state(&mut deps.storage, &state)?;
 
     Ok(HandleResponse {
@@ -197,7 +197,7 @@ pub fn claim_rewards<S: Storage, A: Api, Q: Querier>(
 
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
-    let mut liability: Liability = read_liability(&deps.storage, &borrower_raw);
+    let mut liability: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
     if liability.loan_amount.is_zero() {
         return Err(StdError::generic_err("No loan exist for claim"));
     }
@@ -214,7 +214,7 @@ pub fn claim_rewards<S: Storage, A: Api, Q: Querier>(
     liability.pending_rewards = liability.pending_rewards - Decimal256::from_uint256(claim_amount);
 
     store_state(&mut deps.storage, &state)?;
-    store_liability(&mut deps.storage, &borrower_raw, &liability)?;
+    store_borrower_info(&mut deps.storage, &borrower_raw, &liability)?;
 
     let messages: Vec<CosmosMsg> = if !claim_amount.is_zero() {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
@@ -299,7 +299,7 @@ pub fn compute_interest_raw(
 }
 
 /// Compute new interest and apply to liability
-pub(crate) fn compute_borrower_interest(state: &State, liability: &mut Liability) {
+pub(crate) fn compute_borrower_interest(state: &State, liability: &mut BorrowerInfo) {
     liability.loan_amount =
         liability.loan_amount * state.global_interest_index / liability.interest_index;
     liability.interest_index = state.global_interest_index;
@@ -324,21 +324,21 @@ pub fn compute_reward(state: &mut State, block_height: u64) {
 }
 
 /// Compute reward amount a borrower received
-pub(crate) fn compute_borrower_reward(state: &State, liability: &mut Liability) {
+pub(crate) fn compute_borrower_reward(state: &State, liability: &mut BorrowerInfo) {
     liability.pending_rewards += Decimal256::from_uint256(liability.loan_amount)
         / state.global_interest_index
         * (state.global_reward_index - liability.reward_index);
     liability.reward_index = state.global_reward_index;
 }
 
-pub fn query_liability<S: Storage, A: Api, Q: Querier>(
+pub fn query_borrower_info<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     borrower: HumanAddr,
-) -> StdResult<LiabilityResponse> {
-    let liability: Liability =
-        read_liability(&deps.storage, &deps.api.canonical_address(&borrower)?);
+) -> StdResult<BorrowerInfoResponse> {
+    let liability: BorrowerInfo =
+        read_borrower_info(&deps.storage, &deps.api.canonical_address(&borrower)?);
 
-    Ok(LiabilityResponse {
+    Ok(BorrowerInfoResponse {
         borrower,
         interest_index: liability.interest_index,
         reward_index: liability.reward_index,
@@ -347,19 +347,19 @@ pub fn query_liability<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn query_liabilities<S: Storage, A: Api, Q: Querier>(
+pub fn query_borrower_infos<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     start_after: Option<HumanAddr>,
     limit: Option<u32>,
-) -> StdResult<LiabilitiesResponse> {
+) -> StdResult<BorrowerInfosResponse> {
     let start_after = if let Some(start_after) = start_after {
         Some(deps.api.canonical_address(&start_after)?)
     } else {
         None
     };
 
-    let liabilities: Vec<LiabilityResponse> = read_liabilities(&deps, start_after, limit)?;
-    Ok(LiabilitiesResponse { liabilities })
+    let borrower_infos: Vec<BorrowerInfoResponse> = read_borrower_infos(&deps, start_after, limit)?;
+    Ok(BorrowerInfosResponse { borrower_infos })
 }
 
 pub fn query_loan_amount<S: Storage, A: Api, Q: Querier>(
@@ -369,8 +369,8 @@ pub fn query_loan_amount<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<LoanAmountResponse> {
     let config: Config = read_config(&deps.storage)?;
     let mut state: State = read_state(&deps.storage)?;
-    let mut liability: Liability =
-        read_liability(&deps.storage, &deps.api.canonical_address(&borrower)?);
+    let mut liability: BorrowerInfo =
+        read_borrower_info(&deps.storage, &deps.api.canonical_address(&borrower)?);
 
     compute_interest(&deps, &config, &mut state, block_height, None)?;
     compute_borrower_interest(&state, &mut liability);

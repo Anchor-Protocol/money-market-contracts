@@ -51,7 +51,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
     store_state(&mut deps.storage, &state)?;
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.atoken_contract)?,
+            contract_addr: deps.api.human_address(&config.aterra_contract)?,
             send: vec![],
             msg: to_binary(&Cw20HandleMsg::Mint {
                 recipient: env.message.sender.clone(),
@@ -98,7 +98,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages: vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.atoken_contract)?,
+                contract_addr: deps.api.human_address(&config.aterra_contract)?,
                 send: vec![],
                 msg: to_binary(&Cw20HandleMsg::Burn {
                     amount: burn_amount,
@@ -149,7 +149,7 @@ pub(crate) fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
     state: &State,
     deposit_amount: Option<Uint256>,
 ) -> StdResult<Decimal256> {
-    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.atoken_contract)?)?;
+    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
     let balance = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
@@ -164,8 +164,8 @@ pub fn compute_exchange_rate_raw(
     a_token_supply: Uint256,
     contract_balance: Uint256,
 ) -> Decimal256 {
-    // (atoken / stable_denom)
-    // exchange_rate = (balance + total_liabilities - total_reserves) / atoken_supply
+    // (aterra / stable_denom)
+    // exchange_rate = (balance + total_liabilities - total_reserves) / aterra_supply
     (Decimal256::from_uint256(contract_balance) + state.total_liabilities - state.total_reserves)
         / Decimal256::from_uint256(a_token_supply)
 }

@@ -1,5 +1,5 @@
 use crate::contract::{handle, init, query, INITIAL_DEPOSIT_AMOUNT};
-use crate::state::{read_liabilities, read_state, store_state, State};
+use crate::state::{read_borrower_infos, read_state, store_state, State};
 use crate::testing::mock_querier::mock_dependencies;
 
 use anchor_token::faucet::HandleMsg as FaucetHandleMsg;
@@ -11,7 +11,7 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20CoinHuman, Cw20HandleMsg, Cw20ReceiveMsg, MinterResponse};
 use moneymarket::market::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LiabilityResponse, LoanAmountResponse,
+    BorrowerInfoResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LoanAmountResponse,
     QueryMsg,
 };
 use moneymarket::querier::deduct_tax;
@@ -37,7 +37,7 @@ fn proper_initialization() {
         faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        atoken_code_id: 123u64,
+        aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -72,7 +72,7 @@ fn proper_initialization() {
                 }),
                 init_hook: Some(InitHook {
                     contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    msg: to_binary(&HandleMsg::RegisterAToken {}).unwrap(),
+                    msg: to_binary(&HandleMsg::RegisterATerra {}).unwrap(),
                 })
             })
             .unwrap(),
@@ -80,12 +80,12 @@ fn proper_initialization() {
     );
 
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAToken {};
+    let msg = HandleMsg::RegisterATerra {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Cannot register again
-    let msg = HandleMsg::RegisterAToken {};
+    let msg = HandleMsg::RegisterATerra {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap_err();
 
@@ -106,7 +106,7 @@ fn proper_initialization() {
     let query_res = query(&deps, QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&query_res).unwrap();
     assert_eq!(HumanAddr::from("owner"), config_res.owner_addr);
-    assert_eq!(HumanAddr::from("AT-uusd"), config_res.atoken_contract);
+    assert_eq!(HumanAddr::from("AT-uusd"), config_res.aterra_contract);
     assert_eq!(HumanAddr::from("interest"), config_res.interest_model);
     assert_eq!(
         HumanAddr::from("distribution"),
@@ -148,7 +148,7 @@ fn update_config() {
         faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        atoken_code_id: 123u64,
+        aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -164,7 +164,7 @@ fn update_config() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAToken {};
+    let msg = HandleMsg::RegisterATerra {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -249,7 +249,7 @@ fn deposit_stable_huge_amount() {
         faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        atoken_code_id: 123u64,
+        aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -265,7 +265,7 @@ fn deposit_stable_huge_amount() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAToken {};
+    let msg = HandleMsg::RegisterATerra {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -402,7 +402,7 @@ fn deposit_stable() {
         faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        atoken_code_id: 123u64,
+        aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -418,7 +418,7 @@ fn deposit_stable() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAToken {};
+    let msg = HandleMsg::RegisterATerra {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -631,7 +631,7 @@ fn redeem_stable() {
         faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        atoken_code_id: 123u64,
+        aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -648,7 +648,7 @@ fn redeem_stable() {
     let _res = init(&mut deps, env.clone(), msg).unwrap();
 
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAToken {};
+    let msg = HandleMsg::RegisterATerra {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -826,7 +826,7 @@ fn borrow_stable() {
         faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        atoken_code_id: 123u64,
+        aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -842,7 +842,7 @@ fn borrow_stable() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAToken {};
+    let msg = HandleMsg::RegisterATerra {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -931,16 +931,16 @@ fn borrow_stable() {
 
     let res = query(
         &deps,
-        QueryMsg::Liability {
+        QueryMsg::BorrowerInfo {
             borrower: HumanAddr::from("addr0000"),
         },
     )
     .unwrap();
 
-    let liability: LiabilityResponse = from_binary(&res).unwrap();
+    let liability: BorrowerInfoResponse = from_binary(&res).unwrap();
     assert_eq!(
         liability,
-        LiabilityResponse {
+        BorrowerInfoResponse {
             borrower: HumanAddr::from("addr0000"),
             interest_index: Decimal256::from_uint256(2u128),
             reward_index: Decimal256::from_str("0.0001").unwrap(),
@@ -1024,7 +1024,7 @@ fn repay_stable() {
         faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        atoken_code_id: 123u64,
+        aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -1040,7 +1040,7 @@ fn repay_stable() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAToken {};
+    let msg = HandleMsg::RegisterATerra {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -1128,7 +1128,7 @@ fn repay_stable() {
     );
 
     //Loan amount and Total liability have decreased according to the repayment
-    let res_loan = read_liabilities(&deps, None, None)
+    let res_loan = read_borrower_infos(&deps, None, None)
         .unwrap()
         .get(0)
         .unwrap()
@@ -1154,7 +1154,7 @@ fn repay_stable() {
     );
 
     //Loan amount and Total liability have decreased according to the repayment
-    let res_loan = read_liabilities(&deps, None, None)
+    let res_loan = read_borrower_infos(&deps, None, None)
         .unwrap()
         .get(0)
         .unwrap()
@@ -1204,7 +1204,7 @@ fn repay_stable_from_liquidation() {
         faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        atoken_code_id: 123u64,
+        aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -1220,7 +1220,7 @@ fn repay_stable_from_liquidation() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAToken {};
+    let msg = HandleMsg::RegisterATerra {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -1372,7 +1372,7 @@ fn claim_rewards() {
         faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        atoken_code_id: 123u64,
+        aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -1389,7 +1389,7 @@ fn claim_rewards() {
     let _res = init(&mut deps, env.clone(), msg).unwrap();
 
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAToken {};
+    let msg = HandleMsg::RegisterATerra {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -1452,10 +1452,10 @@ fn claim_rewards() {
         })]
     );
 
-    let res: LiabilityResponse = from_binary(
+    let res: BorrowerInfoResponse = from_binary(
         &query(
             &deps,
-            QueryMsg::Liability {
+            QueryMsg::BorrowerInfo {
                 borrower: HumanAddr::from("addr0000"),
             },
         )
@@ -1494,7 +1494,7 @@ fn execute_epoch_operations() {
         faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        atoken_code_id: 123u64,
+        aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -1511,7 +1511,7 @@ fn execute_epoch_operations() {
     let _res = init(&mut deps, env.clone(), msg).unwrap();
 
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAToken {};
+    let msg = HandleMsg::RegisterATerra {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 

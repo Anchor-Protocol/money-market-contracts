@@ -29,7 +29,7 @@ pub struct InitMsg {
     /// reserve ratio applied to interest
     pub reserve_factor: Decimal256,
     /// Anchor token code ID used to instantiate
-    pub atoken_code_id: u64,
+    pub aterra_code_id: u64,
     /// Anchor token distribution speed
     pub anc_emission_rate: Decimal256,
     /// Maximum borrow TODO
@@ -51,7 +51,7 @@ pub enum HandleMsg {
 
     /// (internal) Register A-token contract address
     /// A-Token will invoke this after init
-    RegisterAToken {},
+    RegisterATerra {},
 
     /// Update config values
     UpdateConfig {
@@ -113,7 +113,7 @@ pub enum QueryMsg {
     EpochState {
         block_height: Option<u64>,
     },
-    Liability {
+    BorrowerInfo {
         borrower: HumanAddr,
     },
     Liabilities {
@@ -130,7 +130,7 @@ pub enum QueryMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
     pub owner_addr: HumanAddr,
-    pub atoken_contract: HumanAddr,
+    pub aterra_contract: HumanAddr,
     pub interest_model: HumanAddr,
     pub distribution_model: HumanAddr,
     pub overseer_contract: HumanAddr,
@@ -162,7 +162,7 @@ pub struct EpochStateResponse {
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LiabilityResponse {
+pub struct BorrowerInfoResponse {
     pub borrower: HumanAddr,
     pub interest_index: Decimal256,
     pub reward_index: Decimal256,
@@ -172,8 +172,8 @@ pub struct LiabilityResponse {
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LiabilitiesResponse {
-    pub liabilities: Vec<LiabilityResponse>,
+pub struct BorrowerInfosResponse {
+    pub borrower_infos: Vec<BorrowerInfoResponse>,
 }
 
 // We define a custom struct for each query response

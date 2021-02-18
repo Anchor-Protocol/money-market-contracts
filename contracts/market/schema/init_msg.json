@@ -4,7 +4,7 @@
   "type": "object",
   "required": [
     "anc_emission_rate",
-    "atoken_code_id",
+    "aterra_code_id",
     "collector_contract",
     "distribution_model",
     "faucet_contract",
@@ -23,7 +23,7 @@
         }
       ]
     },
-    "atoken_code_id": {
+    "aterra_code_id": {
       "description": "Anchor token code ID used to instantiate",
       "type": "integer",
       "format": "uint64",

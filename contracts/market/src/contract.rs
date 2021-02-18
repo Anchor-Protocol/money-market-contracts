@@ -1,6 +1,6 @@
 use crate::borrow::{
     borrow_stable, claim_rewards, compute_interest, compute_interest_raw, compute_reward,
-    query_liabilities, query_liability, query_loan_amount, repay_stable,
+    query_borrower_info, query_borrower_infos, query_loan_amount, repay_stable,
     repay_stable_from_liquidation,
 };
 use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
@@ -50,7 +50,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &Config {
             contract_addr: deps.api.canonical_address(&env.contract.address)?,
             owner_addr: deps.api.canonical_address(&msg.owner_addr)?,
-            atoken_contract: CanonicalAddr::default(),
+            aterra_contract: CanonicalAddr::default(),
             overseer_contract: CanonicalAddr::default(),
             interest_model: deps.api.canonical_address(&msg.interest_model)?,
             distribution_model: deps.api.canonical_address(&msg.distribution_model)?,
@@ -77,11 +77,11 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     Ok(InitResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Instantiate {
-            code_id: msg.atoken_code_id,
+            code_id: msg.aterra_code_id,
             send: vec![],
             label: None,
             msg: to_binary(&TokenInitMsg {
-                name: format!("Anchor Token for {}", msg.stable_denom),
+                name: format!("Anchor Terra for {}", msg.stable_denom),
                 symbol: format!("AT-{}", msg.stable_denom),
                 decimals: 6u8,
                 initial_balances: vec![Cw20CoinHuman {
@@ -94,7 +94,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
                 }),
                 init_hook: Some(InitHook {
                     contract_addr: env.contract.address,
-                    msg: to_binary(&HandleMsg::RegisterAToken {})?,
+                    msg: to_binary(&HandleMsg::RegisterATerra {})?,
                 }),
             })?,
         })],
@@ -109,7 +109,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     match msg {
         HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
-        HandleMsg::RegisterAToken {} => register_atoken(deps, env),
+        HandleMsg::RegisterATerra {} => register_aterra(deps, env),
         HandleMsg::RegisterOverseer { overseer_contract } => {
             register_overseer_contract(deps, overseer_contract)
         }
@@ -154,7 +154,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
             Cw20HookMsg::RedeemStable {} => {
                 // only asset contract can execute this message
                 let config: Config = read_config(&deps.storage)?;
-                if deps.api.canonical_address(&contract_addr)? != config.atoken_contract {
+                if deps.api.canonical_address(&contract_addr)? != config.aterra_contract {
                     return Err(StdError::unauthorized());
                 }
 
@@ -168,21 +168,21 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn register_atoken<S: Storage, A: Api, Q: Querier>(
+pub fn register_aterra<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
-    if config.atoken_contract != CanonicalAddr::default() {
+    if config.aterra_contract != CanonicalAddr::default() {
         return Err(StdError::unauthorized());
     }
 
-    config.atoken_contract = deps.api.canonical_address(&env.message.sender)?;
+    config.aterra_contract = deps.api.canonical_address(&env.message.sender)?;
     store_config(&mut deps.storage, &config)?;
 
     Ok(HandleResponse {
         messages: vec![],
-        log: vec![log("atoken", env.message.sender)],
+        log: vec![log("aterra", env.message.sender)],
         data: None,
     })
 }
@@ -310,9 +310,9 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State {} => to_binary(&query_state(deps)?),
         QueryMsg::EpochState { block_height } => to_binary(&query_epoch_state(deps, block_height)?),
-        QueryMsg::Liability { borrower } => to_binary(&query_liability(deps, borrower)?),
+        QueryMsg::BorrowerInfo { borrower } => to_binary(&query_borrower_info(deps, borrower)?),
         QueryMsg::Liabilities { start_after, limit } => {
-            to_binary(&query_liabilities(deps, start_after, limit)?)
+            to_binary(&query_borrower_infos(deps, start_after, limit)?)
         }
         QueryMsg::LoanAmount {
             borrower,
@@ -327,7 +327,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
     Ok(ConfigResponse {
         owner_addr: deps.api.human_address(&config.owner_addr)?,
-        atoken_contract: deps.api.human_address(&config.atoken_contract)?,
+        aterra_contract: deps.api.human_address(&config.aterra_contract)?,
         interest_model: deps.api.human_address(&config.interest_model)?,
         distribution_model: deps.api.human_address(&config.distribution_model)?,
         overseer_contract: deps.api.human_address(&config.overseer_contract)?,
@@ -361,7 +361,7 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
     let mut state: State = read_state(&deps.storage)?;
 
-    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.atoken_contract)?)?;
+    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
     let balance = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,

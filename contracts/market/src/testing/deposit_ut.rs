@@ -25,7 +25,7 @@ fn proper_compute_exchange_rate() {
             .api
             .canonical_address(&HumanAddr::from("owner"))
             .unwrap(),
-        atoken_contract: deps
+        aterra_contract: deps
             .api
             .canonical_address(&HumanAddr::from("AT-uusd"))
             .unwrap(),

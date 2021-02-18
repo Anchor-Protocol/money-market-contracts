@@ -1,5 +1,5 @@
 use crate::borrow::{compute_borrower_interest, compute_interest};
-use crate::state::{store_state, Config, Liability, State};
+use crate::state::{store_state, BorrowerInfo, Config, State};
 use crate::testing::mock_querier::mock_dependencies;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
@@ -17,14 +17,14 @@ fn proper_compute_borrower_interest() {
         global_reward_index: Decimal256::zero(),
         anc_emission_rate: Decimal256::one(),
     };
-    let mut liability1 = Liability {
+    let mut liability1 = BorrowerInfo {
         interest_index: Decimal256::one(),
         reward_index: Decimal256::zero(),
         loan_amount: Uint256::zero(),
         pending_rewards: Decimal256::zero(),
     };
     compute_borrower_interest(&mock_state, &mut liability1);
-    let liability2 = Liability {
+    let liability2 = BorrowerInfo {
         interest_index: Decimal256::one(),
         reward_index: Decimal256::zero(),
         loan_amount: Uint256::zero(),
@@ -41,14 +41,14 @@ fn proper_compute_borrower_interest() {
         global_reward_index: Decimal256::zero(),
         anc_emission_rate: Decimal256::zero(),
     };
-    let mut liability3 = Liability {
+    let mut liability3 = BorrowerInfo {
         interest_index: Decimal256::from_uint256(4u128),
         reward_index: Decimal256::zero(),
         loan_amount: Uint256::from(80u128),
         pending_rewards: Decimal256::zero(),
     };
     compute_borrower_interest(&mock_state2, &mut liability3);
-    let liability4 = Liability {
+    let liability4 = BorrowerInfo {
         interest_index: Decimal256::from_uint256(2u128),
         reward_index: Decimal256::zero(),
         loan_amount: Uint256::from(40u128),
@@ -78,7 +78,7 @@ fn proper_compute_interest() {
             .api
             .canonical_address(&HumanAddr::from("owner"))
             .unwrap(),
-        atoken_contract: deps
+        aterra_contract: deps
             .api
             .canonical_address(&HumanAddr::from("AT-uusd"))
             .unwrap(),

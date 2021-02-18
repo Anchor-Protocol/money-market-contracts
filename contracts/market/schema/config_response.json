@@ -3,7 +3,7 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
-    "atoken_contract",
+    "aterra_contract",
     "collector_contract",
     "distribution_model",
     "faucet_contract",
@@ -15,7 +15,7 @@
     "stable_denom"
   ],
   "properties": {
-    "atoken_contract": {
+    "aterra_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
     "collector_contract": {
