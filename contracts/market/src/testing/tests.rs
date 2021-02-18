@@ -14,6 +14,7 @@ use moneymarket::market::{
     QueryMsg,
 };
 use moneymarket::querier::deduct_tax;
+use std::str::FromStr;
 use terraswap::hook::InitHook;
 use terraswap::token::InitMsg as TokenInitMsg;
 
@@ -30,9 +31,14 @@ fn proper_initialization() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         atoken_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
     };
 
     let env = mock_env(
@@ -65,7 +71,7 @@ fn proper_initialization() {
                 }),
                 init_hook: Some(InitHook {
                     contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                    msg: to_binary(&HandleMsg::RegisterAnchorToken {}).unwrap(),
+                    msg: to_binary(&HandleMsg::RegisterAToken {}).unwrap(),
                 })
             })
             .unwrap(),
@@ -73,12 +79,12 @@ fn proper_initialization() {
     );
 
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAnchorToken {};
+    let msg = HandleMsg::RegisterAToken {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Cannot register again
-    let msg = HandleMsg::RegisterAnchorToken {};
+    let msg = HandleMsg::RegisterAToken {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap_err();
 
@@ -99,11 +105,18 @@ fn proper_initialization() {
     let query_res = query(&deps, QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&query_res).unwrap();
     assert_eq!(HumanAddr::from("owner"), config_res.owner_addr);
-    assert_eq!(HumanAddr::from("AT-uusd"), config_res.atoken);
+    assert_eq!(HumanAddr::from("AT-uusd"), config_res.atoken_contract);
     assert_eq!(HumanAddr::from("interest"), config_res.interest_model);
+    assert_eq!(
+        HumanAddr::from("distribution"),
+        config_res.distribution_model
+    );
+    assert_eq!(HumanAddr::from("faucet"), config_res.faucet_contract);
+    assert_eq!(HumanAddr::from("collector"), config_res.collector_contract);
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
     assert_eq!("uusd".to_string(), config_res.stable_denom);
     assert_eq!(Decimal256::permille(3), config_res.reserve_factor);
+    assert_eq!(Decimal256::one(), config_res.max_borrow_factor);
 
     let query_res = query(&deps, QueryMsg::State {}).unwrap();
     let state: State = from_binary(&query_res).unwrap();
@@ -111,6 +124,7 @@ fn proper_initialization() {
     assert_eq!(Decimal256::zero(), state.total_reserves);
     assert_eq!(env.block.height, state.last_interest_updated);
     assert_eq!(Decimal256::one(), state.global_interest_index);
+    assert_eq!(Decimal256::one(), state.anc_emission_rate);
 }
 
 #[test]
@@ -128,9 +142,14 @@ fn update_config() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         atoken_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
     };
 
     let env = mock_env(
@@ -144,7 +163,7 @@ fn update_config() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAnchorToken {};
+    let msg = HandleMsg::RegisterAToken {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -161,6 +180,7 @@ fn update_config() {
         owner_addr: Some(HumanAddr("owner1".to_string())),
         reserve_factor: None,
         interest_model: None,
+        distribution_model: None,
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -177,6 +197,7 @@ fn update_config() {
         owner_addr: None,
         reserve_factor: Some(Decimal256::percent(1)),
         interest_model: Some(HumanAddr::from("interest2")),
+        distribution_model: Some(HumanAddr::from("distribution2")),
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -188,6 +209,10 @@ fn update_config() {
     assert_eq!(HumanAddr::from("owner1"), config_res.owner_addr);
     assert_eq!(Decimal256::percent(1), config_res.reserve_factor);
     assert_eq!(HumanAddr::from("interest2"), config_res.interest_model);
+    assert_eq!(
+        HumanAddr::from("distribution2"),
+        config_res.distribution_model
+    );
 
     // Unauthorized err
     let env = mock_env("owner", &[]);
@@ -195,6 +220,7 @@ fn update_config() {
         owner_addr: None,
         reserve_factor: None,
         interest_model: None,
+        distribution_model: None,
     };
 
     let res = handle(&mut deps, env, msg);
@@ -217,9 +243,14 @@ fn deposit_stable_huge_amount() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         atoken_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
     };
 
     let env = mock_env(
@@ -233,7 +264,7 @@ fn deposit_stable_huge_amount() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAnchorToken {};
+    let msg = HandleMsg::RegisterAToken {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -365,9 +396,14 @@ fn deposit_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         atoken_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
     };
 
     let env = mock_env(
@@ -381,7 +417,7 @@ fn deposit_stable() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAnchorToken {};
+    let msg = HandleMsg::RegisterAToken {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -453,17 +489,20 @@ fn deposit_stable() {
     );
 
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
-    //1- As the last place to modify the state is compute_interest, a check on the state ensures the invocation of compute_interest.
-    //However, because passed_blocks = 0, interest factor & interest accrued are also 0, and thus the values do not change
+    // 1- As the last place to modify the state is compute_interest, a check on the state ensures the invocation of compute_interest.
+    // However, because passed_blocks = 0, interest factor & interest accrued are also 0, and thus the values do not change
     // (looking as if the function might not have been invoked at all.)
-    //Thus, later, the invocation of compute interest will be tested after increasing the block height.
+    // Thus, later, the invocation of compute interest will be tested after increasing the block height.
     assert_eq!(
         read_state(&deps.storage).unwrap(),
         State {
-            global_interest_index: Decimal256::from_uint256(1u128),
+            global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
             total_liabilities: Decimal256::zero(),
             total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
+            anc_emission_rate: Decimal256::one(),
         }
     );
 
@@ -497,7 +536,10 @@ fn deposit_stable() {
             total_liabilities: Decimal256::from_uint256(50000u128),
             total_reserves: Decimal256::from_uint256(550000u128),
             last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
             global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -526,7 +568,7 @@ fn deposit_stable() {
         })]
     );
 
-    //testing the invocation of compute interest after increasing the block height
+    // Case: compute_interest & compute_reward with block increment
     let mut env = mock_env(
         "addr0000",
         &[Coin {
@@ -541,7 +583,10 @@ fn deposit_stable() {
             total_liabilities: Decimal256::from_uint256(50000u128),
             total_reserves: Decimal256::from_uint256(550000u128),
             last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
             global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -549,17 +594,20 @@ fn deposit_stable() {
     env.block.height += 100;
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
-    //State: global_interest_index: 1
-    //total_liabilities: 50000
-    //total_reserves: 550000
+    // State: global_interest_index: 1
+    // total_liabilities: 50000
+    // total_reserves: 550000
 
     assert_eq!(
         read_state(&deps.storage).unwrap(),
         State {
             global_interest_index: Decimal256::from_uint256(2u128),
+            global_reward_index: Decimal256::from_str("0.002").unwrap(),
             total_liabilities: Decimal256::from_uint256(100000u128),
             total_reserves: Decimal256::from_uint256(550150u128),
             last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
+            anc_emission_rate: Decimal256::one(),
         }
     );
 }
@@ -577,9 +625,14 @@ fn redeem_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         atoken_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
     };
 
     let env = mock_env(
@@ -592,8 +645,9 @@ fn redeem_stable() {
 
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
+
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAnchorToken {};
+    let msg = HandleMsg::RegisterAToken {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -686,10 +740,13 @@ fn redeem_stable() {
     store_state(
         &mut deps.storage,
         &State {
-            total_liabilities: Decimal256::from_uint256(2000000u128),
-            total_reserves: Decimal256::from_uint256(1500000u128),
+            total_liabilities: Decimal256::from_uint256(500000u128),
+            total_reserves: Decimal256::from_uint256(100000u128),
             last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
             global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -698,7 +755,7 @@ fn redeem_stable() {
         HumanAddr::from(MOCK_CONTRACT_ADDR),
         vec![Coin {
             denom: "uusd".to_string(),
-            amount: Uint128::from(400000u128),
+            amount: Uint128::from(500000u128),
         }],
     );
 
@@ -714,7 +771,7 @@ fn redeem_stable() {
         HumanAddr::from(MOCK_CONTRACT_ADDR),
         vec![Coin {
             denom: "uusd".to_string(),
-            amount: Uint128::from(500000u128),
+            amount: Uint128::from(600000u128),
         }],
     );
 
@@ -763,9 +820,14 @@ fn borrow_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         atoken_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
     };
 
     let env = mock_env(
@@ -779,7 +841,7 @@ fn borrow_stable() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAnchorToken {};
+    let msg = HandleMsg::RegisterAToken {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -801,7 +863,10 @@ fn borrow_stable() {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
             global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -820,6 +885,9 @@ fn borrow_stable() {
     // total_liabilities = 2500000
     // total_reserves = 3000
     // last_interest_updated = 100
+    // reward_accrued = 100
+    // global_reward_index = 0.00002
+    // last_rewards_updated = 100
     assert_eq!(
         res.log,
         vec![
@@ -853,7 +921,10 @@ fn borrow_stable() {
             total_liabilities: Decimal256::from_uint256(2500000u128),
             total_reserves: Decimal256::from_uint256(3000u128),
             last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
             global_interest_index: Decimal256::from_uint256(2u128),
+            global_reward_index: Decimal256::from_str("0.0001").unwrap(),
+            anc_emission_rate: Decimal256::one(),
         }
     );
 
@@ -871,7 +942,9 @@ fn borrow_stable() {
         LiabilityResponse {
             borrower: HumanAddr::from("addr0000"),
             interest_index: Decimal256::from_uint256(2u128),
+            reward_index: Decimal256::from_str("0.0001").unwrap(),
             loan_amount: Uint256::from(500000u64),
+            pending_rewards: Decimal256::zero(),
         }
     );
 
@@ -945,9 +1018,14 @@ fn repay_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         atoken_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
     };
 
     let env = mock_env(
@@ -961,7 +1039,7 @@ fn repay_stable() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAnchorToken {};
+    let msg = HandleMsg::RegisterAToken {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -983,7 +1061,10 @@ fn repay_stable() {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
             global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -1117,9 +1198,14 @@ fn repay_stable_from_liquidation() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         atoken_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
     };
 
     let env = mock_env(
@@ -1133,7 +1219,7 @@ fn repay_stable_from_liquidation() {
     // we can just call .unwrap() to assert this was a success
     let _res = init(&mut deps, env.clone(), msg).unwrap();
     // Register anchor token contract
-    let msg = HandleMsg::RegisterAnchorToken {};
+    let msg = HandleMsg::RegisterAToken {};
     let env = mock_env("AT-uusd", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
@@ -1155,7 +1241,10 @@ fn repay_stable_from_liquidation() {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
             global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
         },
     )
     .unwrap();

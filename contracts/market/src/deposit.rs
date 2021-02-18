@@ -4,7 +4,7 @@ use cosmwasm_std::{
     HumanAddr, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 
-use crate::borrow::compute_interest;
+use crate::borrow::{compute_interest, compute_reward};
 use crate::state::{read_config, read_state, store_state, Config, State};
 
 use cw20::Cw20HandleMsg;
@@ -42,12 +42,13 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
         env.block.height,
         Some(deposit_amount),
     )?;
-    store_state(&mut deps.storage, &state)?;
+    compute_reward(&mut state, env.block.height);
 
     // Load anchor token exchange rate with updated state
     let exchange_rate = compute_exchange_rate(deps, &config, &state, Some(deposit_amount))?;
     let mint_amount = deposit_amount / exchange_rate;
 
+    store_state(&mut deps.storage, &state)?;
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.human_address(&config.atoken_contract)?,
@@ -78,26 +79,20 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     // Update interest related state
     let mut state: State = read_state(&deps.storage)?;
     compute_interest(&deps, &config, &mut state, env.block.height, None)?;
+    compute_reward(&mut state, env.block.height);
 
     // Load anchor token exchange rate with updated state
     let exchange_rate = compute_exchange_rate(deps, &config, &state, None)?;
     let redeem_amount = Uint256::from(burn_amount) * exchange_rate;
 
-    // Ensure reserve amount must be left
-    let reserve_amount = state.total_reserves * Uint256::one() + Uint256::one();
-    let available_amount = query_balance(
+    let current_balance = query_balance(
         &deps,
         &env.contract.address,
         config.stable_denom.to_string(),
-    )? - reserve_amount;
+    )?;
 
-    // Check available balance
-    if redeem_amount > available_amount {
-        return Err(StdError::generic_err(format!(
-            "Not enough {} available; borrow demand too high",
-            config.stable_denom
-        )));
-    }
+    // Assert redeem amount
+    assert_redeem_amount(&config, &state, current_balance, redeem_amount)?;
 
     store_state(&mut deps.storage, &state)?;
     Ok(HandleResponse {
@@ -128,6 +123,24 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
         ],
         data: None,
     })
+}
+
+fn assert_redeem_amount(
+    config: &Config,
+    state: &State,
+    current_balance: Uint256,
+    redeem_amount: Uint256,
+) -> StdResult<()> {
+    let current_balance = Decimal256::from_uint256(current_balance);
+    let redeem_amount = Decimal256::from_uint256(redeem_amount);
+    if redeem_amount + state.total_reserves > current_balance {
+        return Err(StdError::generic_err(format!(
+            "Not enough {} available; borrow demand too high",
+            config.stable_denom
+        )));
+    }
+
+    return Ok(());
 }
 
 pub(crate) fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(

@@ -32,6 +32,7 @@ pub struct State {
     pub total_liabilities: Decimal256,
     pub total_reserves: Decimal256,
     pub last_interest_updated: u64,
+    pub last_reward_updated: u64,
     pub global_interest_index: Decimal256,
     pub global_reward_index: Decimal256,
     pub anc_emission_rate: Decimal256,
@@ -42,7 +43,7 @@ pub struct Liability {
     pub interest_index: Decimal256,
     pub reward_index: Decimal256,
     pub loan_amount: Uint256,
-    pub pending_reward: Decimal256,
+    pub pending_rewards: Decimal256,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, data: &Config) -> StdResult<()> {
@@ -76,7 +77,7 @@ pub fn read_liability<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> Liab
             interest_index: Decimal256::one(),
             reward_index: Decimal256::zero(),
             loan_amount: Uint256::zero(),
-            pending_reward: Decimal256::zero(),
+            pending_rewards: Decimal256::zero(),
         },
     }
 }
@@ -106,7 +107,7 @@ pub fn read_liabilities<S: Storage, A: Api, Q: Querier>(
                 interest_index: v.interest_index,
                 reward_index: v.reward_index,
                 loan_amount: v.loan_amount,
-                pending_reward: v.pending_reward,
+                pending_rewards: v.pending_rewards,
             })
         })
         .collect()

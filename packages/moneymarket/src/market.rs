@@ -132,11 +132,13 @@ pub struct ConfigResponse {
     pub owner_addr: HumanAddr,
     pub atoken_contract: HumanAddr,
     pub interest_model: HumanAddr,
+    pub distribution_model: HumanAddr,
     pub overseer_contract: HumanAddr,
     pub collector_contract: HumanAddr,
     pub faucet_contract: HumanAddr,
     pub stable_denom: String,
     pub reserve_factor: Decimal256,
+    pub max_borrow_factor: Decimal256,
 }
 
 // We define a custom struct for each query response
@@ -145,6 +147,7 @@ pub struct StateResponse {
     pub total_liabilities: Decimal256,
     pub total_reserves: Decimal256,
     pub last_interest_updated: u64,
+    pub last_reward_updated: u64,
     pub global_interest_index: Decimal256,
     pub global_reward_index: Decimal256,
     pub anc_emission_rate: Decimal256,
@@ -164,7 +167,7 @@ pub struct LiabilityResponse {
     pub interest_index: Decimal256,
     pub reward_index: Decimal256,
     pub loan_amount: Uint256,
-    pub pending_reward: Decimal256,
+    pub pending_rewards: Decimal256,
 }
 
 // We define a custom struct for each query response

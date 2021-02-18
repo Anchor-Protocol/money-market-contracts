@@ -68,6 +68,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             total_liabilities: Decimal256::zero(),
             total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: msg.anc_emission_rate,
@@ -328,11 +329,13 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         owner_addr: deps.api.human_address(&config.owner_addr)?,
         atoken_contract: deps.api.human_address(&config.atoken_contract)?,
         interest_model: deps.api.human_address(&config.interest_model)?,
+        distribution_model: deps.api.human_address(&config.distribution_model)?,
         overseer_contract: deps.api.human_address(&config.overseer_contract)?,
         collector_contract: deps.api.human_address(&config.collector_contract)?,
         faucet_contract: deps.api.human_address(&config.faucet_contract)?,
         stable_denom: config.stable_denom,
         reserve_factor: config.reserve_factor,
+        max_borrow_factor: config.max_borrow_factor,
     })
 }
 
@@ -344,6 +347,7 @@ pub fn query_state<S: Storage, A: Api, Q: Querier>(
         total_liabilities: state.total_liabilities,
         total_reserves: state.total_reserves,
         last_interest_updated: state.last_interest_updated,
+        last_reward_updated: state.last_reward_updated,
         global_interest_index: state.global_interest_index,
         global_reward_index: state.global_reward_index,
         anc_emission_rate: state.anc_emission_rate,
