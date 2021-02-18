@@ -24,7 +24,7 @@ pub struct Config {
     pub liquidation_contract: CanonicalAddr,
     pub stable_denom: String,
     pub epoch_period: u64,
-    pub distribution_threshold: Decimal256,
+    pub deposit_rate_threshold: Decimal256,
     pub target_deposit_rate: Decimal256,
     pub buffer_distribution_rate: Decimal256,
     pub price_timeframe: u64,

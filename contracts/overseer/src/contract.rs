@@ -17,6 +17,7 @@ use crate::state::{
 
 use moneymarket::custody::HandleMsg as CustodyHandleMsg;
 use moneymarket::market::EpochStateResponse;
+use moneymarket::market::HandleMsg as MarketHandleMsg;
 use moneymarket::overseer::{
     ConfigResponse, DistributionParamsResponse, HandleMsg, InitMsg, QueryMsg, WhitelistResponse,
     WhitelistResponseElem,
@@ -37,7 +38,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             liquidation_contract: deps.api.canonical_address(&msg.liquidation_contract)?,
             stable_denom: msg.stable_denom,
             epoch_period: msg.epoch_period,
-            distribution_threshold: msg.distribution_threshold,
+            deposit_rate_threshold: msg.deposit_rate_threshold,
             target_deposit_rate: msg.target_deposit_rate,
             buffer_distribution_rate: msg.buffer_distribution_rate,
             price_timeframe: msg.price_timeframe,
@@ -67,7 +68,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             owner_addr,
             oracle_contract,
             liquidation_contract,
-            distribution_threshold,
+            deposit_rate_threshold,
             target_deposit_rate,
             buffer_distribution_rate,
             epoch_period,
@@ -78,7 +79,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             owner_addr,
             oracle_contract,
             liquidation_contract,
-            distribution_threshold,
+            deposit_rate_threshold,
             target_deposit_rate,
             buffer_distribution_rate,
             epoch_period,
@@ -95,7 +96,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             ltv,
         } => update_whitelist(deps, env, collateral_token, custody_contract, ltv),
         HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
-        HandleMsg::UpdateEpochState {} => update_eposh_state(deps, env),
+        HandleMsg::UpdateEpochState {} => update_epoch_state(deps, env),
         HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
         HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
         HandleMsg::LiquidateCollateral { borrower } => liquidate_collateral(deps, env, borrower),
@@ -109,7 +110,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     owner_addr: Option<HumanAddr>,
     oracle_contract: Option<HumanAddr>,
     liquidation_contract: Option<HumanAddr>,
-    distribution_threshold: Option<Decimal256>,
+    deposit_rate_threshold: Option<Decimal256>,
     target_deposit_rate: Option<Decimal256>,
     buffer_distribution_rate: Option<Decimal256>,
     epoch_period: Option<u64>,
@@ -133,8 +134,8 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.liquidation_contract = deps.api.canonical_address(&liquidation_contract)?;
     }
 
-    if let Some(distribution_threshold) = distribution_threshold {
-        config.distribution_threshold = distribution_threshold;
+    if let Some(deposit_rate_threshold) = deposit_rate_threshold {
+        config.deposit_rate_threshold = deposit_rate_threshold;
     }
 
     if let Some(buffer_distribution_rate) = buffer_distribution_rate {
@@ -273,11 +274,11 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     let mut messages: Vec<CosmosMsg> = vec![];
 
     // Distribute Interest Buffer to depositor
-    // Only executed when deposit rate < distribution_threshold
+    // Only executed when deposit rate < deposit_rate_threshold
     let mut distributed_interest: Uint256 = Uint256::zero();
-    if deposit_rate < config.distribution_threshold {
+    if deposit_rate < config.deposit_rate_threshold {
         // missing_deposit_rate(_per_block)
-        let missing_deposit_rate = config.distribution_threshold - deposit_rate;
+        let missing_deposit_rate = config.deposit_rate_threshold - deposit_rate;
         let prev_deposits = state.prev_a_token_supply * state.prev_exchange_rate;
 
         // missing_deposits = prev_deposits * missing_deposit_rate(_per_block) * blocks
@@ -297,7 +298,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
             // Send some portion of interest buffer to Market contract
             messages.push(CosmosMsg::Bank(BankMsg::Send {
                 from_address: env.contract.address.clone(),
-                to_address: deps.api.human_address(&config.market_contract)?,
+                to_address: market_contract,
                 amount: vec![deduct_tax(
                     &deps,
                     Coin {
@@ -339,7 +340,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn update_eposh_state<S: Storage, A: Api, Q: Querier>(
+pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> HandleResult {
@@ -375,7 +376,14 @@ pub fn update_eposh_state<S: Storage, A: Api, Q: Querier>(
     )?;
 
     Ok(HandleResponse {
-        messages: vec![],
+        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: market_contract,
+            send: vec![],
+            msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
+                target_deposit_rate: config.target_deposit_rate,
+                deposit_rate,
+            })?,
+        })],
         log: vec![
             log("action", "update_epoch_state"),
             log("deposit_rate", deposit_rate),
@@ -426,7 +434,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         liquidation_contract: deps.api.human_address(&config.liquidation_contract)?,
         stable_denom: config.stable_denom,
         epoch_period: config.epoch_period,
-        distribution_threshold: config.distribution_threshold,
+        deposit_rate_threshold: config.deposit_rate_threshold,
         target_deposit_rate: config.target_deposit_rate,
         buffer_distribution_rate: config.buffer_distribution_rate,
         price_timeframe: config.price_timeframe,
@@ -478,6 +486,6 @@ pub fn query_distribution_params<S: Storage, A: Api, Q: Querier>(
     Ok(DistributionParamsResponse {
         target_deposit_rate: config.target_deposit_rate,
         deposit_rate: epoch_state.deposit_rate,
-        distribution_threshold: config.distribution_threshold,
+        deposit_rate_threshold: config.deposit_rate_threshold,
     })
 }

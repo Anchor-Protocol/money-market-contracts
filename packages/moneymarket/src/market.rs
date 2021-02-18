@@ -14,15 +14,26 @@ pub struct InitMsg {
 
     /// Owner address for config update
     pub owner_addr: HumanAddr,
-    /// The contract has the calculation logics
-    /// of Anchor borrow interest rate
+    /// The contract has the logics for
+    /// Anchor borrow interest rate
     pub interest_model: HumanAddr,
+    /// The contract has the logics for
+    /// ANC distribution speed
+    pub distribution_model: HumanAddr,
+    /// Collector contract to send all the reserve
+    pub collector_contract: HumanAddr,
+    /// Faucet contract to drip ANC token to users
+    pub faucet_contract: HumanAddr,
     /// stable coin denom used to borrow & repay
     pub stable_denom: String,
     /// reserve ratio applied to interest
     pub reserve_factor: Decimal256,
     /// Anchor token code ID used to instantiate
-    pub anchor_token_code_id: u64,
+    pub atoken_code_id: u64,
+    /// Anchor token distribution speed
+    pub anc_emission_rate: Decimal256,
+    /// Maximum borrow TODO
+    pub max_borrow_factor: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -38,15 +49,16 @@ pub enum HandleMsg {
         overseer_contract: HumanAddr,
     },
 
-    /// (internal) Register Anchor token contract address
-    /// Anchor Token will invoke this after init
-    RegisterAnchorToken {},
+    /// (internal) Register A-token contract address
+    /// A-Token will invoke this after init
+    RegisterAToken {},
 
     /// Update config values
     UpdateConfig {
         owner_addr: Option<HumanAddr>,
         reserve_factor: Option<Decimal256>,
         interest_model: Option<HumanAddr>,
+        distribution_model: Option<HumanAddr>,
     },
 
     ////////////////////
@@ -56,6 +68,14 @@ pub enum HandleMsg {
     RepayStableFromLiquidation {
         borrower: HumanAddr,
         prev_balance: Uint256,
+    },
+
+    /// Execute epoch operations
+    /// 1. send reserve to collector contract
+    /// 2. update anc_emission_rate state
+    ExecuteEpochOperations {
+        target_deposit_rate: Decimal256,
+        deposit_rate: Decimal256,
     },
 
     ////////////////////
@@ -72,6 +92,9 @@ pub enum HandleMsg {
 
     /// Repay stable asset to decrease liability
     RepayStable {},
+
+    /// Claim distributed ANC rewards
+    ClaimRewards {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -107,11 +130,24 @@ pub enum QueryMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
     pub owner_addr: HumanAddr,
-    pub anchor_token: HumanAddr,
+    pub atoken_contract: HumanAddr,
     pub interest_model: HumanAddr,
     pub overseer_contract: HumanAddr,
+    pub collector_contract: HumanAddr,
+    pub faucet_contract: HumanAddr,
     pub stable_denom: String,
     pub reserve_factor: Decimal256,
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct StateResponse {
+    pub total_liabilities: Decimal256,
+    pub total_reserves: Decimal256,
+    pub last_interest_updated: u64,
+    pub global_interest_index: Decimal256,
+    pub global_reward_index: Decimal256,
+    pub anc_emission_rate: Decimal256,
 }
 
 // We define a custom struct for each query response
@@ -126,7 +162,9 @@ pub struct EpochStateResponse {
 pub struct LiabilityResponse {
     pub borrower: HumanAddr,
     pub interest_index: Decimal256,
+    pub reward_index: Decimal256,
     pub loan_amount: Uint256,
+    pub pending_reward: Decimal256,
 }
 
 // We define a custom struct for each query response

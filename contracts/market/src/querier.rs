@@ -3,6 +3,7 @@ use cosmwasm_std::{
     to_binary, Api, Extern, HumanAddr, Querier, QueryRequest, StdResult, Storage, WasmQuery,
 };
 
+use moneymarket::distribution::{ANCEmissionRateResponse, QueryMsg as DistributionQueryMsg};
 use moneymarket::interest::{BorrowRateResponse, QueryMsg as InterestQueryMsg};
 use moneymarket::overseer::{BorrowLimitResponse, QueryMsg as OverseerQueryMsg};
 
@@ -42,4 +43,24 @@ pub fn query_borrow_limit<S: Storage, A: Api, Q: Querier>(
         }))?;
 
     Ok(borrow_limit)
+}
+
+pub fn query_anc_emission_rate<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    distribution_model: &HumanAddr,
+    target_deposit_rate: Decimal256,
+    deposit_rate: Decimal256,
+    current_emission_rate: Decimal256,
+) -> StdResult<ANCEmissionRateResponse> {
+    let anc_emission_rate: ANCEmissionRateResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: HumanAddr::from(distribution_model),
+            msg: to_binary(&DistributionQueryMsg::ANCEmissionRate {
+                target_deposit_rate,
+                deposit_rate,
+                current_emission_rate,
+            })?,
+        }))?;
+
+    Ok(anc_emission_rate)
 }

@@ -16,11 +16,15 @@ const PREFIX_LIABILITY: &[u8] = b"liability";
 pub struct Config {
     pub contract_addr: CanonicalAddr,
     pub owner_addr: CanonicalAddr,
-    pub anchor_token: CanonicalAddr,
+    pub atoken_contract: CanonicalAddr,
     pub interest_model: CanonicalAddr,
+    pub distribution_model: CanonicalAddr,
     pub overseer_contract: CanonicalAddr,
+    pub collector_contract: CanonicalAddr,
+    pub faucet_contract: CanonicalAddr,
     pub stable_denom: String,
     pub reserve_factor: Decimal256,
+    pub max_borrow_factor: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -29,12 +33,16 @@ pub struct State {
     pub total_reserves: Decimal256,
     pub last_interest_updated: u64,
     pub global_interest_index: Decimal256,
+    pub global_reward_index: Decimal256,
+    pub anc_emission_rate: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Liability {
     pub interest_index: Decimal256,
+    pub reward_index: Decimal256,
     pub loan_amount: Uint256,
+    pub pending_reward: Decimal256,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, data: &Config) -> StdResult<()> {
@@ -66,7 +74,9 @@ pub fn read_liability<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> Liab
         Ok(v) => v,
         _ => Liability {
             interest_index: Decimal256::one(),
+            reward_index: Decimal256::zero(),
             loan_amount: Uint256::zero(),
+            pending_reward: Decimal256::zero(),
         },
     }
 }
@@ -94,7 +104,9 @@ pub fn read_liabilities<S: Storage, A: Api, Q: Querier>(
             Ok(LiabilityResponse {
                 borrower,
                 interest_index: v.interest_index,
+                reward_index: v.reward_index,
                 loan_amount: v.loan_amount,
+                pending_reward: v.pending_reward,
             })
         })
         .collect()

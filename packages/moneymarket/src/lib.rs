@@ -6,6 +6,7 @@ pub mod oracle;
 pub mod overseer;
 pub mod querier;
 pub mod tokens;
+pub mod distribution;
 
 #[cfg(test)]
 mod mock_querier;

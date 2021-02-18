@@ -1,4 +1,4 @@
-use crate::borrow::{compute_interest, compute_loan};
+use crate::borrow::{compute_interest, compute_borrower_interest};
 use crate::state::{store_state, Config, Liability, State};
 use crate::testing::mock_querier::mock_dependencies;
 use cosmwasm_bignumber::{Decimal256, Uint256};
@@ -6,7 +6,7 @@ use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{Api, Coin, HumanAddr, Uint128};
 
 #[test]
-fn proper_compute_loan() {
+fn proper_compute_borrower_interest() {
     let env = mock_env("addr0000", &[]);
     let mock_state = State {
         total_liabilities: Decimal256::from_uint256(1000000u128),
@@ -18,7 +18,7 @@ fn proper_compute_loan() {
         interest_index: Decimal256::one(),
         loan_amount: Uint256::zero(),
     };
-    compute_loan(&mock_state, &mut liability1);
+    compute_borrower_interest(&mock_state, &mut liability1);
     let liability2 = Liability {
         interest_index: Decimal256::one(),
         loan_amount: Uint256::zero(),
@@ -35,7 +35,7 @@ fn proper_compute_loan() {
         interest_index: Decimal256::from_uint256(4u128),
         loan_amount: Uint256::from(80u128),
     };
-    compute_loan(&mock_state2, &mut liability3);
+    compute_borrower_interest(&mock_state2, &mut liability3);
     let liability4 = Liability {
         interest_index: Decimal256::from_uint256(2u128),
         loan_amount: Uint256::from(40u128),
@@ -64,7 +64,7 @@ fn proper_compute_interest() {
             .api
             .canonical_address(&HumanAddr::from("owner"))
             .unwrap(),
-        anchor_token: deps
+        atoken: deps
             .api
             .canonical_address(&HumanAddr::from("AT-uusd"))
             .unwrap(),

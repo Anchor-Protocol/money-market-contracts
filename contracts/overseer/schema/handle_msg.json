@@ -22,7 +22,7 @@
                 }
               ]
             },
-            "distribution_threshold": {
+            "deposit_rate_threshold": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal256"

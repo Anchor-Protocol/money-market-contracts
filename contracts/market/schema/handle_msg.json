@@ -37,10 +37,10 @@
       "description": "(internal) Register Anchor token contract address Anchor Token will invoke this after init",
       "type": "object",
       "required": [
-        "register_anchor_token"
+        "register_atoken"
       ],
       "properties": {
-        "register_anchor_token": {
+        "register_atoken": {
           "type": "object"
         }
       }

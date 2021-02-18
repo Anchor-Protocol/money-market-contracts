@@ -31,7 +31,7 @@ fn proper_initialization() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        deposit_rate_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
         price_timeframe: 60u64,
@@ -53,7 +53,7 @@ fn proper_initialization() {
     );
     assert_eq!("uusd".to_string(), config_res.stable_denom);
     assert_eq!(86400u64, config_res.epoch_period);
-    assert_eq!(Decimal256::permille(3), config_res.distribution_threshold);
+    assert_eq!(Decimal256::permille(3), config_res.deposit_rate_threshold);
     assert_eq!(Decimal256::permille(5), config_res.target_deposit_rate);
     assert_eq!(Decimal256::percent(20), config_res.buffer_distribution_rate);
 
@@ -77,7 +77,7 @@ fn update_config() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        deposit_rate_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
         price_timeframe: 60u64,
@@ -92,7 +92,7 @@ fn update_config() {
         owner_addr: Some(HumanAddr("owner1".to_string())),
         oracle_contract: None,
         liquidation_contract: None,
-        distribution_threshold: None,
+        deposit_rate_threshold: None,
         target_deposit_rate: None,
         buffer_distribution_rate: None,
         epoch_period: None,
@@ -113,7 +113,7 @@ fn update_config() {
         owner_addr: None,
         oracle_contract: Some(HumanAddr("oracle1".to_string())),
         liquidation_contract: Some(HumanAddr("liquidation1".to_string())),
-        distribution_threshold: Some(Decimal256::permille(1)),
+        deposit_rate_threshold: Some(Decimal256::permille(1)),
         target_deposit_rate: Some(Decimal256::permille(2)),
         buffer_distribution_rate: Some(Decimal256::percent(10)),
         epoch_period: Some(100000u64),
@@ -132,7 +132,7 @@ fn update_config() {
         HumanAddr::from("liquidation1"),
         config_res.liquidation_contract
     );
-    assert_eq!(Decimal256::permille(1), config_res.distribution_threshold);
+    assert_eq!(Decimal256::permille(1), config_res.deposit_rate_threshold);
     assert_eq!(Decimal256::permille(2), config_res.target_deposit_rate);
     assert_eq!(Decimal256::percent(10), config_res.buffer_distribution_rate);
     assert_eq!(100000u64, config_res.epoch_period);
@@ -144,7 +144,7 @@ fn update_config() {
         owner_addr: None,
         oracle_contract: None,
         liquidation_contract: None,
-        distribution_threshold: None,
+        deposit_rate_threshold: None,
         target_deposit_rate: None,
         buffer_distribution_rate: None,
         epoch_period: None,
@@ -170,7 +170,7 @@ fn whitelist() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        deposit_rate_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
         price_timeframe: 60u64,
@@ -306,7 +306,7 @@ fn execute_epoch_operations() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::from_ratio(1u64, 1000000u64),
+        deposit_rate_threshold: Decimal256::from_ratio(1u64, 1000000u64),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
         price_timeframe: 60u64,
@@ -344,7 +344,7 @@ fn execute_epoch_operations() {
 
     env.block.height += 86400u64;
 
-    // If deposit_rate is bigger than distribution_threshold
+    // If deposit_rate is bigger than deposit_rate_threshold
     deps.querier.with_epoch_state(&[(
         &HumanAddr::from("market"),
         &(Uint256::from(1000000u64), Decimal256::percent(120)),
@@ -476,7 +476,7 @@ fn update_epoch_state() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::from_ratio(1u64, 1000000u64),
+        deposit_rate_threshold: Decimal256::from_ratio(1u64, 1000000u64),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
         price_timeframe: 60u64,
@@ -520,7 +520,18 @@ fn update_epoch_state() {
     )]);
 
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
-    assert_eq!(res.messages.len(), 0);
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("market"),
+            send: vec![],
+            msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
+                target_deposit_rate: Decimal256::permille(5),
+                deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
+            })
+            .unwrap(),
+        })]
+    );
     assert_eq!(
         res.log,
         vec![
@@ -539,7 +550,18 @@ fn update_epoch_state() {
 
     env.block.height += 86400u64;
     let res = handle(&mut deps, env.clone(), msg).unwrap();
-    assert_eq!(res.messages.len(), 0);
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("market"),
+            send: vec![],
+            msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
+                target_deposit_rate: Decimal256::permille(5),
+                deposit_rate: Decimal256::from_str("0.000000482253086419").unwrap(),
+            })
+            .unwrap(),
+        })]
+    );
     assert_eq!(
         res.log,
         vec![
@@ -582,7 +604,7 @@ fn lock_collateral() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        deposit_rate_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
         price_timeframe: 60u64,
@@ -703,7 +725,7 @@ fn unlock_collateral() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        deposit_rate_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
         price_timeframe: 60u64,
@@ -919,7 +941,7 @@ fn liquidate_collateral() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        deposit_rate_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
         price_timeframe: 60u64,

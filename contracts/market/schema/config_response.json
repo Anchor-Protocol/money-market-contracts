@@ -3,7 +3,7 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
-    "anchor_token",
+    "atoken",
     "interest_model",
     "overseer_contract",
     "owner_addr",
@@ -11,7 +11,7 @@
     "stable_denom"
   ],
   "properties": {
-    "anchor_token": {
+    "atoken": {
       "$ref": "#/definitions/HumanAddr"
     },
     "interest_model": {

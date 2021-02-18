@@ -21,7 +21,7 @@ fn proper_compute_borrow_limit() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        deposit_rate_threshold: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_rate: Decimal256::percent(20),
         price_timeframe: 60u64,

@@ -32,7 +32,7 @@ fn proper_initialization() {
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        anchor_token_code_id: 123u64,
+        atoken_code_id: 123u64,
     };
 
     let env = mock_env(
@@ -99,7 +99,7 @@ fn proper_initialization() {
     let query_res = query(&deps, QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&query_res).unwrap();
     assert_eq!(HumanAddr::from("owner"), config_res.owner_addr);
-    assert_eq!(HumanAddr::from("AT-uusd"), config_res.anchor_token);
+    assert_eq!(HumanAddr::from("AT-uusd"), config_res.atoken);
     assert_eq!(HumanAddr::from("interest"), config_res.interest_model);
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
     assert_eq!("uusd".to_string(), config_res.stable_denom);
@@ -130,7 +130,7 @@ fn update_config() {
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        anchor_token_code_id: 123u64,
+        atoken_code_id: 123u64,
     };
 
     let env = mock_env(
@@ -219,7 +219,7 @@ fn deposit_stable_huge_amount() {
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        anchor_token_code_id: 123u64,
+        atoken_code_id: 123u64,
     };
 
     let env = mock_env(
@@ -367,7 +367,7 @@ fn deposit_stable() {
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        anchor_token_code_id: 123u64,
+        atoken_code_id: 123u64,
     };
 
     let env = mock_env(
@@ -579,7 +579,7 @@ fn redeem_stable() {
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        anchor_token_code_id: 123u64,
+        atoken_code_id: 123u64,
     };
 
     let env = mock_env(
@@ -765,7 +765,7 @@ fn borrow_stable() {
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        anchor_token_code_id: 123u64,
+        atoken_code_id: 123u64,
     };
 
     let env = mock_env(
@@ -947,7 +947,7 @@ fn repay_stable() {
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        anchor_token_code_id: 123u64,
+        atoken_code_id: 123u64,
     };
 
     let env = mock_env(
@@ -1119,7 +1119,7 @@ fn repay_stable_from_liquidation() {
         interest_model: HumanAddr::from("interest"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
-        anchor_token_code_id: 123u64,
+        atoken_code_id: 123u64,
     };
 
     let env = mock_env(

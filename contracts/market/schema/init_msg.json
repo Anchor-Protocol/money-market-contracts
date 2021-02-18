@@ -3,14 +3,14 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "anchor_token_code_id",
+    "atoken_code_id",
     "interest_model",
     "owner_addr",
     "reserve_factor",
     "stable_denom"
   ],
   "properties": {
-    "anchor_token_code_id": {
+    "atoken_code_id": {
       "description": "Anchor token code ID used to instantiate",
       "type": "integer",
       "format": "uint64",

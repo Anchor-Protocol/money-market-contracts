@@ -22,8 +22,8 @@ pub struct InitMsg {
     /// # of blocks per epoch period
     pub epoch_period: u64,
     /// Distribute interest buffer to market contract,
-    /// when deposit_rate < distribution_threshold
-    pub distribution_threshold: Decimal256,
+    /// when deposit_rate < deposit_rate_threshold
+    pub deposit_rate_threshold: Decimal256,
     /// Target deposit rate.
     /// When current deposit rate is bigger than this,
     /// Custody contracts send rewards to interest buffer
@@ -46,7 +46,7 @@ pub enum HandleMsg {
         owner_addr: Option<HumanAddr>,
         oracle_contract: Option<HumanAddr>,
         liquidation_contract: Option<HumanAddr>,
-        distribution_threshold: Option<Decimal256>,
+        deposit_rate_threshold: Option<Decimal256>,
         target_deposit_rate: Option<Decimal256>,
         buffer_distribution_rate: Option<Decimal256>,
         epoch_period: Option<u64>,
@@ -121,7 +121,7 @@ pub struct ConfigResponse {
     pub oracle_contract: HumanAddr,
     pub market_contract: HumanAddr,
     pub liquidation_contract: HumanAddr,
-    pub distribution_threshold: Decimal256,
+    pub deposit_rate_threshold: Decimal256,
     pub target_deposit_rate: Decimal256,
     pub buffer_distribution_rate: Decimal256,
     pub stable_denom: String,
@@ -161,7 +161,7 @@ pub struct AllCollateralsResponse {
 pub struct DistributionParamsResponse {
     pub deposit_rate: Decimal256,
     pub target_deposit_rate: Decimal256,
-    pub distribution_threshold: Decimal256,
+    pub deposit_rate_threshold: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

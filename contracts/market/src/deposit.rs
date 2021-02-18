@@ -50,7 +50,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
 
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.anchor_token)?,
+            contract_addr: deps.api.human_address(&config.atoken_contract)?,
             send: vec![],
             msg: to_binary(&Cw20HandleMsg::Mint {
                 recipient: env.message.sender.clone(),
@@ -82,13 +82,17 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     // Load anchor token exchange rate with updated state
     let exchange_rate = compute_exchange_rate(deps, &config, &state, None)?;
     let redeem_amount = Uint256::from(burn_amount) * exchange_rate;
-    if redeem_amount
-        > query_balance(
-            &deps,
-            &env.contract.address,
-            config.stable_denom.to_string(),
-        )?
-    {
+
+    // Ensure reserve amount must be left
+    let reserve_amount = state.total_reserves * Uint256::one() + Uint256::one();
+    let available_amount = query_balance(
+        &deps,
+        &env.contract.address,
+        config.stable_denom.to_string(),
+    )? - reserve_amount;
+
+    // Check available balance
+    if redeem_amount > available_amount {
         return Err(StdError::generic_err(format!(
             "Not enough {} available; borrow demand too high",
             config.stable_denom
@@ -99,7 +103,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages: vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.anchor_token)?,
+                contract_addr: deps.api.human_address(&config.atoken_contract)?,
                 send: vec![],
                 msg: to_binary(&Cw20HandleMsg::Burn {
                     amount: burn_amount,
@@ -132,7 +136,7 @@ pub(crate) fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
     state: &State,
     deposit_amount: Option<Uint256>,
 ) -> StdResult<Decimal256> {
-    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.anchor_token)?)?;
+    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.atoken_contract)?)?;
     let balance = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
@@ -147,8 +151,8 @@ pub fn compute_exchange_rate_raw(
     a_token_supply: Uint256,
     contract_balance: Uint256,
 ) -> Decimal256 {
-    // (anchor_token / stable_denom)
-    // exchange_rate = (balance + total_liabilities - total_reserves) / anchor_token_supply
+    // (atoken / stable_denom)
+    // exchange_rate = (balance + total_liabilities - total_reserves) / atoken_supply
     (Decimal256::from_uint256(contract_balance) + state.total_liabilities - state.total_reserves)
         / Decimal256::from_uint256(a_token_supply)
 }

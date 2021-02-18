@@ -4,7 +4,7 @@
   "type": "object",
   "required": [
     "buffer_distribution_rate",
-    "distribution_threshold",
+    "deposit_rate_threshold",
     "epoch_period",
     "liquidation_contract",
     "market_contract",
@@ -23,8 +23,8 @@
         }
       ]
     },
-    "distribution_threshold": {
-      "description": "Distribute interest buffer to market contract, when deposit_rate < distribution_threshold",
+    "deposit_rate_threshold": {
+      "description": "Distribute interest buffer to market contract, when deposit_rate < deposit_rate_threshold",
       "allOf": [
         {
           "$ref": "#/definitions/Decimal256"
