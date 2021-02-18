@@ -191,6 +191,7 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
 pub fn claim_rewards<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    to: Option<HumanAddr>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let mut state: State = read_state(&deps.storage)?;
@@ -221,7 +222,7 @@ pub fn claim_rewards<S: Storage, A: Api, Q: Querier>(
             contract_addr: deps.api.human_address(&config.faucet_contract)?,
             send: vec![],
             msg: to_binary(&FaucetHandleMsg::Spend {
-                recipient: borrower,
+                recipient: if let Some(to) = to { to } else { borrower },
                 amount: claim_amount.into(),
             })?,
         })]

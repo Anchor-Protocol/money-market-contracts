@@ -139,7 +139,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             borrower,
             prev_balance,
         } => repay_stable_from_liquidation(deps, env, borrower, prev_balance),
-        HandleMsg::ClaimRewards {} => claim_rewards(deps, env),
+        HandleMsg::ClaimRewards { to } => claim_rewards(deps, env, to),
     }
 }
 

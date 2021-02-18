@@ -94,7 +94,9 @@ pub enum HandleMsg {
     RepayStable {},
 
     /// Claim distributed ANC rewards
-    ClaimRewards {},
+    ClaimRewards {
+        to: Option<HumanAddr>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

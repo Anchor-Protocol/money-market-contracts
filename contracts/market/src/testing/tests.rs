@@ -59,7 +59,7 @@ fn proper_initialization() {
             send: vec![],
             label: None,
             msg: to_binary(&TokenInitMsg {
-                name: "Anchor Token for uusd".to_string(),
+                name: "Anchor Terra for uusd".to_string(),
                 symbol: "AT-uusd".to_string(),
                 decimals: 6u8,
                 initial_balances: vec![Cw20CoinHuman {
@@ -1419,7 +1419,7 @@ fn claim_rewards() {
     )
     .unwrap();
 
-    let msg = HandleMsg::ClaimRewards {};
+    let msg = HandleMsg::ClaimRewards { to: None };
     let res = handle(&mut deps, env.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "No loan exist for claim"),
@@ -1433,10 +1433,13 @@ fn claim_rewards() {
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
     // zero block passed
-    let msg = HandleMsg::ClaimRewards {};
+    let msg = HandleMsg::ClaimRewards {
+        to: Some(HumanAddr::from("addr0001")),
+    };
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
     assert_eq!(res.messages.len(), 0);
 
+    // 100 blocks passed
     env.block.height += 100;
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
     assert_eq!(
@@ -1445,7 +1448,7 @@ fn claim_rewards() {
             contract_addr: HumanAddr::from("faucet"),
             send: vec![],
             msg: to_binary(&FaucetHandleMsg::Spend {
-                recipient: HumanAddr::from("addr0000"),
+                recipient: HumanAddr::from("addr0001"),
                 amount: Uint128(33u128),
             })
             .unwrap(),
