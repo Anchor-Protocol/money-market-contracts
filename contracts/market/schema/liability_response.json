@@ -5,7 +5,9 @@
   "required": [
     "borrower",
     "interest_index",
-    "loan_amount"
+    "loan_amount",
+    "pending_rewards",
+    "reward_index"
   ],
   "properties": {
     "borrower": {
@@ -16,6 +18,12 @@
     },
     "loan_amount": {
       "$ref": "#/definitions/Uint256"
+    },
+    "pending_rewards": {
+      "$ref": "#/definitions/Decimal256"
+    },
+    "reward_index": {
+      "$ref": "#/definitions/Decimal256"
     }
   },
   "definitions": {

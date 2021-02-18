@@ -2,6 +2,7 @@ use crate::contract::{handle, init, query, INITIAL_DEPOSIT_AMOUNT};
 use crate::state::{read_liabilities, read_state, store_state, State};
 use crate::testing::mock_querier::mock_dependencies;
 
+use anchor_token::faucet::HandleMsg as FaucetHandleMsg;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
@@ -1346,5 +1347,232 @@ fn repay_stable_from_liquidation() {
             )
             .unwrap()]
         })]
+    );
+}
+
+#[test]
+fn claim_rewards() {
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+
+    let msg = InitMsg {
+        owner_addr: HumanAddr::from("owner"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
+        stable_denom: "uusd".to_string(),
+        reserve_factor: Decimal256::permille(3),
+        atoken_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
+    };
+
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // Register anchor token contract
+    let msg = HandleMsg::RegisterAToken {};
+    let env = mock_env("AT-uusd", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // Register overseer contract
+    let msg = HandleMsg::RegisterOverseer {
+        overseer_contract: HumanAddr::from("overseer"),
+    };
+    let mut env = mock_env("addr0000", &[]);
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    deps.querier
+        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
+    deps.querier
+        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint256::from(1000000u64))]);
+
+    store_state(
+        &mut deps.storage,
+        &State {
+            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_reserves: Decimal256::zero(),
+            last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
+            global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
+        },
+    )
+    .unwrap();
+
+    let msg = HandleMsg::ClaimRewards {};
+    let res = handle(&mut deps, env.clone(), msg);
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "No loan exist for claim"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let msg = HandleMsg::BorrowStable {
+        borrow_amount: Uint256::from(500000u64),
+        to: None,
+    };
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    // zero block passed
+    let msg = HandleMsg::ClaimRewards {};
+    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    assert_eq!(res.messages.len(), 0);
+
+    env.block.height += 100;
+    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("faucet"),
+            send: vec![],
+            msg: to_binary(&FaucetHandleMsg::Spend {
+                recipient: HumanAddr::from("addr0000"),
+                amount: Uint128(33u128),
+            })
+            .unwrap(),
+        })]
+    );
+
+    let res: LiabilityResponse = from_binary(
+        &query(
+            &deps,
+            QueryMsg::Liability {
+                borrower: HumanAddr::from("addr0000"),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        res.pending_rewards,
+        Decimal256::from_str("0.333333333333").unwrap()
+    );
+    assert_eq!(
+        res.reward_index,
+        Decimal256::from_str("0.000066666666666666").unwrap()
+    );
+}
+
+#[test]
+fn execute_epoch_operations() {
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+
+    let msg = InitMsg {
+        owner_addr: HumanAddr::from("owner"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
+        stable_denom: "uusd".to_string(),
+        reserve_factor: Decimal256::permille(3),
+        atoken_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
+    };
+
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+
+    // Register anchor token contract
+    let msg = HandleMsg::RegisterAToken {};
+    let env = mock_env("AT-uusd", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // Register overseer contract
+    let msg = HandleMsg::RegisterOverseer {
+        overseer_contract: HumanAddr::from("overseer"),
+    };
+    let mut env = mock_env("addr0000", &[]);
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    deps.querier
+        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
+    deps.querier
+        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint256::from(1000000u64))]);
+
+    store_state(
+        &mut deps.storage,
+        &State {
+            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_reserves: Decimal256::zero(),
+            last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
+            global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
+        },
+    )
+    .unwrap();
+
+    env.block.height += 100;
+
+    // reserve == 3000
+    let msg = HandleMsg::ExecuteEpochOperations {
+        target_deposit_rate: Decimal256::one(),
+        deposit_rate: Decimal256::one(),
+    };
+
+    let res = handle(&mut deps, env.clone(), msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Bank(BankMsg::Send {
+            from_address: env.contract.address,
+            to_address: HumanAddr::from("collector"),
+            amount: vec![Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128::from(2971u128), // 1% tax
+            }],
+        })]
+    );
+
+    let state = read_state(&deps.storage).unwrap();
+    assert_eq!(
+        state,
+        State {
+            total_liabilities: Decimal256::from_uint256(2000000u128),
+            total_reserves: Decimal256::zero(),
+            last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
+            global_interest_index: Decimal256::from_uint256(2u64),
+            global_reward_index: Decimal256::from_str("0.0001").unwrap(),
+            anc_emission_rate: Decimal256::from_uint256(5u64),
+        }
     );
 }

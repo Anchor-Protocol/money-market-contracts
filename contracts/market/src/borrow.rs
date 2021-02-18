@@ -198,6 +198,9 @@ pub fn claim_rewards<S: Storage, A: Api, Q: Querier>(
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
     let mut liability: Liability = read_liability(&deps.storage, &borrower_raw);
+    if liability.loan_amount.is_zero() {
+        return Err(StdError::generic_err("No loan exist for claim"));
+    }
 
     // Compute interest
     compute_interest(&deps, &config, &mut state, env.block.height, None)?;
@@ -213,15 +216,21 @@ pub fn claim_rewards<S: Storage, A: Api, Q: Querier>(
     store_state(&mut deps.storage, &state)?;
     store_liability(&mut deps.storage, &borrower_raw, &liability)?;
 
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    let messages: Vec<CosmosMsg> = if !claim_amount.is_zero() {
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.human_address(&config.faucet_contract)?,
             send: vec![],
             msg: to_binary(&FaucetHandleMsg::Spend {
                 recipient: borrower,
                 amount: claim_amount.into(),
             })?,
-        })],
+        })]
+    } else {
+        vec![]
+    };
+
+    Ok(HandleResponse {
+        messages,
         log: vec![
             log("action", "claim_rewards"),
             log("claim_amount", claim_amount),
@@ -239,6 +248,10 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
     block_height: u64,
     deposit_amount: Option<Uint256>,
 ) -> StdResult<()> {
+    if state.last_interest_updated >= block_height {
+        return Ok(());
+    }
+
     let balance: Uint256 = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
@@ -269,6 +282,10 @@ pub fn compute_interest_raw(
     borrow_rate: Decimal256,
     reserve_factor: Decimal256,
 ) {
+    if state.last_interest_updated >= block_height {
+        return;
+    }
+
     let passed_blocks = Decimal256::from_uint256(block_height - state.last_interest_updated);
 
     let interest_factor = passed_blocks * borrow_rate;
@@ -291,6 +308,10 @@ pub(crate) fn compute_borrower_interest(state: &State, liability: &mut Liability
 
 /// Compute distributed reward and update global index
 pub fn compute_reward(state: &mut State, block_height: u64) {
+    if state.last_reward_updated >= block_height {
+        return;
+    }
+
     let passed_blocks = Decimal256::from_uint256(block_height - state.last_reward_updated);
     let reward_accrued = passed_blocks * state.anc_emission_rate;
     let borrow_amount = state.total_liabilities / state.global_interest_index;

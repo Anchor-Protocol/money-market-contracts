@@ -256,7 +256,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
     let mut state: State = read_state(&deps.storage)?;
 
-    // Compute distributed rewards before updating anc_emission_rate
+    // Compute interest and reward before updating anc_emission_rate
     compute_interest(&deps, &config, &mut state, env.block.height, None)?;
     compute_reward(&mut state, env.block.height);
 

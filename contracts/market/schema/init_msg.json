@@ -3,24 +3,69 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
+    "anc_emission_rate",
     "atoken_code_id",
+    "collector_contract",
+    "distribution_model",
+    "faucet_contract",
     "interest_model",
+    "max_borrow_factor",
     "owner_addr",
     "reserve_factor",
     "stable_denom"
   ],
   "properties": {
+    "anc_emission_rate": {
+      "description": "Anchor token distribution speed",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal256"
+        }
+      ]
+    },
     "atoken_code_id": {
       "description": "Anchor token code ID used to instantiate",
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
     },
-    "interest_model": {
-      "description": "The contract has the calculation logics of Anchor borrow interest rate",
+    "collector_contract": {
+      "description": "Collector contract to send all the reserve",
       "allOf": [
         {
           "$ref": "#/definitions/HumanAddr"
+        }
+      ]
+    },
+    "distribution_model": {
+      "description": "The contract has the logics for ANC distribution speed",
+      "allOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        }
+      ]
+    },
+    "faucet_contract": {
+      "description": "Faucet contract to drip ANC token to users",
+      "allOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        }
+      ]
+    },
+    "interest_model": {
+      "description": "The contract has the logics for Anchor borrow interest rate",
+      "allOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        }
+      ]
+    },
+    "max_borrow_factor": {
+      "description": "Maximum borrow TODO",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal256"
         }
       ]
     },

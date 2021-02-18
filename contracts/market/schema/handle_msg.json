@@ -34,13 +34,13 @@
       }
     },
     {
-      "description": "(internal) Register Anchor token contract address Anchor Token will invoke this after init",
+      "description": "(internal) Register A-token contract address A-Token will invoke this after init",
       "type": "object",
       "required": [
-        "register_atoken"
+        "register_a_token"
       ],
       "properties": {
-        "register_atoken": {
+        "register_a_token": {
           "type": "object"
         }
       }
@@ -55,6 +55,16 @@
         "update_config": {
           "type": "object",
           "properties": {
+            "distribution_model": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "interest_model": {
               "anyOf": [
                 {
@@ -114,6 +124,30 @@
       }
     },
     {
+      "description": "Execute epoch operations 1. send reserve to collector contract 2. update anc_emission_rate state",
+      "type": "object",
+      "required": [
+        "execute_epoch_operations"
+      ],
+      "properties": {
+        "execute_epoch_operations": {
+          "type": "object",
+          "required": [
+            "deposit_rate",
+            "target_deposit_rate"
+          ],
+          "properties": {
+            "deposit_rate": {
+              "$ref": "#/definitions/Decimal256"
+            },
+            "target_deposit_rate": {
+              "$ref": "#/definitions/Decimal256"
+            }
+          }
+        }
+      }
+    },
+    {
       "description": "User operations Deposit stable asset to get interest",
       "type": "object",
       "required": [
@@ -163,6 +197,18 @@
       ],
       "properties": {
         "repay_stable": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "description": "Claim distributed ANC rewards",
+      "type": "object",
+      "required": [
+        "claim_rewards"
+      ],
+      "properties": {
+        "claim_rewards": {
           "type": "object"
         }
       }
