@@ -3,11 +3,11 @@
   "title": "EpochStateResponse",
   "type": "object",
   "required": [
-    "a_token_supply",
+    "aterra_supply",
     "exchange_rate"
   ],
   "properties": {
-    "a_token_supply": {
+    "aterra_supply": {
       "$ref": "#/definitions/Uint256"
     },
     "exchange_rate": {

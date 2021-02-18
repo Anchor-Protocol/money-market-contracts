@@ -11,8 +11,7 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20CoinHuman, Cw20HandleMsg, Cw20ReceiveMsg, MinterResponse};
 use moneymarket::market::{
-    BorrowerInfoResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LoanAmountResponse,
-    QueryMsg,
+    BorrowerInfoResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg,
 };
 use moneymarket::querier::deduct_tax;
 use std::str::FromStr;
@@ -933,6 +932,7 @@ fn borrow_stable() {
         &deps,
         QueryMsg::BorrowerInfo {
             borrower: HumanAddr::from("addr0000"),
+            block_height: None,
         },
     )
     .unwrap();
@@ -951,19 +951,22 @@ fn borrow_stable() {
 
     let res = query(
         &deps,
-        QueryMsg::LoanAmount {
+        QueryMsg::BorrowerInfo {
             borrower: HumanAddr::from("addr0000"),
-            block_height: env.block.height,
+            block_height: Some(env.block.height),
         },
     )
     .unwrap();
 
-    let loan_amount: LoanAmountResponse = from_binary(&res).unwrap();
+    let borrower_info: BorrowerInfoResponse = from_binary(&res).unwrap();
     assert_eq!(
-        loan_amount,
-        LoanAmountResponse {
+        borrower_info,
+        BorrowerInfoResponse {
             borrower: HumanAddr::from("addr0000"),
+            interest_index: Decimal256::from_uint256(2u128),
+            reward_index: Decimal256::from_str("0.0001").unwrap(),
             loan_amount: Uint256::from(500000u64),
+            pending_rewards: Decimal256::zero(),
         }
     );
 
@@ -971,19 +974,22 @@ fn borrow_stable() {
     // interest_factor is 100%
     let res = query(
         &deps,
-        QueryMsg::LoanAmount {
+        QueryMsg::BorrowerInfo {
             borrower: HumanAddr::from("addr0000"),
-            block_height: env.block.height + 100,
+            block_height: Some(env.block.height + 100),
         },
     )
     .unwrap();
 
-    let loan_amount: LoanAmountResponse = from_binary(&res).unwrap();
+    let borrower_info: BorrowerInfoResponse = from_binary(&res).unwrap();
     assert_eq!(
-        loan_amount,
-        LoanAmountResponse {
+        borrower_info,
+        BorrowerInfoResponse {
             borrower: HumanAddr::from("addr0000"),
+            interest_index: Decimal256::from_uint256(4u128),
+            reward_index: Decimal256::from_str("0.00018").unwrap(),
             loan_amount: Uint256::from(1000000u64),
+            pending_rewards: Decimal256::from_uint256(20u64),
         }
     );
 
@@ -1460,6 +1466,7 @@ fn claim_rewards() {
             &deps,
             QueryMsg::BorrowerInfo {
                 borrower: HumanAddr::from("addr0000"),
+                block_height: None,
             },
         )
         .unwrap(),

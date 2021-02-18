@@ -4,7 +4,7 @@ use cosmwasm_std::{
 };
 
 use moneymarket::liquidation::{LiquidationAmountResponse, QueryMsg as LiquidationQueryMsg};
-use moneymarket::market::{EpochStateResponse, LoanAmountResponse, QueryMsg as MarketQueryMsg};
+use moneymarket::market::{BorrowerInfoResponse, EpochStateResponse, QueryMsg as MarketQueryMsg};
 use moneymarket::tokens::TokensHuman;
 
 pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
@@ -24,18 +24,18 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
 }
 
 /// Query borrow amount from the market contract
-pub fn query_loan_amount<S: Storage, A: Api, Q: Querier>(
+pub fn query_borrower_info<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     market_addr: &HumanAddr,
     borrower: &HumanAddr,
     block_height: u64,
-) -> StdResult<LoanAmountResponse> {
-    let borrower_amount: LoanAmountResponse =
+) -> StdResult<BorrowerInfoResponse> {
+    let borrower_amount: BorrowerInfoResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(market_addr),
-            msg: to_binary(&MarketQueryMsg::LoanAmount {
+            msg: to_binary(&MarketQueryMsg::BorrowerInfo {
                 borrower: HumanAddr::from(borrower),
-                block_height,
+                block_height: Some(block_height),
             })?,
         }))?;
 

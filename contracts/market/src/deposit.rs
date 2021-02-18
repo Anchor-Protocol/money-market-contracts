@@ -149,23 +149,23 @@ pub(crate) fn compute_exchange_rate<S: Storage, A: Api, Q: Querier>(
     state: &State,
     deposit_amount: Option<Uint256>,
 ) -> StdResult<Decimal256> {
-    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
+    let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
     let balance = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
         config.stable_denom.to_string(),
     )? - deposit_amount.unwrap_or_else(Uint256::zero);
 
-    Ok(compute_exchange_rate_raw(state, a_token_supply, balance))
+    Ok(compute_exchange_rate_raw(state, aterra_supply, balance))
 }
 
 pub fn compute_exchange_rate_raw(
     state: &State,
-    a_token_supply: Uint256,
+    aterra_supply: Uint256,
     contract_balance: Uint256,
 ) -> Decimal256 {
     // (aterra / stable_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / aterra_supply
     (Decimal256::from_uint256(contract_balance) + state.total_liabilities - state.total_reserves)
-        / Decimal256::from_uint256(a_token_supply)
+        / Decimal256::from_uint256(aterra_supply)
 }

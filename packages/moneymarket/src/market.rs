@@ -117,14 +117,11 @@ pub enum QueryMsg {
     },
     BorrowerInfo {
         borrower: HumanAddr,
+        block_height: Option<u64>,
     },
     Liabilities {
         start_after: Option<HumanAddr>,
         limit: Option<u32>,
-    },
-    LoanAmount {
-        borrower: HumanAddr,
-        block_height: u64,
     },
 }
 
@@ -159,7 +156,7 @@ pub struct StateResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct EpochStateResponse {
     pub exchange_rate: Decimal256,
-    pub a_token_supply: Uint256,
+    pub aterra_supply: Uint256,
 }
 
 // We define a custom struct for each query response
@@ -176,11 +173,4 @@ pub struct BorrowerInfoResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BorrowerInfosResponse {
     pub borrower_infos: Vec<BorrowerInfoResponse>,
-}
-
-// We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LoanAmountResponse {
-    pub borrower: HumanAddr,
-    pub loan_amount: Uint256,
 }

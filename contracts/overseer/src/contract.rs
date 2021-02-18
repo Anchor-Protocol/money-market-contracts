@@ -49,7 +49,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &EpochState {
             deposit_rate: Decimal256::zero(),
-            prev_a_token_supply: Uint256::zero(),
+            prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
             last_executed_height: env.block.height,
         },
@@ -279,7 +279,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     if deposit_rate < config.deposit_rate_threshold {
         // missing_deposit_rate(_per_block)
         let missing_deposit_rate = config.deposit_rate_threshold - deposit_rate;
-        let prev_deposits = state.prev_a_token_supply * state.prev_exchange_rate;
+        let prev_deposits = state.prev_aterra_supply * state.prev_exchange_rate;
 
         // missing_deposits = prev_deposits * missing_deposit_rate(_per_block) * blocks
         let missing_deposits = prev_deposits * blocks * missing_deposit_rate;
@@ -333,7 +333,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
             log("action", "epoch_operations"),
             log("deposit_rate", deposit_rate),
             log("exchange_rate", epoch_state.exchange_rate),
-            log("a_token_supply", epoch_state.a_token_supply),
+            log("aterra_supply", epoch_state.aterra_supply),
             log("distributed_interest", distributed_interest),
         ],
         data: None,
@@ -370,7 +370,7 @@ pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
         &EpochState {
             last_executed_height: env.block.height,
             prev_exchange_rate: epoch_state.exchange_rate,
-            prev_a_token_supply: epoch_state.a_token_supply,
+            prev_aterra_supply: epoch_state.aterra_supply,
             deposit_rate,
         },
     )?;
@@ -388,7 +388,7 @@ pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
             log("action", "update_epoch_state"),
             log("deposit_rate", deposit_rate),
             log("exchange_rate", epoch_state.exchange_rate),
-            log("a_token_supply", epoch_state.a_token_supply),
+            log("aterra_supply", epoch_state.aterra_supply),
         ],
         data: None,
     })

@@ -5,7 +5,7 @@
   "required": [
     "deposit_rate",
     "last_executed_height",
-    "prev_a_token_supply",
+    "prev_aterra_supply",
     "prev_exchange_rate"
   ],
   "properties": {
@@ -17,7 +17,7 @@
       "format": "uint64",
       "minimum": 0.0
     },
-    "prev_a_token_supply": {
+    "prev_aterra_supply": {
       "$ref": "#/definitions/Uint256"
     },
     "prev_exchange_rate": {

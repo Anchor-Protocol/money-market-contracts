@@ -5,7 +5,7 @@ use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
 use moneymarket::market::{
     BorrowerInfoResponse, BorrowerInfosResponse, ConfigResponse, Cw20HookMsg, EpochStateResponse,
-    HandleMsg, InitMsg, LoanAmountResponse, QueryMsg,
+    HandleMsg, InitMsg, QueryMsg,
 };
 use moneymarket_market::state::State;
 
@@ -24,5 +24,4 @@ fn main() {
     export_schema(&schema_for!(EpochStateResponse), &out_dir);
     export_schema(&schema_for!(BorrowerInfoResponse), &out_dir);
     export_schema(&schema_for!(BorrowerInfosResponse), &out_dir);
-    export_schema(&schema_for!(LoanAmountResponse), &out_dir);
 }

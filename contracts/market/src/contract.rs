@@ -1,7 +1,6 @@
 use crate::borrow::{
     borrow_stable, claim_rewards, compute_interest, compute_interest_raw, compute_reward,
-    query_borrower_info, query_borrower_infos, query_loan_amount, repay_stable,
-    repay_stable_from_liquidation,
+    query_borrower_info, query_borrower_infos, repay_stable, repay_stable_from_liquidation,
 };
 use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
 use crate::querier::{query_anc_emission_rate, query_borrow_rate};
@@ -310,14 +309,13 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State {} => to_binary(&query_state(deps)?),
         QueryMsg::EpochState { block_height } => to_binary(&query_epoch_state(deps, block_height)?),
-        QueryMsg::BorrowerInfo { borrower } => to_binary(&query_borrower_info(deps, borrower)?),
+        QueryMsg::BorrowerInfo {
+            borrower,
+            block_height,
+        } => to_binary(&query_borrower_info(deps, borrower, block_height)?),
         QueryMsg::Liabilities { start_after, limit } => {
             to_binary(&query_borrower_infos(deps, start_after, limit)?)
         }
-        QueryMsg::LoanAmount {
-            borrower,
-            block_height,
-        } => to_binary(&query_loan_amount(deps, borrower, block_height)?),
     }
 }
 
@@ -361,7 +359,7 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
     let config: Config = read_config(&deps.storage)?;
     let mut state: State = read_state(&deps.storage)?;
 
-    let a_token_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
+    let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
     let balance = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
@@ -386,10 +384,10 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
         );
     }
 
-    let exchange_rate = compute_exchange_rate_raw(&state, a_token_supply, balance);
+    let exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
 
     Ok(EpochStateResponse {
         exchange_rate,
-        a_token_supply,
+        aterra_supply,
     })
 }

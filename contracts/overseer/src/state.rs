@@ -33,7 +33,7 @@ pub struct Config {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct EpochState {
     pub deposit_rate: Decimal256,
-    pub prev_a_token_supply: Uint256,
+    pub prev_aterra_supply: Uint256,
     pub prev_exchange_rate: Decimal256,
     pub last_executed_height: u64,
 }

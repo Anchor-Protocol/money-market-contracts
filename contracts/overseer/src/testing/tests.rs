@@ -61,7 +61,7 @@ fn proper_initialization() {
     let epoch_state: EpochState = from_binary(&query_res).unwrap();
     assert_eq!(Decimal256::zero(), epoch_state.deposit_rate);
     assert_eq!(env.block.height, epoch_state.last_executed_height);
-    assert_eq!(Uint256::zero(), epoch_state.prev_a_token_supply);
+    assert_eq!(Uint256::zero(), epoch_state.prev_aterra_supply);
     assert_eq!(Decimal256::one(), epoch_state.prev_exchange_rate);
 }
 
@@ -380,7 +380,7 @@ fn execute_epoch_operations() {
             log("action", "epoch_operations"),
             log("deposit_rate", "0.000002314814814814"),
             log("exchange_rate", "1.2"),
-            log("a_token_supply", "1000000"),
+            log("aterra_supply", "1000000"),
             log("distributed_interest", "0"),
         ]
     );
@@ -391,7 +391,7 @@ fn execute_epoch_operations() {
         &EpochState {
             last_executed_height: env.block.height,
             prev_exchange_rate: Decimal256::from_str("1.2").unwrap(),
-            prev_a_token_supply: Uint256::from_str("1000000").unwrap(),
+            prev_aterra_supply: Uint256::from_str("1000000").unwrap(),
             deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
         },
     )
@@ -452,7 +452,7 @@ fn execute_epoch_operations() {
             log("action", "epoch_operations"),
             log("deposit_rate", "0.000000482253086419"),
             log("exchange_rate", "1.25"),
-            log("a_token_supply", "1000000"),
+            log("aterra_supply", "1000000"),
             log("distributed_interest", "53680"),
         ]
     );
@@ -538,7 +538,7 @@ fn update_epoch_state() {
             log("action", "update_epoch_state"),
             log("deposit_rate", "0.000002314814814814"),
             log("exchange_rate", "1.2"),
-            log("a_token_supply", "1000000"),
+            log("aterra_supply", "1000000"),
         ]
     );
 
@@ -568,7 +568,7 @@ fn update_epoch_state() {
             log("action", "update_epoch_state"),
             log("deposit_rate", "0.000000482253086419"),
             log("exchange_rate", "1.25"),
-            log("a_token_supply", "1000000"),
+            log("aterra_supply", "1000000"),
         ]
     );
 
@@ -582,8 +582,8 @@ fn update_epoch_state() {
         Decimal256::from_ratio(482253086419u64, 1000000000000000000u64)
     );
     assert_eq!(
-        epoch_state.prev_a_token_supply,
-        epoch_state_response.a_token_supply
+        epoch_state.prev_aterra_supply,
+        epoch_state_response.aterra_supply
     );
     assert_eq!(
         epoch_state.prev_exchange_rate,

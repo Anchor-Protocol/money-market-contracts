@@ -37,10 +37,10 @@
       "description": "(internal) Register A-token contract address A-Token will invoke this after init",
       "type": "object",
       "required": [
-        "register_a_token"
+        "register_a_terra"
       ],
       "properties": {
-        "register_a_token": {
+        "register_a_terra": {
           "type": "object"
         }
       }
@@ -209,7 +209,19 @@
       ],
       "properties": {
         "claim_rewards": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "to": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
         }
       }
     }
