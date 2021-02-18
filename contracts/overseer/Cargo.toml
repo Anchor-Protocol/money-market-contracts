@@ -45,3 +45,6 @@ serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 cosmwasm-schema = "0.10.1"
 cw20 = "0.2"
 terra-cosmwasm = "1.2.3"
+
+[profile.dev]
+overflow-checks = true

@@ -42,12 +42,11 @@ impl TokensMath for Tokens {
 
                 i += 1;
                 j += 1;
-            } else if self[i].0.as_slice().cmp(&tokens[j].0.as_slice())
-                == std::cmp::Ordering::Greater
+            } else if self[i].0.as_slice().cmp(&tokens[j].0.as_slice()) == std::cmp::Ordering::Less
             {
-                j += 1;
-            } else {
                 i += 1;
+            } else {
+                return Err(StdError::generic_err("Subtraction underflow"));
             }
         }
 

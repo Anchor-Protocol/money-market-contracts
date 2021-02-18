@@ -1,6 +1,7 @@
 use crate::mock_querier::mock_dependencies;
 use crate::oracle::PriceResponse;
 use crate::querier::{compute_tax, deduct_tax, query_price, query_tax_rate, TimeConstraints};
+use crate::tokens::{Tokens, TokensHuman, TokensMath, TokensToRaw};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{Coin, Decimal, HumanAddr, StdError, Uint128};
@@ -114,4 +115,52 @@ fn oracle_price_querier() {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Price is too old"),
         _ => panic!("DO NOT ENTER HERE"),
     }
+}
+
+#[test]
+fn tokens_math() {
+    let deps = mock_dependencies(20, &[]);
+
+    let tokens_1: TokensHuman = vec![
+        (HumanAddr::from("token1"), Uint256::from(1000000u64)),
+        (HumanAddr::from("token2"), Uint256::from(1000000u64)),
+        (HumanAddr::from("token3"), Uint256::from(1000000u64)),
+        (HumanAddr::from("token5"), Uint256::from(1000000u64)),
+    ];
+
+    // not existing item
+    let tokens_2: TokensHuman = vec![
+        (HumanAddr::from("token1"), Uint256::from(1000000u64)),
+        (HumanAddr::from("token4"), Uint256::from(1000000u64)),
+    ];
+
+    // duplicated item
+    let tokens_3: TokensHuman = vec![
+        (HumanAddr::from("token1"), Uint256::from(1000000u64)),
+        (HumanAddr::from("token1"), Uint256::from(1000000u64)),
+        (HumanAddr::from("token3"), Uint256::from(1000000u64)),
+    ];
+
+    // not existing item
+    let tokens_4: TokensHuman = vec![
+        (HumanAddr::from("token1"), Uint256::from(1000000u64)),
+        (HumanAddr::from("token6"), Uint256::from(1000000u64)),
+    ];
+
+    // sub bigger than source
+    let tokens_5: TokensHuman = vec![
+        (HumanAddr::from("token1"), Uint256::from(1000000u64)),
+        (HumanAddr::from("token2"), Uint256::from(1200000u64)),
+    ];
+
+    let tokens_1_raw: Tokens = tokens_1.to_raw(&deps).unwrap();
+    let tokens_2_raw: Tokens = tokens_2.to_raw(&deps).unwrap();
+    let tokens_3_raw: Tokens = tokens_3.to_raw(&deps).unwrap();
+    let tokens_4_raw: Tokens = tokens_4.to_raw(&deps).unwrap();
+    let tokens_5_raw: Tokens = tokens_5.to_raw(&deps).unwrap();
+
+    assert_eq!(tokens_1_raw.clone().sub(tokens_2_raw).is_err(), true);
+    assert_eq!(tokens_1_raw.clone().sub(tokens_3_raw).is_err(), true);
+    assert_eq!(tokens_1_raw.clone().sub(tokens_4_raw).is_err(), true);
+    assert_eq!(tokens_1_raw.clone().sub(tokens_5_raw).is_err(), true);
 }

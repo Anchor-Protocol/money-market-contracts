@@ -64,7 +64,8 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
 
     let overseer_contract = deps.api.human_address(&config.overseer_contract)?;
 
-    // reward_amount = (prev_balance + reward_amount) - prev_balance
+    // reward_amount = (prev_balance + reward_amount) - prev_balance 
+    // = (0 + reward_amount) - 0 = reward_amount = balance
     let reward_amount: Uint256 =
         query_balance(&deps, &contract_addr, config.stable_denom.to_string())?;
     let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
