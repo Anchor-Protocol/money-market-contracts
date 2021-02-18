@@ -3,8 +3,8 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "buffer_distribution_rate",
-    "deposit_rate_threshold",
+    "buffer_distribution_factor",
+    "threshold_deposit_rate",
     "epoch_period",
     "liquidation_contract",
     "market_contract",
@@ -15,7 +15,7 @@
     "target_deposit_rate"
   ],
   "properties": {
-    "buffer_distribution_rate": {
+    "buffer_distribution_factor": {
       "description": "Ratio to be distributed from the interest buffer",
       "allOf": [
         {
@@ -23,8 +23,8 @@
         }
       ]
     },
-    "deposit_rate_threshold": {
-      "description": "Distribute interest buffer to market contract, when deposit_rate < deposit_rate_threshold",
+    "threshold_deposit_rate": {
+      "description": "Distribute interest buffer to market contract, when deposit_rate < threshold_deposit_rate",
       "allOf": [
         {
           "$ref": "#/definitions/Decimal256"

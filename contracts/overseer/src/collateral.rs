@@ -267,7 +267,7 @@ pub(crate) fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
 
         let elem: WhitelistElem = read_whitelist_elem(&deps.storage, &collateral.0)?;
         let collateral_value = collateral_amount * price.rate;
-        borrow_limit += collateral_value * elem.ltv;
+        borrow_limit += collateral_value * elem.max_ltv;
         collateral_prices.push(price.rate);
     }
 

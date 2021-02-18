@@ -21,9 +21,9 @@ fn proper_compute_borrow_limit() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        deposit_rate_threshold: Decimal256::permille(3),
+        threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
-        buffer_distribution_rate: Decimal256::percent(20),
+        buffer_distribution_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -32,17 +32,21 @@ fn proper_compute_borrow_limit() {
 
     // store whitelist elems
     let msg = HandleMsg::Whitelist {
+        name: "bluna".to_string(),
+        symbol: "bluna".to_string(),
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
 
     let msg = HandleMsg::Whitelist {
+        name: "batom".to_string(),
+        symbol: "batom".to_string(),
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);

@@ -26,7 +26,7 @@
       "required": [
         "collateral_token",
         "custody_contract",
-        "ltv"
+        "max_ltv"
       ],
       "properties": {
         "collateral_token": {
@@ -35,7 +35,7 @@
         "custody_contract": {
           "$ref": "#/definitions/HumanAddr"
         },
-        "ltv": {
+        "max_ltv": {
           "$ref": "#/definitions/Decimal256"
         }
       }

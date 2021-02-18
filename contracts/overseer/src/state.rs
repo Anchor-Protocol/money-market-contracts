@@ -24,9 +24,9 @@ pub struct Config {
     pub liquidation_contract: CanonicalAddr,
     pub stable_denom: String,
     pub epoch_period: u64,
-    pub deposit_rate_threshold: Decimal256,
+    pub threshold_deposit_rate: Decimal256,
     pub target_deposit_rate: Decimal256,
-    pub buffer_distribution_rate: Decimal256,
+    pub buffer_distribution_factor: Decimal256,
     pub price_timeframe: u64,
 }
 
@@ -40,7 +40,9 @@ pub struct EpochState {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct WhitelistElem {
-    pub ltv: Decimal256,
+    pub name: String,
+    pub symbol: String,
+    pub max_ltv: Decimal256,
     pub custody_contract: CanonicalAddr,
 }
 
@@ -104,9 +106,11 @@ pub fn read_whitelist<S: Storage, A: Api, Q: Querier>(
             let collateral_token: HumanAddr = deps.api.human_address(&CanonicalAddr::from(k))?;
             let custody_contract: HumanAddr = deps.api.human_address(&v.custody_contract)?;
             Ok(WhitelistResponseElem {
+                name: v.name,
+                symbol: v.symbol,
                 collateral_token,
                 custody_contract,
-                ltv: v.ltv,
+                max_ltv: v.max_ltv,
             })
         })
         .collect()
