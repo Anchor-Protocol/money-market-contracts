@@ -4,7 +4,7 @@ use cosmwasm_std::{
     log, to_binary, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
     HumanAddr, Querier, StdError, StdResult, Storage, WasmMsg,
 };
-use moneymarket::interest::BorrowRateResponse;
+use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{LiabilitiesResponse, LiabilityResponse, LoanAmountResponse};
 use moneymarket::overseer::BorrowLimitResponse;
 use moneymarket::querier::{deduct_tax, query_balance};

@@ -28,8 +28,8 @@ pub enum HandleMsg {
 pub enum QueryMsg {
     Config {},
     ANCEmissionRate {
-        target_deposit_rate: Decimal256,
         deposit_rate: Decimal256,
+        target_deposit_rate: Decimal256,
         current_emission_rate: Decimal256,
     },
 }

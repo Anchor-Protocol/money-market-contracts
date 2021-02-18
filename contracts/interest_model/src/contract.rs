@@ -6,7 +6,9 @@ use cosmwasm_std::{
     to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr, InitResponse,
     Querier, StdError, StdResult, Storage,
 };
-use moneymarket::interest::{BorrowRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg};
+use moneymarket::interest_model::{
+    BorrowRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg,
+};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,

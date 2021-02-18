@@ -15,7 +15,7 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20CoinHuman, Cw20ReceiveMsg, MinterResponse};
 
-use moneymarket::interest::BorrowRateResponse;
+use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{
     ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, QueryMsg, StateResponse,
 };

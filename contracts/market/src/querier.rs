@@ -3,8 +3,8 @@ use cosmwasm_std::{
     to_binary, Api, Extern, HumanAddr, Querier, QueryRequest, StdResult, Storage, WasmQuery,
 };
 
-use moneymarket::distribution::{ANCEmissionRateResponse, QueryMsg as DistributionQueryMsg};
-use moneymarket::interest::{BorrowRateResponse, QueryMsg as InterestQueryMsg};
+use moneymarket::distribution_model::{ANCEmissionRateResponse, QueryMsg as DistributionQueryMsg};
+use moneymarket::interest_model::{BorrowRateResponse, QueryMsg as InterestQueryMsg};
 use moneymarket::overseer::{BorrowLimitResponse, QueryMsg as OverseerQueryMsg};
 
 pub fn query_borrow_rate<S: Storage, A: Api, Q: Querier>(
