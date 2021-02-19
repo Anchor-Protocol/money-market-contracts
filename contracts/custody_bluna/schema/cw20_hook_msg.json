@@ -3,7 +3,7 @@
   "title": "Cw20HookMsg",
   "anyOf": [
     {
-      "description": "Deposit collataerl token",
+      "description": "Deposit collateral token",
       "type": "object",
       "required": [
         "deposit_collateral"

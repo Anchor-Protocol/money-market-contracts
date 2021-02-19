@@ -22,14 +22,14 @@ pub struct InitMsg {
     /// # of blocks per epoch period
     pub epoch_period: u64,
     /// Distribute interest buffer to market contract,
-    /// when deposit_rate < distribution_threshold
-    pub distribution_threshold: Decimal256,
+    /// when deposit_rate < threshold_deposit_rate
+    pub threshold_deposit_rate: Decimal256,
     /// Target deposit rate.
     /// When current deposit rate is bigger than this,
     /// Custody contracts send rewards to interest buffer
     pub target_deposit_rate: Decimal256,
     /// Ratio to be distributed from the interest buffer
-    pub buffer_distribution_rate: Decimal256,
+    pub buffer_distribution_factor: Decimal256,
     /// Valid oracle price timeframe
     pub price_timeframe: u64,
 }
@@ -46,24 +46,26 @@ pub enum HandleMsg {
         owner_addr: Option<HumanAddr>,
         oracle_contract: Option<HumanAddr>,
         liquidation_contract: Option<HumanAddr>,
-        distribution_threshold: Option<Decimal256>,
+        threshold_deposit_rate: Option<Decimal256>,
         target_deposit_rate: Option<Decimal256>,
-        buffer_distribution_rate: Option<Decimal256>,
+        buffer_distribution_factor: Option<Decimal256>,
         epoch_period: Option<u64>,
         price_timeframe: Option<u64>,
     },
 
     /// Create new custody contract for the given collateral token
     Whitelist {
+        name: String,                // bAsset name
+        symbol: String,              // bAsset symbol
         collateral_token: HumanAddr, // bAsset token contract
         custody_contract: HumanAddr, // bAsset custody contract
-        ltv: Decimal256,             // Loan To Value ratio
+        max_ltv: Decimal256,         // Loan To Value ratio
     },
     /// Update registered whitelist info
     UpdateWhitelist {
         collateral_token: HumanAddr,         // bAsset token contract
         custody_contract: Option<HumanAddr>, // bAsset custody contract
-        ltv: Option<Decimal256>,             // Loan To Value ratio
+        max_ltv: Option<Decimal256>,         // Loan To Value ratio
     },
 
     /// Claims all staking rewards from the bAsset contracts
@@ -87,7 +89,9 @@ pub enum HandleMsg {
     /////////////////////////////
     /// Permissionless operations
     /////////////////////////////
-    LiquidateCollateral { borrower: HumanAddr },
+    LiquidateCollateral {
+        borrower: HumanAddr,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -121,9 +125,9 @@ pub struct ConfigResponse {
     pub oracle_contract: HumanAddr,
     pub market_contract: HumanAddr,
     pub liquidation_contract: HumanAddr,
-    pub distribution_threshold: Decimal256,
+    pub threshold_deposit_rate: Decimal256,
     pub target_deposit_rate: Decimal256,
-    pub buffer_distribution_rate: Decimal256,
+    pub buffer_distribution_factor: Decimal256,
     pub stable_denom: String,
     pub epoch_period: u64,
     pub price_timeframe: u64,
@@ -132,7 +136,9 @@ pub struct ConfigResponse {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct WhitelistResponseElem {
-    pub ltv: Decimal256,
+    pub name: String,
+    pub symbol: String,
+    pub max_ltv: Decimal256,
     pub custody_contract: HumanAddr,
     pub collateral_token: HumanAddr,
 }
@@ -161,7 +167,7 @@ pub struct AllCollateralsResponse {
 pub struct DistributionParamsResponse {
     pub deposit_rate: Decimal256,
     pub target_deposit_rate: Decimal256,
-    pub distribution_threshold: Decimal256,
+    pub threshold_deposit_rate: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

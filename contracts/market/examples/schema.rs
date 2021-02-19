@@ -4,8 +4,8 @@ use std::fs::create_dir_all;
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
 use moneymarket::market::{
-    ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, LiabilitiesResponse,
-    LiabilityResponse, LoanAmountResponse, QueryMsg,
+    BorrowerInfoResponse, BorrowerInfosResponse, ConfigResponse, Cw20HookMsg, EpochStateResponse,
+    HandleMsg, InitMsg, QueryMsg,
 };
 use moneymarket_market::state::State;
 
@@ -22,7 +22,6 @@ fn main() {
     export_schema(&schema_for!(ConfigResponse), &out_dir);
     export_schema(&schema_for!(State), &out_dir);
     export_schema(&schema_for!(EpochStateResponse), &out_dir);
-    export_schema(&schema_for!(LiabilityResponse), &out_dir);
-    export_schema(&schema_for!(LiabilitiesResponse), &out_dir);
-    export_schema(&schema_for!(LoanAmountResponse), &out_dir);
+    export_schema(&schema_for!(BorrowerInfoResponse), &out_dir);
+    export_schema(&schema_for!(BorrowerInfosResponse), &out_dir);
 }

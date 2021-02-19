@@ -31,9 +31,9 @@ fn proper_initialization() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
-        buffer_distribution_rate: Decimal256::percent(20),
+        buffer_distribution_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -53,15 +53,18 @@ fn proper_initialization() {
     );
     assert_eq!("uusd".to_string(), config_res.stable_denom);
     assert_eq!(86400u64, config_res.epoch_period);
-    assert_eq!(Decimal256::permille(3), config_res.distribution_threshold);
+    assert_eq!(Decimal256::permille(3), config_res.threshold_deposit_rate);
     assert_eq!(Decimal256::permille(5), config_res.target_deposit_rate);
-    assert_eq!(Decimal256::percent(20), config_res.buffer_distribution_rate);
+    assert_eq!(
+        Decimal256::percent(20),
+        config_res.buffer_distribution_factor
+    );
 
     let query_res = query(&deps, QueryMsg::EpochState {}).unwrap();
     let epoch_state: EpochState = from_binary(&query_res).unwrap();
     assert_eq!(Decimal256::zero(), epoch_state.deposit_rate);
     assert_eq!(env.block.height, epoch_state.last_executed_height);
-    assert_eq!(Uint256::zero(), epoch_state.prev_a_token_supply);
+    assert_eq!(Uint256::zero(), epoch_state.prev_aterra_supply);
     assert_eq!(Decimal256::one(), epoch_state.prev_exchange_rate);
 }
 
@@ -77,9 +80,9 @@ fn update_config() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
-        buffer_distribution_rate: Decimal256::percent(20),
+        buffer_distribution_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -92,9 +95,9 @@ fn update_config() {
         owner_addr: Some(HumanAddr("owner1".to_string())),
         oracle_contract: None,
         liquidation_contract: None,
-        distribution_threshold: None,
+        threshold_deposit_rate: None,
         target_deposit_rate: None,
-        buffer_distribution_rate: None,
+        buffer_distribution_factor: None,
         epoch_period: None,
         price_timeframe: None,
     };
@@ -113,9 +116,9 @@ fn update_config() {
         owner_addr: None,
         oracle_contract: Some(HumanAddr("oracle1".to_string())),
         liquidation_contract: Some(HumanAddr("liquidation1".to_string())),
-        distribution_threshold: Some(Decimal256::permille(1)),
+        threshold_deposit_rate: Some(Decimal256::permille(1)),
         target_deposit_rate: Some(Decimal256::permille(2)),
-        buffer_distribution_rate: Some(Decimal256::percent(10)),
+        buffer_distribution_factor: Some(Decimal256::percent(10)),
         epoch_period: Some(100000u64),
         price_timeframe: Some(120u64),
     };
@@ -132,9 +135,12 @@ fn update_config() {
         HumanAddr::from("liquidation1"),
         config_res.liquidation_contract
     );
-    assert_eq!(Decimal256::permille(1), config_res.distribution_threshold);
+    assert_eq!(Decimal256::permille(1), config_res.threshold_deposit_rate);
     assert_eq!(Decimal256::permille(2), config_res.target_deposit_rate);
-    assert_eq!(Decimal256::percent(10), config_res.buffer_distribution_rate);
+    assert_eq!(
+        Decimal256::percent(10),
+        config_res.buffer_distribution_factor
+    );
     assert_eq!(100000u64, config_res.epoch_period);
     assert_eq!(120u64, config_res.price_timeframe);
 
@@ -144,9 +150,9 @@ fn update_config() {
         owner_addr: None,
         oracle_contract: None,
         liquidation_contract: None,
-        distribution_threshold: None,
+        threshold_deposit_rate: None,
         target_deposit_rate: None,
-        buffer_distribution_rate: None,
+        buffer_distribution_factor: None,
         epoch_period: None,
         price_timeframe: None,
     };
@@ -170,9 +176,9 @@ fn whitelist() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
-        buffer_distribution_rate: Decimal256::percent(20),
+        buffer_distribution_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -180,9 +186,11 @@ fn whitelist() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::Whitelist {
+        name: "bluna".to_string(),
+        symbol: "bluna".to_string(),
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -198,6 +206,8 @@ fn whitelist() {
         res.log,
         vec![
             log("action", "register_whitelist"),
+            log("name", "bluna"),
+            log("symbol", "bluna"),
             log("collateral_token", "bluna"),
             log("custody_contract", "custody"),
             log("LTV", "0.6"),
@@ -218,18 +228,22 @@ fn whitelist() {
         whitelist_res,
         WhitelistResponse {
             elems: vec![WhitelistResponseElem {
+                name: "bluna".to_string(),
+                symbol: "bluna".to_string(),
                 collateral_token: HumanAddr::from("bluna"),
                 custody_contract: HumanAddr::from("custody"),
-                ltv: Decimal256::percent(60),
+                max_ltv: Decimal256::percent(60),
             }]
         }
     );
 
     //Attempting to whitelist already whitelisted collaterals
     let msg = HandleMsg::Whitelist {
+        name: "bluna".to_string(),
+        symbol: "bluna".to_string(),
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let env = mock_env("owner", &[]);
@@ -244,7 +258,7 @@ fn whitelist() {
     let msg = HandleMsg::UpdateWhitelist {
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: Some(HumanAddr::from("custody2")),
-        ltv: Some(Decimal256::percent(30)),
+        max_ltv: Some(Decimal256::percent(30)),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -280,9 +294,11 @@ fn whitelist() {
         whitelist_res,
         WhitelistResponse {
             elems: vec![WhitelistResponseElem {
+                name: "bluna".to_string(),
+                symbol: "bluna".to_string(),
                 collateral_token: HumanAddr::from("bluna"),
                 custody_contract: HumanAddr::from("custody2"),
-                ltv: Decimal256::percent(30),
+                max_ltv: Decimal256::percent(30),
             }]
         }
     );
@@ -306,9 +322,9 @@ fn execute_epoch_operations() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::from_ratio(1u64, 1000000u64),
+        threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
         target_deposit_rate: Decimal256::permille(5),
-        buffer_distribution_rate: Decimal256::percent(20),
+        buffer_distribution_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -317,17 +333,21 @@ fn execute_epoch_operations() {
 
     // store whitelist elems
     let msg = HandleMsg::Whitelist {
+        name: "bluna".to_string(),
+        symbol: "bluna".to_string(),
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
 
     let msg = HandleMsg::Whitelist {
+        name: "batom".to_string(),
+        symbol: "batom".to_string(),
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -344,7 +364,7 @@ fn execute_epoch_operations() {
 
     env.block.height += 86400u64;
 
-    // If deposit_rate is bigger than distribution_threshold
+    // If deposit_rate is bigger than threshold_deposit_rate
     deps.querier.with_epoch_state(&[(
         &HumanAddr::from("market"),
         &(Uint256::from(1000000u64), Decimal256::percent(120)),
@@ -380,7 +400,7 @@ fn execute_epoch_operations() {
             log("action", "epoch_operations"),
             log("deposit_rate", "0.000002314814814814"),
             log("exchange_rate", "1.2"),
-            log("a_token_supply", "1000000"),
+            log("aterra_supply", "1000000"),
             log("distributed_interest", "0"),
         ]
     );
@@ -391,7 +411,7 @@ fn execute_epoch_operations() {
         &EpochState {
             last_executed_height: env.block.height,
             prev_exchange_rate: Decimal256::from_str("1.2").unwrap(),
-            prev_a_token_supply: Uint256::from_str("1000000").unwrap(),
+            prev_aterra_supply: Uint256::from_str("1000000").unwrap(),
             deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
         },
     )
@@ -452,7 +472,7 @@ fn execute_epoch_operations() {
             log("action", "epoch_operations"),
             log("deposit_rate", "0.000000482253086419"),
             log("exchange_rate", "1.25"),
-            log("a_token_supply", "1000000"),
+            log("aterra_supply", "1000000"),
             log("distributed_interest", "53680"),
         ]
     );
@@ -476,9 +496,9 @@ fn update_epoch_state() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::from_ratio(1u64, 1000000u64),
+        threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
         target_deposit_rate: Decimal256::permille(5),
-        buffer_distribution_rate: Decimal256::percent(20),
+        buffer_distribution_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -487,17 +507,21 @@ fn update_epoch_state() {
 
     // store whitelist elems
     let msg = HandleMsg::Whitelist {
+        name: "bluna".to_string(),
+        symbol: "bluna".to_string(),
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
 
     let msg = HandleMsg::Whitelist {
+        name: "batom".to_string(),
+        symbol: "batom".to_string(),
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -520,14 +544,25 @@ fn update_epoch_state() {
     )]);
 
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
-    assert_eq!(res.messages.len(), 0);
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("market"),
+            send: vec![],
+            msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
+                target_deposit_rate: Decimal256::permille(5),
+                deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
+            })
+            .unwrap(),
+        })]
+    );
     assert_eq!(
         res.log,
         vec![
             log("action", "update_epoch_state"),
             log("deposit_rate", "0.000002314814814814"),
             log("exchange_rate", "1.2"),
-            log("a_token_supply", "1000000"),
+            log("aterra_supply", "1000000"),
         ]
     );
 
@@ -539,14 +574,25 @@ fn update_epoch_state() {
 
     env.block.height += 86400u64;
     let res = handle(&mut deps, env.clone(), msg).unwrap();
-    assert_eq!(res.messages.len(), 0);
+    assert_eq!(
+        res.messages,
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: HumanAddr::from("market"),
+            send: vec![],
+            msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
+                target_deposit_rate: Decimal256::permille(5),
+                deposit_rate: Decimal256::from_str("0.000000482253086419").unwrap(),
+            })
+            .unwrap(),
+        })]
+    );
     assert_eq!(
         res.log,
         vec![
             log("action", "update_epoch_state"),
             log("deposit_rate", "0.000000482253086419"),
             log("exchange_rate", "1.25"),
-            log("a_token_supply", "1000000"),
+            log("aterra_supply", "1000000"),
         ]
     );
 
@@ -560,8 +606,8 @@ fn update_epoch_state() {
         Decimal256::from_ratio(482253086419u64, 1000000000000000000u64)
     );
     assert_eq!(
-        epoch_state.prev_a_token_supply,
-        epoch_state_response.a_token_supply
+        epoch_state.prev_aterra_supply,
+        epoch_state_response.aterra_supply
     );
     assert_eq!(
         epoch_state.prev_exchange_rate,
@@ -582,9 +628,9 @@ fn lock_collateral() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
-        buffer_distribution_rate: Decimal256::percent(20),
+        buffer_distribution_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -593,17 +639,21 @@ fn lock_collateral() {
 
     // store whitelist elems
     let msg = HandleMsg::Whitelist {
+        name: "bluna".to_string(),
+        symbol: "bluna".to_string(),
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
 
     let msg = HandleMsg::Whitelist {
+        name: "batom".to_string(),
+        symbol: "batom".to_string(),
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -703,9 +753,9 @@ fn unlock_collateral() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
-        buffer_distribution_rate: Decimal256::percent(20),
+        buffer_distribution_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -714,17 +764,21 @@ fn unlock_collateral() {
 
     // store whitelist elems
     let msg = HandleMsg::Whitelist {
+        name: "bluna".to_string(),
+        symbol: "bluna".to_string(),
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
 
     let msg = HandleMsg::Whitelist {
+        name: "batom".to_string(),
+        symbol: "batom".to_string(),
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
@@ -919,9 +973,9 @@ fn liquidate_collateral() {
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
-        distribution_threshold: Decimal256::permille(3),
+        threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
-        buffer_distribution_rate: Decimal256::percent(20),
+        buffer_distribution_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -930,17 +984,21 @@ fn liquidate_collateral() {
 
     // store whitelist elems
     let msg = HandleMsg::Whitelist {
+        name: "bluna".to_string(),
+        symbol: "bluna".to_string(),
         collateral_token: HumanAddr::from("bluna"),
         custody_contract: HumanAddr::from("custody_bluna"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);
 
     let msg = HandleMsg::Whitelist {
+        name: "batom".to_string(),
+        symbol: "batom".to_string(),
         collateral_token: HumanAddr::from("batom"),
         custody_contract: HumanAddr::from("custody_batom"),
-        ltv: Decimal256::percent(60),
+        max_ltv: Decimal256::percent(60),
     };
 
     let _res = handle(&mut deps, env.clone(), msg);

@@ -4,7 +4,7 @@ use cosmwasm_std::{
     StdError, StdResult, Storage, WasmMsg,
 };
 
-use crate::querier::{query_liquidation_amount, query_loan_amount};
+use crate::querier::{query_borrower_info, query_liquidation_amount};
 use crate::state::{
     read_all_collaterals, read_collaterals, read_config, read_whitelist_elem, store_collaterals,
     Config, WhitelistElem,
@@ -12,7 +12,7 @@ use crate::state::{
 
 use moneymarket::custody::HandleMsg as CustodyHandleMsg;
 use moneymarket::liquidation::LiquidationAmountResponse;
-use moneymarket::market::{HandleMsg as MarketHandleMsg, LoanAmountResponse};
+use moneymarket::market::{BorrowerInfoResponse, HandleMsg as MarketHandleMsg};
 use moneymarket::oracle::PriceResponse;
 use moneymarket::overseer::{AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse};
 use moneymarket::querier::{query_balance, query_price, TimeConstraints};
@@ -83,8 +83,8 @@ pub fn unlock_collateral<S: Storage, A: Api, Q: Querier>(
 
     // Compute borrow limit with collaterals except unlock target collaterals
     let (borrow_limit, _) = compute_borrow_limit(deps, &cur_collaterals, Some(env.block.time))?;
-    let borrow_amount_res: LoanAmountResponse =
-        query_loan_amount(deps, &market, &borrower, env.block.height)?;
+    let borrow_amount_res: BorrowerInfoResponse =
+        query_borrower_info(deps, &market, &borrower, env.block.height)?;
     if borrow_limit < borrow_amount_res.loan_amount {
         return Err(StdError::generic_err(format!(
             "Unlock amount too high; Loan liability becomes greater than borrow limit: {}",
@@ -138,8 +138,8 @@ pub fn liquidate_collateral<S: Storage, A: Api, Q: Querier>(
     // Compute borrow limit with collaterals except unlock target collaterals
     let (borrow_limit, collateral_prices) =
         compute_borrow_limit(deps, &cur_collaterals, Some(env.block.time))?;
-    let borrow_amount_res: LoanAmountResponse =
-        query_loan_amount(deps, &market, &borrower, env.block.height)?;
+    let borrow_amount_res: BorrowerInfoResponse =
+        query_borrower_info(deps, &market, &borrower, env.block.height)?;
     let borrow_amount = borrow_amount_res.loan_amount;
 
     // borrow limit is equal or bigger than loan amount
@@ -267,7 +267,7 @@ pub(crate) fn compute_borrow_limit<S: Storage, A: Api, Q: Querier>(
 
         let elem: WhitelistElem = read_whitelist_elem(&deps.storage, &collateral.0)?;
         let collateral_value = collateral_amount * price.rate;
-        borrow_limit += collateral_value * elem.ltv;
+        borrow_limit += collateral_value * elem.max_ltv;
         collateral_prices.push(price.rate);
     }
 

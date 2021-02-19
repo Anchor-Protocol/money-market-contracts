@@ -3,7 +3,9 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
-use moneymarket::interest::{BorrowRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg};
+use moneymarket::interest_model::{
+    BorrowRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg,
+};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();

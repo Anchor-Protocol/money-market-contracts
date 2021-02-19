@@ -25,7 +25,7 @@ fn proper_compute_exchange_rate() {
             .api
             .canonical_address(&HumanAddr::from("owner"))
             .unwrap(),
-        anchor_token: deps
+        aterra_contract: deps
             .api
             .canonical_address(&HumanAddr::from("AT-uusd"))
             .unwrap(),
@@ -33,12 +33,25 @@ fn proper_compute_exchange_rate() {
             .api
             .canonical_address(&HumanAddr::from("interest"))
             .unwrap(),
+        distribution_model: deps
+            .api
+            .canonical_address(&HumanAddr::from("distribution"))
+            .unwrap(),
+        faucet_contract: deps
+            .api
+            .canonical_address(&HumanAddr::from("faucet"))
+            .unwrap(),
+        collector_contract: deps
+            .api
+            .canonical_address(&HumanAddr::from("collector"))
+            .unwrap(),
         overseer_contract: deps
             .api
             .canonical_address(&HumanAddr::from("overseer"))
             .unwrap(),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
+        max_borrow_factor: Decimal256::one(),
     };
     deps.querier.with_token_balances(&[(
         &HumanAddr::from("AT-uusd"),
@@ -51,7 +64,10 @@ fn proper_compute_exchange_rate() {
         total_liabilities: Decimal256::from_uint256(50000u128),
         total_reserves: Decimal256::from_uint256(550000u128),
         last_interest_updated: env.block.height,
+        last_reward_updated: env.block.height,
         global_interest_index: Decimal256::one(),
+        global_reward_index: Decimal256::zero(),
+        anc_emission_rate: Decimal256::one(),
     };
     let mock_deposit_amount = Some(Uint256::from(1000000u128));
 

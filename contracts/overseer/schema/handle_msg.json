@@ -12,7 +12,7 @@
         "update_config": {
           "type": "object",
           "properties": {
-            "buffer_distribution_rate": {
+            "buffer_distribution_factor": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal256"
@@ -22,7 +22,7 @@
                 }
               ]
             },
-            "distribution_threshold": {
+            "threshold_deposit_rate": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal256"
@@ -104,7 +104,7 @@
           "required": [
             "collateral_token",
             "custody_contract",
-            "ltv"
+            "max_ltv"
           ],
           "properties": {
             "collateral_token": {
@@ -113,7 +113,7 @@
             "custody_contract": {
               "$ref": "#/definitions/HumanAddr"
             },
-            "ltv": {
+            "max_ltv": {
               "$ref": "#/definitions/Decimal256"
             }
           }
@@ -146,7 +146,7 @@
                 }
               ]
             },
-            "ltv": {
+            "max_ltv": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal256"

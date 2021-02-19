@@ -48,15 +48,23 @@
     {
       "type": "object",
       "required": [
-        "liability"
+        "borrower_info"
       ],
       "properties": {
-        "liability": {
+        "borrower_info": {
           "type": "object",
           "required": [
             "borrower"
           ],
           "properties": {
+            "block_height": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
             "borrower": {
               "$ref": "#/definitions/HumanAddr"
             }
@@ -90,31 +98,6 @@
                   "type": "null"
                 }
               ]
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "loan_amount"
-      ],
-      "properties": {
-        "loan_amount": {
-          "type": "object",
-          "required": [
-            "block_height",
-            "borrower"
-          ],
-          "properties": {
-            "block_height": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "borrower": {
-              "$ref": "#/definitions/HumanAddr"
             }
           }
         }

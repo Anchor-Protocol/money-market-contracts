@@ -21,6 +21,7 @@ pub struct InitMsg {
     /// Expected reward denom. If bAsset reward is not same with
     /// it, we try to convert the reward to the `stable_denom`.
     pub stable_denom: String,
+    pub basset_info: BAssetInfo,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -103,6 +104,7 @@ pub struct ConfigResponse {
     pub reward_contract: HumanAddr,
     pub liquidation_contract: HumanAddr,
     pub stable_denom: String,
+    pub basset_info: BAssetInfo,
 }
 
 // We define a custom struct for each query response
@@ -117,4 +119,11 @@ pub struct BorrowerResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BorrowersResponse {
     pub borrowers: Vec<BorrowerResponse>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct BAssetInfo {
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u8,
 }

@@ -3,19 +3,35 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
-    "anchor_token",
+    "aterra_contract",
+    "collector_contract",
+    "distribution_model",
+    "faucet_contract",
     "interest_model",
+    "max_borrow_factor",
     "overseer_contract",
     "owner_addr",
     "reserve_factor",
     "stable_denom"
   ],
   "properties": {
-    "anchor_token": {
+    "aterra_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "collector_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "distribution_model": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "faucet_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
     "interest_model": {
       "$ref": "#/definitions/HumanAddr"
+    },
+    "max_borrow_factor": {
+      "$ref": "#/definitions/Decimal256"
     },
     "overseer_contract": {
       "$ref": "#/definitions/HumanAddr"

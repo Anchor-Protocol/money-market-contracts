@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{Api, CanonicalAddr, Extern, Order, Querier, StdResult, Storage};
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
-use moneymarket::custody::BorrowerResponse;
+use moneymarket::custody::{BAssetInfo, BorrowerResponse};
 
 const KEY_CONFIG: &[u8] = b"config";
 const PREFIX_BORROWER: &[u8] = b"borrower";
@@ -17,6 +17,7 @@ pub struct Config {
     pub reward_contract: CanonicalAddr,
     pub liquidation_contract: CanonicalAddr,
     pub stable_denom: String,
+    pub basset_info: BAssetInfo,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

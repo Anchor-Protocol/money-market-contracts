@@ -3,6 +3,7 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
+    "basset_info",
     "collateral_token",
     "liquidation_contract",
     "market_contract",
@@ -11,6 +12,9 @@
     "stable_denom"
   ],
   "properties": {
+    "basset_info": {
+      "$ref": "#/definitions/BAssetInfo"
+    },
     "collateral_token": {
       "$ref": "#/definitions/HumanAddr"
     },
@@ -31,6 +35,27 @@
     }
   },
   "definitions": {
+    "BAssetInfo": {
+      "type": "object",
+      "required": [
+        "decimals",
+        "name",
+        "symbol"
+      ],
+      "properties": {
+        "decimals": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "name": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        }
+      }
+    },
     "HumanAddr": {
       "type": "string"
     }

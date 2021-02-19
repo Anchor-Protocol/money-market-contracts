@@ -4,14 +4,14 @@
   "type": "object",
   "required": [
     "deposit_rate",
-    "distribution_threshold",
+    "threshold_deposit_rate",
     "target_deposit_rate"
   ],
   "properties": {
     "deposit_rate": {
       "$ref": "#/definitions/Decimal256"
     },
-    "distribution_threshold": {
+    "threshold_deposit_rate": {
       "$ref": "#/definitions/Decimal256"
     },
     "target_deposit_rate": {

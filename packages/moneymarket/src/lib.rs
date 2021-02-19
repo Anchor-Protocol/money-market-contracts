@@ -1,5 +1,6 @@
 pub mod custody;
-pub mod interest;
+pub mod distribution_model;
+pub mod interest_model;
 pub mod liquidation;
 pub mod market;
 pub mod oracle;

@@ -11,7 +11,8 @@ use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
 
 use cw20::TokenInfoResponse;
-use moneymarket::interest::BorrowRateResponse;
+use moneymarket::distribution_model::ANCEmissionRateResponse;
+use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::overseer::BorrowLimitResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
@@ -28,6 +29,12 @@ pub enum QueryMsg {
     BorrowLimit {
         borrower: HumanAddr,
         block_time: Option<u64>,
+    },
+    /// Query ANC emission rate to distribution model contract
+    ANCEmissionRate {
+        target_deposit_rate: Decimal256,
+        deposit_rate: Decimal256,
+        current_emission_rate: Decimal256,
     },
 }
 
@@ -231,6 +238,13 @@ impl WasmMockQuerier {
                             request: msg.as_slice().into(),
                         }),
                     },
+                    QueryMsg::ANCEmissionRate {
+                        target_deposit_rate: _,
+                        deposit_rate: _,
+                        current_emission_rate: _,
+                    } => Ok(to_binary(&ANCEmissionRateResponse {
+                        emission_rate: Decimal256::from_uint256(5u64),
+                    })),
                 }
             }
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {

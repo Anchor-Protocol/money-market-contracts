@@ -10,7 +10,7 @@ use cosmwasm_std::{
 use std::collections::HashMap;
 
 use moneymarket::liquidation::LiquidationAmountResponse;
-use moneymarket::market::{EpochStateResponse, LoanAmountResponse};
+use moneymarket::market::{BorrowerInfoResponse, EpochStateResponse};
 use moneymarket::oracle::PriceResponse;
 use moneymarket::tokens::TokensHuman;
 
@@ -22,9 +22,9 @@ pub enum QueryMsg {
     /// Query epoch state to market contract
     EpochState { block_height: Option<u64> },
     /// Query loan amount to market contract
-    LoanAmount {
+    BorrowerInfo {
         borrower: HumanAddr,
-        block_height: u64,
+        block_height: Option<u64>,
     },
     /// Query oracle price to oracle contract
     Price { base: String, quote: String },
@@ -235,7 +235,7 @@ impl WasmMockQuerier {
                     QueryMsg::EpochState { block_height: _ } => {
                         match self.epoch_state_querier.epoch_state.get(&contract_addr) {
                             Some(v) => Ok(to_binary(&EpochStateResponse {
-                                a_token_supply: v.0,
+                                aterra_supply: v.0,
                                 exchange_rate: v.1,
                             })),
                             None => Err(SystemError::InvalidRequest {
@@ -244,13 +244,16 @@ impl WasmMockQuerier {
                             }),
                         }
                     }
-                    QueryMsg::LoanAmount {
+                    QueryMsg::BorrowerInfo {
                         borrower,
                         block_height: _,
                     } => match self.loan_amount_querier.borrower_amount.get(&borrower) {
-                        Some(v) => Ok(to_binary(&LoanAmountResponse {
+                        Some(v) => Ok(to_binary(&BorrowerInfoResponse {
                             borrower,
+                            interest_index: Decimal256::one(),
+                            reward_index: Decimal256::zero(),
                             loan_amount: *v,
+                            pending_rewards: Decimal256::zero(),
                         })),
                         None => Err(SystemError::InvalidRequest {
                             error: "No borrow amount exists".to_string(),

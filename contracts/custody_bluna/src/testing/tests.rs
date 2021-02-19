@@ -12,7 +12,7 @@ use crate::testing::mock_querier::mock_dependencies;
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
 use moneymarket::custody::{
-    BorrowerResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg,
+    BAssetInfo, BorrowerResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg,
 };
 use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
 use terra_cosmwasm::create_swap_msg;
@@ -28,6 +28,11 @@ fn proper_initialization() {
         reward_contract: HumanAddr::from("reward"),
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
     };
 
     let env = mock_env("addr0000", &[]);
@@ -59,6 +64,11 @@ fn update_config() {
         reward_contract: HumanAddr::from("reward"),
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
     };
 
     let env = mock_env("addr0000", &[]);
@@ -102,6 +112,11 @@ fn deposit_collateral() {
         reward_contract: HumanAddr::from("reward"),
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
     };
 
     let env = mock_env("addr0000", &[]);
@@ -205,6 +220,11 @@ fn withdraw_collateral() {
         reward_contract: HumanAddr::from("reward"),
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
     };
 
     let env = mock_env("addr0000", &[]);
@@ -338,6 +358,11 @@ fn lock_collateral() {
         reward_contract: HumanAddr::from("reward"),
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
     };
 
     let env = mock_env("addr0000", &[]);
@@ -553,6 +578,11 @@ fn distribute_rewards() {
         reward_contract: HumanAddr::from("reward"),
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
     };
 
     let env = mock_env("addr0000", &[]);
@@ -622,6 +652,11 @@ fn distribute_hook() {
         reward_contract: HumanAddr::from("reward"),
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
     };
 
     let env = mock_env("addr0000", &[]);
@@ -669,6 +704,11 @@ fn distribution_hook_zero_rewards() {
         reward_contract: HumanAddr::from("reward"),
         liquidation_contract: HumanAddr::from("terraswap"),
         stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
     };
 
     let env = mock_env("addr0000", &[]);
@@ -716,6 +756,11 @@ fn swap_to_stable_denom() {
         reward_contract: HumanAddr::from("reward"),
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
     };
 
     let env = mock_env("addr0000", &[]);
@@ -764,6 +809,11 @@ fn liquidate_collateral() {
         reward_contract: HumanAddr::from("reward"),
         liquidation_contract: HumanAddr::from("liquidation"),
         stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
     };
 
     let env = mock_env("addr0000", &[]);
