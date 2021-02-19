@@ -27,7 +27,7 @@ pub enum HandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    ANCEmissionRate {
+    AncEmissionRate {
         deposit_rate: Decimal256,
         target_deposit_rate: Decimal256,
         current_emission_rate: Decimal256,
@@ -45,6 +45,6 @@ pub struct ConfigResponse {
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct ANCEmissionRateResponse {
+pub struct AncEmissionRateResponse {
     pub emission_rate: Decimal256,
 }

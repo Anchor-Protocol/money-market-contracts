@@ -4,7 +4,7 @@ use std::fs::create_dir_all;
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
 use moneymarket::distribution_model::{
-    ANCEmissionRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg,
+    AncEmissionRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg,
 };
 
 fn main() {
@@ -17,5 +17,5 @@ fn main() {
     export_schema(&schema_for!(HandleMsg), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
     export_schema(&schema_for!(ConfigResponse), &out_dir);
-    export_schema(&schema_for!(ANCEmissionRateResponse), &out_dir);
+    export_schema(&schema_for!(AncEmissionRateResponse), &out_dir);
 }

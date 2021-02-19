@@ -6,7 +6,7 @@ use cosmwasm_std::{
     Querier, StdError, StdResult, Storage,
 };
 use moneymarket::distribution_model::{
-    ANCEmissionRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg,
+    AncEmissionRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg,
 };
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -88,7 +88,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::ANCEmissionRate {
+        QueryMsg::AncEmissionRate {
             deposit_rate,
             target_deposit_rate,
             current_emission_rate,
@@ -120,7 +120,7 @@ fn query_anc_emission_rate<S: Storage, A: Api, Q: Querier>(
     deposit_rate: Decimal256,
     target_deposit_rate: Decimal256,
     current_emission_rate: Decimal256,
-) -> StdResult<ANCEmissionRateResponse> {
+) -> StdResult<AncEmissionRateResponse> {
     let config: Config = read_config(&deps.storage)?;
 
     let emission_rate = if deposit_rate < target_deposit_rate {
@@ -137,7 +137,7 @@ fn query_anc_emission_rate<S: Storage, A: Api, Q: Querier>(
         emission_rate
     };
 
-    Ok(ANCEmissionRateResponse { emission_rate })
+    Ok(AncEmissionRateResponse { emission_rate })
 }
 
 #[cfg(test)]
