@@ -26,6 +26,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         reward_contract: deps.api.canonical_address(&msg.reward_contract)?,
         liquidation_contract: deps.api.canonical_address(&msg.liquidation_contract)?,
         stable_denom: msg.stable_denom,
+        basset_info: msg.basset_info,
     };
 
     store_config(&mut deps.storage, &config)?;
@@ -133,5 +134,6 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         reward_contract: deps.api.human_address(&config.reward_contract)?,
         liquidation_contract: deps.api.human_address(&config.liquidation_contract)?,
         stable_denom: config.stable_denom,
+        basset_info: config.basset_info,
     })
 }
