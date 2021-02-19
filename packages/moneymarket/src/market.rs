@@ -57,6 +57,7 @@ pub enum HandleMsg {
     UpdateConfig {
         owner_addr: Option<HumanAddr>,
         reserve_factor: Option<Decimal256>,
+        max_borrow_factor: Option<Decimal256>,
         interest_model: Option<HumanAddr>,
         distribution_model: Option<HumanAddr>,
     },
@@ -119,7 +120,7 @@ pub enum QueryMsg {
         borrower: HumanAddr,
         block_height: Option<u64>,
     },
-    Liabilities {
+    BorrowerInfos {
         start_after: Option<HumanAddr>,
         limit: Option<u32>,
     },

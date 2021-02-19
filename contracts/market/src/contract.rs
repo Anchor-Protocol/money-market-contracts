@@ -114,16 +114,18 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         }
         HandleMsg::UpdateConfig {
             owner_addr,
-            reserve_factor,
             interest_model,
             distribution_model,
+            reserve_factor,
+            max_borrow_factor,
         } => update_config(
             deps,
             env,
             owner_addr,
-            reserve_factor,
             interest_model,
             distribution_model,
+            reserve_factor,
+            max_borrow_factor,
         ),
         HandleMsg::ExecuteEpochOperations {
             target_deposit_rate,
@@ -205,9 +207,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     owner_addr: Option<HumanAddr>,
-    reserve_factor: Option<Decimal256>,
     interest_model: Option<HumanAddr>,
     distribution_model: Option<HumanAddr>,
+    reserve_factor: Option<Decimal256>,
+    max_borrow_factor: Option<Decimal256>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
 
@@ -236,6 +239,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(distribution_model) = distribution_model {
         config.distribution_model = deps.api.canonical_address(&distribution_model)?;
+    }
+
+    if let Some(max_borrow_factor) = max_borrow_factor {
+        config.max_borrow_factor = max_borrow_factor;
     }
 
     store_config(&mut deps.storage, &config)?;
@@ -313,7 +320,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             borrower,
             block_height,
         } => to_binary(&query_borrower_info(deps, borrower, block_height)?),
-        QueryMsg::Liabilities { start_after, limit } => {
+        QueryMsg::BorrowerInfos { start_after, limit } => {
             to_binary(&query_borrower_infos(deps, start_after, limit)?)
         }
     }

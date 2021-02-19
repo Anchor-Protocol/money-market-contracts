@@ -178,9 +178,10 @@ fn update_config() {
     let env = mock_env("owner", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner_addr: Some(HumanAddr("owner1".to_string())),
-        reserve_factor: None,
         interest_model: None,
         distribution_model: None,
+        reserve_factor: None,
+        max_borrow_factor: None,
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -195,9 +196,10 @@ fn update_config() {
     let env = mock_env("owner1", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner_addr: None,
-        reserve_factor: Some(Decimal256::percent(1)),
         interest_model: Some(HumanAddr::from("interest2")),
         distribution_model: Some(HumanAddr::from("distribution2")),
+        reserve_factor: Some(Decimal256::percent(1)),
+        max_borrow_factor: Some(Decimal256::percent(100)),
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -213,14 +215,16 @@ fn update_config() {
         HumanAddr::from("distribution2"),
         config_res.distribution_model
     );
+    assert_eq!(Decimal256::percent(100), config_res.max_borrow_factor);
 
     // Unauthorized err
     let env = mock_env("owner", &[]);
     let msg = HandleMsg::UpdateConfig {
         owner_addr: None,
-        reserve_factor: None,
         interest_model: None,
         distribution_model: None,
+        reserve_factor: None,
+        max_borrow_factor: None,
     };
 
     let res = handle(&mut deps, env, msg);
