@@ -36,11 +36,13 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             oracle_contract: deps.api.canonical_address(&msg.oracle_contract)?,
             market_contract: deps.api.canonical_address(&msg.market_contract)?,
             liquidation_contract: deps.api.canonical_address(&msg.liquidation_contract)?,
+            collector_contract: deps.api.canonical_address(&msg.collector_contract)?,
             stable_denom: msg.stable_denom,
             epoch_period: msg.epoch_period,
             threshold_deposit_rate: msg.threshold_deposit_rate,
             target_deposit_rate: msg.target_deposit_rate,
             buffer_distribution_factor: msg.buffer_distribution_factor,
+            anc_purchase_factor: msg.anc_purchase_factor,
             price_timeframe: msg.price_timeframe,
         },
     )?;
@@ -50,6 +52,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &EpochState {
             deposit_rate: Decimal256::zero(),
             prev_aterra_supply: Uint256::zero(),
+            prev_interest_buffer: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
             last_executed_height: env.block.height,
         },
@@ -71,6 +74,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             threshold_deposit_rate,
             target_deposit_rate,
             buffer_distribution_factor,
+            anc_purchase_factor,
             epoch_period,
             price_timeframe,
         } => update_config(
@@ -82,6 +86,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             threshold_deposit_rate,
             target_deposit_rate,
             buffer_distribution_factor,
+            anc_purchase_factor,
             epoch_period,
             price_timeframe,
         ),
@@ -106,7 +111,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             max_ltv,
         } => update_whitelist(deps, env, collateral_token, custody_contract, max_ltv),
         HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
-        HandleMsg::UpdateEpochState {} => update_epoch_state(deps, env),
+        HandleMsg::UpdateEpochState { interest_buffer } => {
+            update_epoch_state(deps, env, interest_buffer)
+        }
         HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
         HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
         HandleMsg::LiquidateCollateral { borrower } => liquidate_collateral(deps, env, borrower),
@@ -123,6 +130,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     threshold_deposit_rate: Option<Decimal256>,
     target_deposit_rate: Option<Decimal256>,
     buffer_distribution_factor: Option<Decimal256>,
+    anc_purchase_factor: Option<Decimal256>,
     epoch_period: Option<u64>,
     price_timeframe: Option<u64>,
 ) -> HandleResult {
@@ -150,6 +158,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(buffer_distribution_factor) = buffer_distribution_factor {
         config.buffer_distribution_factor = buffer_distribution_factor;
+    }
+
+    if let Some(anc_purchase_factor) = anc_purchase_factor {
+        config.anc_purchase_factor = anc_purchase_factor;
     }
 
     if let Some(target_deposit_rate) = target_deposit_rate {
@@ -288,6 +300,31 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
         (effective_deposit_rate - Decimal256::one()) / Decimal256::from_uint256(blocks);
 
     let mut messages: Vec<CosmosMsg> = vec![];
+    let mut interest_buffer = query_balance(
+        &deps,
+        &env.contract.address,
+        config.stable_denom.to_string(),
+    )?;
+
+    // Send accrued_buffer * config.anc_purchase_factor amount stable token to collector
+    let accrued_buffer = interest_buffer - state.prev_interest_buffer;
+    let anc_purchase_amount = accrued_buffer * config.anc_purchase_factor;
+    if !anc_purchase_amount.is_zero() {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            from_address: env.contract.address.clone(),
+            to_address: deps.api.human_address(&config.collector_contract)?,
+            amount: vec![deduct_tax(
+                &deps,
+                Coin {
+                    denom: config.stable_denom.to_string(),
+                    amount: anc_purchase_amount.into(),
+                },
+            )?],
+        }));
+    }
+
+    // Deduct anc_purchase_amount from the interest_buffer
+    interest_buffer = interest_buffer - anc_purchase_amount;
 
     // Distribute Interest Buffer to depositor
     // Only executed when deposit rate < threshold_deposit_rate
@@ -299,16 +336,12 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
 
         // missing_deposits = prev_deposits * missing_deposit_rate(_per_block) * blocks
         let missing_deposits = prev_deposits * blocks * missing_deposit_rate;
-        let interest_buffer = query_balance(
-            &deps,
-            &env.contract.address,
-            config.stable_denom.to_string(),
-        )?;
         let distribution_buffer = interest_buffer * config.buffer_distribution_factor;
 
         // When there was not enough deposits happens,
         // distribute interest to market contract
         distributed_interest = std::cmp::min(missing_deposits, distribution_buffer);
+        interest_buffer = interest_buffer - distributed_interest;
 
         if !distributed_interest.is_zero() {
             // Send some portion of interest buffer to Market contract
@@ -340,7 +373,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: env.contract.address,
         send: vec![],
-        msg: to_binary(&HandleMsg::UpdateEpochState {})?,
+        msg: to_binary(&HandleMsg::UpdateEpochState { interest_buffer })?,
     }));
 
     Ok(HandleResponse {
@@ -351,6 +384,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
             log("exchange_rate", epoch_state.exchange_rate),
             log("aterra_supply", epoch_state.aterra_supply),
             log("distributed_interest", distributed_interest),
+            log("anc_purchase_amount", anc_purchase_amount),
         ],
         data: None,
     })
@@ -359,6 +393,9 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
 pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    // To store interest buffer before receiving epoch staking rewards,
+    // pass interest_buffer from execute_epoch_operations
+    interest_buffer: Uint256,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let state: EpochState = read_epoch_state(&deps.storage)?;
@@ -385,8 +422,9 @@ pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &EpochState {
             last_executed_height: env.block.height,
-            prev_exchange_rate: epoch_state.exchange_rate,
             prev_aterra_supply: epoch_state.aterra_supply,
+            prev_exchange_rate: epoch_state.exchange_rate,
+            prev_interest_buffer: interest_buffer,
             deposit_rate,
         },
     )?;
@@ -403,8 +441,9 @@ pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
         log: vec![
             log("action", "update_epoch_state"),
             log("deposit_rate", deposit_rate),
-            log("exchange_rate", epoch_state.exchange_rate),
             log("aterra_supply", epoch_state.aterra_supply),
+            log("exchange_rate", epoch_state.exchange_rate),
+            log("interest_buffer", interest_buffer),
         ],
         data: None,
     })
@@ -448,11 +487,13 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         oracle_contract: deps.api.human_address(&config.oracle_contract)?,
         market_contract: deps.api.human_address(&config.market_contract)?,
         liquidation_contract: deps.api.human_address(&config.liquidation_contract)?,
+        collector_contract: deps.api.human_address(&config.collector_contract)?,
         stable_denom: config.stable_denom,
         epoch_period: config.epoch_period,
         threshold_deposit_rate: config.threshold_deposit_rate,
         target_deposit_rate: config.target_deposit_rate,
         buffer_distribution_factor: config.buffer_distribution_factor,
+        anc_purchase_factor: config.anc_purchase_factor,
         price_timeframe: config.price_timeframe,
     })
 }

@@ -22,11 +22,13 @@ pub struct Config {
     pub oracle_contract: CanonicalAddr,
     pub market_contract: CanonicalAddr,
     pub liquidation_contract: CanonicalAddr,
+    pub collector_contract: CanonicalAddr,
     pub stable_denom: String,
     pub epoch_period: u64,
     pub threshold_deposit_rate: Decimal256,
     pub target_deposit_rate: Decimal256,
     pub buffer_distribution_factor: Decimal256,
+    pub anc_purchase_factor: Decimal256,
     pub price_timeframe: u64,
 }
 
@@ -35,6 +37,7 @@ pub struct EpochState {
     pub deposit_rate: Decimal256,
     pub prev_aterra_supply: Uint256,
     pub prev_exchange_rate: Decimal256,
+    pub prev_interest_buffer: Uint256,
     pub last_executed_height: u64,
 }
 

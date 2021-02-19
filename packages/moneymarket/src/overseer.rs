@@ -16,6 +16,8 @@ pub struct InitMsg {
     pub market_contract: HumanAddr,
     /// Liquidation model contract address to compute liquidation amount
     pub liquidation_contract: HumanAddr,
+    /// Collector contract address which is purchasing ANC token
+    pub collector_contract: HumanAddr,
     /// The base denomination used when fetching oracle price,
     /// reward distribution, and borrow
     pub stable_denom: String,
@@ -30,6 +32,8 @@ pub struct InitMsg {
     pub target_deposit_rate: Decimal256,
     /// Ratio to be distributed from the interest buffer
     pub buffer_distribution_factor: Decimal256,
+    /// Ratio to be used for purchasing ANC token from the interest buffer
+    pub anc_purchase_factor: Decimal256,
     /// Valid oracle price timeframe
     pub price_timeframe: u64,
 }
@@ -49,6 +53,7 @@ pub enum HandleMsg {
         threshold_deposit_rate: Option<Decimal256>,
         target_deposit_rate: Option<Decimal256>,
         buffer_distribution_factor: Option<Decimal256>,
+        anc_purchase_factor: Option<Decimal256>,
         epoch_period: Option<u64>,
         price_timeframe: Option<u64>,
     },
@@ -74,7 +79,9 @@ pub enum HandleMsg {
     /// 2. Invoke [Custody] DistributeRewards
     /// 3. Update epoch state
     ExecuteEpochOperations {},
-    UpdateEpochState {},
+    UpdateEpochState {
+        interest_buffer: Uint256,
+    },
 
     ////////////////////
     /// User operations
@@ -125,9 +132,11 @@ pub struct ConfigResponse {
     pub oracle_contract: HumanAddr,
     pub market_contract: HumanAddr,
     pub liquidation_contract: HumanAddr,
+    pub collector_contract: HumanAddr,
     pub threshold_deposit_rate: Decimal256,
     pub target_deposit_rate: Decimal256,
     pub buffer_distribution_factor: Decimal256,
+    pub anc_purchase_factor: Decimal256,
     pub stable_denom: String,
     pub epoch_period: u64,
     pub price_timeframe: u64,

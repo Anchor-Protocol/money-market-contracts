@@ -32,7 +32,7 @@ pub struct InitMsg {
     pub aterra_code_id: u64,
     /// Anchor token distribution speed
     pub anc_emission_rate: Decimal256,
-    /// Maximum borrow TODO
+    /// Maximum allowed borrow rate over deposited stable balance
     pub max_borrow_factor: Decimal256,
 }
 

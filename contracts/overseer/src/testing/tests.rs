@@ -29,11 +29,13 @@ fn proper_initialization() {
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
         liquidation_contract: HumanAddr::from("liquidation"),
+        collector_contract: HumanAddr::from("collector"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_factor: Decimal256::percent(20),
+        anc_purchase_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -44,28 +46,36 @@ fn proper_initialization() {
 
     let query_res = query(&deps, QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&query_res).unwrap();
-    assert_eq!(HumanAddr::from("owner"), config_res.owner_addr);
-    assert_eq!(HumanAddr::from("oracle"), config_res.oracle_contract);
-    assert_eq!(HumanAddr::from("market"), config_res.market_contract);
     assert_eq!(
-        HumanAddr::from("liquidation"),
-        config_res.liquidation_contract
-    );
-    assert_eq!("uusd".to_string(), config_res.stable_denom);
-    assert_eq!(86400u64, config_res.epoch_period);
-    assert_eq!(Decimal256::permille(3), config_res.threshold_deposit_rate);
-    assert_eq!(Decimal256::permille(5), config_res.target_deposit_rate);
-    assert_eq!(
-        Decimal256::percent(20),
-        config_res.buffer_distribution_factor
+        config_res,
+        ConfigResponse {
+            owner_addr: HumanAddr::from("owner"),
+            oracle_contract: HumanAddr::from("oracle"),
+            market_contract: HumanAddr::from("market"),
+            liquidation_contract: HumanAddr::from("liquidation"),
+            collector_contract: HumanAddr::from("collector"),
+            stable_denom: "uusd".to_string(),
+            epoch_period: 86400u64,
+            threshold_deposit_rate: Decimal256::permille(3),
+            target_deposit_rate: Decimal256::permille(5),
+            buffer_distribution_factor: Decimal256::percent(20),
+            anc_purchase_factor: Decimal256::percent(20),
+            price_timeframe: 60u64,
+        }
     );
 
     let query_res = query(&deps, QueryMsg::EpochState {}).unwrap();
     let epoch_state: EpochState = from_binary(&query_res).unwrap();
-    assert_eq!(Decimal256::zero(), epoch_state.deposit_rate);
-    assert_eq!(env.block.height, epoch_state.last_executed_height);
-    assert_eq!(Uint256::zero(), epoch_state.prev_aterra_supply);
-    assert_eq!(Decimal256::one(), epoch_state.prev_exchange_rate);
+    assert_eq!(
+        epoch_state,
+        EpochState {
+            deposit_rate: Decimal256::zero(),
+            last_executed_height: env.block.height,
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
+            prev_interest_buffer: Uint256::zero(),
+        }
+    );
 }
 
 #[test]
@@ -78,11 +88,13 @@ fn update_config() {
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
         liquidation_contract: HumanAddr::from("liquidation"),
+        collector_contract: HumanAddr::from("collector"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_factor: Decimal256::percent(20),
+        anc_purchase_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -98,6 +110,7 @@ fn update_config() {
         threshold_deposit_rate: None,
         target_deposit_rate: None,
         buffer_distribution_factor: None,
+        anc_purchase_factor: None,
         epoch_period: None,
         price_timeframe: None,
     };
@@ -119,6 +132,7 @@ fn update_config() {
         threshold_deposit_rate: Some(Decimal256::permille(1)),
         target_deposit_rate: Some(Decimal256::permille(2)),
         buffer_distribution_factor: Some(Decimal256::percent(10)),
+        anc_purchase_factor: Some(Decimal256::percent(10)),
         epoch_period: Some(100000u64),
         price_timeframe: Some(120u64),
     };
@@ -141,6 +155,7 @@ fn update_config() {
         Decimal256::percent(10),
         config_res.buffer_distribution_factor
     );
+    assert_eq!(Decimal256::percent(10), config_res.anc_purchase_factor);
     assert_eq!(100000u64, config_res.epoch_period);
     assert_eq!(120u64, config_res.price_timeframe);
 
@@ -153,6 +168,7 @@ fn update_config() {
         threshold_deposit_rate: None,
         target_deposit_rate: None,
         buffer_distribution_factor: None,
+        anc_purchase_factor: None,
         epoch_period: None,
         price_timeframe: None,
     };
@@ -174,11 +190,13 @@ fn whitelist() {
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
         liquidation_contract: HumanAddr::from("liquidation"),
+        collector_contract: HumanAddr::from("collector"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_factor: Decimal256::percent(20),
+        anc_purchase_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -320,11 +338,13 @@ fn execute_epoch_operations() {
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
         liquidation_contract: HumanAddr::from("liquidation"),
+        collector_contract: HumanAddr::from("collector"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_factor: Decimal256::percent(20),
+        anc_purchase_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -372,10 +392,24 @@ fn execute_epoch_operations() {
 
     // (120 / 100 - 1) / 86400
     // deposit rate = 0.000002314814814814
+    // accrued_buffer = 10,000,000,000
+    // anc_purchase_amount = accrued_buffer * 0.2 = 2,000,000,000
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
     assert_eq!(
         res.messages,
         vec![
+            CosmosMsg::Bank(BankMsg::Send {
+                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                to_address: HumanAddr::from("collector"),
+                amount: vec![deduct_tax(
+                    &deps,
+                    Coin {
+                        denom: "uusd".to_string(),
+                        amount: Uint128::from(2_000_000_000u128),
+                    }
+                )
+                .unwrap()],
+            }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from("custody_batom"),
                 send: vec![],
@@ -389,7 +423,10 @@ fn execute_epoch_operations() {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
                 send: vec![],
-                msg: to_binary(&HandleMsg::UpdateEpochState {}).unwrap(),
+                msg: to_binary(&HandleMsg::UpdateEpochState {
+                    interest_buffer: Uint256::from(8_000_000_000u128)
+                })
+                .unwrap(),
             })
         ]
     );
@@ -402,6 +439,7 @@ fn execute_epoch_operations() {
             log("exchange_rate", "1.2"),
             log("aterra_supply", "1000000"),
             log("distributed_interest", "0"),
+            log("anc_purchase_amount", "2000000000"),
         ]
     );
 
@@ -412,6 +450,7 @@ fn execute_epoch_operations() {
             last_executed_height: env.block.height,
             prev_exchange_rate: Decimal256::from_str("1.2").unwrap(),
             prev_aterra_supply: Uint256::from_str("1000000").unwrap(),
+            prev_interest_buffer: Uint256::from_str("9999000000").unwrap(),
             deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
         },
     )
@@ -430,12 +469,26 @@ fn execute_epoch_operations() {
 
     env.block.height += 86400u64;
 
+    // accrued_buffer = 1,000,000
+    // interest_buffer = 9,999,000,000
     // (125 / 120 - 1) / 86400
     // deposit rate = 0.000000482253086419
     let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
     assert_eq!(
         res.messages,
         vec![
+            CosmosMsg::Bank(BankMsg::Send {
+                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                to_address: HumanAddr::from("collector"),
+                amount: vec![deduct_tax(
+                    &deps,
+                    Coin {
+                        denom: "uusd".to_string(),
+                        amount: Uint128::from(200_000u128),
+                    }
+                )
+                .unwrap()]
+            }),
             CosmosMsg::Bank(BankMsg::Send {
                 from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
                 to_address: HumanAddr::from("market"),
@@ -461,7 +514,10 @@ fn execute_epoch_operations() {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
                 send: vec![],
-                msg: to_binary(&HandleMsg::UpdateEpochState {}).unwrap(),
+                msg: to_binary(&HandleMsg::UpdateEpochState {
+                    interest_buffer: Uint256::from(9999746320u128),
+                })
+                .unwrap(),
             })
         ]
     );
@@ -474,6 +530,7 @@ fn execute_epoch_operations() {
             log("exchange_rate", "1.25"),
             log("aterra_supply", "1000000"),
             log("distributed_interest", "53680"),
+            log("anc_purchase_amount", "200000")
         ]
     );
 }
@@ -494,11 +551,13 @@ fn update_epoch_state() {
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
         liquidation_contract: HumanAddr::from("liquidation"),
+        collector_contract: HumanAddr::from("collector"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_factor: Decimal256::percent(20),
+        anc_purchase_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -527,7 +586,9 @@ fn update_epoch_state() {
     let _res = handle(&mut deps, env.clone(), msg);
 
     // only contract itself can execute update_epoch_state
-    let msg = HandleMsg::UpdateEpochState {};
+    let msg = HandleMsg::UpdateEpochState {
+        interest_buffer: Uint256::from(10000000000u128),
+    };
     let res = handle(&mut deps, env.clone(), msg.clone());
     match res {
         Err(StdError::Unauthorized { .. }) => {}
@@ -561,8 +622,9 @@ fn update_epoch_state() {
         vec![
             log("action", "update_epoch_state"),
             log("deposit_rate", "0.000002314814814814"),
-            log("exchange_rate", "1.2"),
             log("aterra_supply", "1000000"),
+            log("exchange_rate", "1.2"),
+            log("interest_buffer", "10000000000"),
         ]
     );
 
@@ -591,8 +653,9 @@ fn update_epoch_state() {
         vec![
             log("action", "update_epoch_state"),
             log("deposit_rate", "0.000000482253086419"),
-            log("exchange_rate", "1.25"),
             log("aterra_supply", "1000000"),
+            log("exchange_rate", "1.25"),
+            log("interest_buffer", "10000000000"),
         ]
     );
 
@@ -602,18 +665,15 @@ fn update_epoch_state() {
 
     // deposit rate = 0.000000482253078703
     assert_eq!(
-        epoch_state.deposit_rate,
-        Decimal256::from_ratio(482253086419u64, 1000000000000000000u64)
-    );
-    assert_eq!(
-        epoch_state.prev_aterra_supply,
-        epoch_state_response.aterra_supply
-    );
-    assert_eq!(
-        epoch_state.prev_exchange_rate,
-        epoch_state_response.exchange_rate
-    );
-    assert_eq!(epoch_state.last_executed_height, env.block.height);
+        epoch_state,
+        EpochState {
+            deposit_rate: Decimal256::from_ratio(482253086419u64, 1000000000000000000u64),
+            prev_aterra_supply: epoch_state_response.aterra_supply,
+            prev_exchange_rate: epoch_state_response.exchange_rate,
+            prev_interest_buffer: Uint256::from(10000000000u128),
+            last_executed_height: env.block.height,
+        }
+    )
 }
 
 #[test]
@@ -626,11 +686,13 @@ fn lock_collateral() {
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
         liquidation_contract: HumanAddr::from("liquidation"),
+        collector_contract: HumanAddr::from("collector"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_factor: Decimal256::percent(20),
+        anc_purchase_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -751,11 +813,13 @@ fn unlock_collateral() {
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
         liquidation_contract: HumanAddr::from("liquidation"),
+        collector_contract: HumanAddr::from("collector"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_factor: Decimal256::percent(20),
+        anc_purchase_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
@@ -971,11 +1035,13 @@ fn liquidate_collateral() {
         oracle_contract: HumanAddr::from("oracle"),
         market_contract: HumanAddr::from("market"),
         liquidation_contract: HumanAddr::from("liquidation"),
+        collector_contract: HumanAddr::from("collector"),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
         target_deposit_rate: Decimal256::permille(5),
         buffer_distribution_factor: Decimal256::percent(20),
+        anc_purchase_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
     };
 
