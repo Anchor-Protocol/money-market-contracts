@@ -20,6 +20,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     msg: InitMsg,
 ) -> InitResult {
     let config = Config {
+        owner: deps.api.canonical_address(&msg.owner)?,
         overseer_contract: deps.api.canonical_address(&msg.overseer_contract)?,
         collateral_token: deps.api.canonical_address(&msg.collateral_token)?,
         market_contract: deps.api.canonical_address(&msg.market_contract)?,
@@ -42,8 +43,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     match msg {
         HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
         HandleMsg::UpdateConfig {
+            owner,
             liquidation_contract,
-        } => update_config(deps, env, liquidation_contract),
+        } => update_config(deps, env, owner, liquidation_contract),
         HandleMsg::LockCollateral { borrower, amount } => {
             lock_collateral(deps, env, borrower, amount)
         }
@@ -90,12 +92,17 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
 pub fn update_config<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    owner: Option<HumanAddr>,
     liquidation_contract: Option<HumanAddr>,
 ) -> HandleResult<TerraMsgWrapper> {
     let mut config: Config = read_config(&deps.storage)?;
 
-    if deps.api.canonical_address(&env.message.sender)? != config.overseer_contract {
+    if deps.api.canonical_address(&env.message.sender)? != config.owner {
         return Err(StdError::unauthorized());
+    }
+
+    if let Some(owner) = owner {
+        config.owner = deps.api.canonical_address(&owner)?;
     }
 
     if let Some(liquidation_contract) = liquidation_contract {
@@ -128,6 +135,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<ConfigResponse> {
     let config: Config = read_config(&deps.storage)?;
     Ok(ConfigResponse {
+        owner: deps.api.human_address(&config.owner)?,
         collateral_token: deps.api.human_address(&config.collateral_token)?,
         overseer_contract: deps.api.human_address(&config.overseer_contract)?,
         market_contract: deps.api.human_address(&config.market_contract)?,

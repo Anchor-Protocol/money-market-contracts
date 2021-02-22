@@ -11,6 +11,7 @@ const PREFIX_BORROWER: &[u8] = b"borrower";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
+    pub owner: CanonicalAddr,
     pub collateral_token: CanonicalAddr,
     pub overseer_contract: CanonicalAddr,
     pub market_contract: CanonicalAddr,

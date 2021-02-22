@@ -22,6 +22,7 @@ fn proper_initialization() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
+        owner: HumanAddr::from("owner"),
         collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
@@ -42,6 +43,7 @@ fn proper_initialization() {
 
     let query_res = query(&deps, QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&query_res).unwrap();
+    assert_eq!(HumanAddr::from("owner"), config_res.owner);
     assert_eq!(HumanAddr::from("bluna"), config_res.collateral_token);
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
     assert_eq!(HumanAddr::from("market"), config_res.market_contract);
@@ -58,6 +60,7 @@ fn update_config() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
+        owner: HumanAddr::from("owner"),
         collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
@@ -77,12 +80,15 @@ fn update_config() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let msg = HandleMsg::UpdateConfig {
+        owner: Some(HumanAddr::from("owner2")),
         liquidation_contract: Some(HumanAddr::from("liquidation2")),
     };
-    let env = mock_env("overseer", &[]);
+    let env = mock_env("owner", &[]);
     handle(&mut deps, env, msg.clone()).unwrap();
+
     let query_res = query(&deps, QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&query_res).unwrap();
+    assert_eq!(HumanAddr::from("owner2"), config_res.owner);
     assert_eq!(HumanAddr::from("bluna"), config_res.collateral_token);
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
     assert_eq!(HumanAddr::from("market"), config_res.market_contract);
@@ -106,6 +112,7 @@ fn deposit_collateral() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
+        owner: HumanAddr::from("owner"),
         collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
@@ -214,6 +221,7 @@ fn withdraw_collateral() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
+        owner: HumanAddr::from("owner"),
         collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
@@ -352,6 +360,7 @@ fn lock_collateral() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
+        owner: HumanAddr::from("owner"),
         collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
@@ -572,6 +581,7 @@ fn distribute_rewards() {
     );
 
     let msg = InitMsg {
+        owner: HumanAddr::from("owner"),
         collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
@@ -646,6 +656,7 @@ fn distribute_hook() {
     );
 
     let msg = InitMsg {
+        owner: HumanAddr::from("owner"),
         collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
@@ -698,6 +709,7 @@ fn distribution_hook_zero_rewards() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
+        owner: HumanAddr::from("owner"),
         collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
@@ -750,6 +762,7 @@ fn swap_to_stable_denom() {
     );
 
     let msg = InitMsg {
+        owner: HumanAddr::from("owner"),
         collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),
@@ -803,6 +816,7 @@ fn liquidate_collateral() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
+        owner: HumanAddr::from("owner"),
         collateral_token: HumanAddr::from("bluna"),
         overseer_contract: HumanAddr::from("overseer"),
         market_contract: HumanAddr::from("market"),

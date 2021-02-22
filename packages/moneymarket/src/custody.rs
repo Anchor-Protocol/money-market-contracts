@@ -8,6 +8,8 @@ use cw20::Cw20ReceiveMsg;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct InitMsg {
+    /// owner address
+    pub owner: HumanAddr,
     /// bAsset token address
     pub collateral_token: HumanAddr,
     /// overseer contract address
@@ -36,6 +38,7 @@ pub enum HandleMsg {
 
     /// Update config
     UpdateConfig {
+        owner: Option<HumanAddr>,
         liquidation_contract: Option<HumanAddr>,
     },
     /// Make specified amount of tokens unspendable
@@ -98,6 +101,7 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
+    pub owner: HumanAddr,
     pub collateral_token: HumanAddr,
     pub overseer_contract: HumanAddr,
     pub market_contract: HumanAddr,
