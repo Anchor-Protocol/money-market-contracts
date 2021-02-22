@@ -51,10 +51,10 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             owner_addr: deps.api.canonical_address(&msg.owner_addr)?,
             aterra_contract: CanonicalAddr::default(),
             overseer_contract: CanonicalAddr::default(),
-            interest_model: deps.api.canonical_address(&msg.interest_model)?,
-            distribution_model: deps.api.canonical_address(&msg.distribution_model)?,
-            collector_contract: deps.api.canonical_address(&msg.collector_contract)?,
-            faucet_contract: deps.api.canonical_address(&msg.faucet_contract)?,
+            interest_model: CanonicalAddr::default(),
+            distribution_model: CanonicalAddr::default(),
+            collector_contract: CanonicalAddr::default(),
+            faucet_contract: CanonicalAddr::default(),
             stable_denom: msg.stable_denom.clone(),
             reserve_factor: msg.reserve_factor,
             max_borrow_factor: msg.max_borrow_factor,
@@ -109,9 +109,20 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     match msg {
         HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
         HandleMsg::RegisterATerra {} => register_aterra(deps, env),
-        HandleMsg::RegisterOverseer { overseer_contract } => {
-            register_overseer_contract(deps, overseer_contract)
-        }
+        HandleMsg::RegisterContracts {
+            overseer_contract,
+            interest_model,
+            distribution_model,
+            collector_contract,
+            faucet_contract,
+        } => register_contracts(
+            deps,
+            overseer_contract,
+            interest_model,
+            distribution_model,
+            collector_contract,
+            faucet_contract,
+        ),
         HandleMsg::UpdateConfig {
             owner_addr,
             interest_model,
@@ -188,16 +199,29 @@ pub fn register_aterra<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn register_overseer_contract<S: Storage, A: Api, Q: Querier>(
+pub fn register_contracts<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     overseer_contract: HumanAddr,
+    interest_model: HumanAddr,
+    distribution_model: HumanAddr,
+    collector_contract: HumanAddr,
+    faucet_contract: HumanAddr,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
-    if config.overseer_contract != CanonicalAddr::default() {
+    if config.overseer_contract != CanonicalAddr::default()
+        || config.interest_model != CanonicalAddr::default()
+        || config.distribution_model != CanonicalAddr::default()
+        || config.collector_contract != CanonicalAddr::default()
+        || config.faucet_contract != CanonicalAddr::default()
+    {
         return Err(StdError::unauthorized());
     }
 
     config.overseer_contract = deps.api.canonical_address(&overseer_contract)?;
+    config.interest_model = deps.api.canonical_address(&interest_model)?;
+    config.distribution_model = deps.api.canonical_address(&distribution_model)?;
+    config.collector_contract = deps.api.canonical_address(&collector_contract)?;
+    config.faucet_contract = deps.api.canonical_address(&faucet_contract)?;
     store_config(&mut deps.storage, &config)?;
 
     Ok(HandleResponse::default())

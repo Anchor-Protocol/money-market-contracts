@@ -8,6 +8,7 @@
     "liquidation_contract",
     "market_contract",
     "overseer_contract",
+    "owner",
     "reward_contract",
     "stable_denom"
   ],
@@ -25,6 +26,9 @@
       "$ref": "#/definitions/HumanAddr"
     },
     "overseer_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "owner": {
       "$ref": "#/definitions/HumanAddr"
     },
     "reward_contract": {

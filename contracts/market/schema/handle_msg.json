@@ -14,18 +14,54 @@
       }
     },
     {
-      "description": "Owner operations Register Overseer contract address",
+      "description": "Owner operations Register Contracts contract address",
       "type": "object",
       "required": [
-        "register_overseer"
+        "register_contracts"
       ],
       "properties": {
-        "register_overseer": {
+        "register_contracts": {
           "type": "object",
           "required": [
+            "collector_contract",
+            "distribution_model",
+            "faucet_contract",
+            "interest_model",
             "overseer_contract"
           ],
           "properties": {
+            "collector_contract": {
+              "description": "Collector contract to send all the reserve",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              ]
+            },
+            "distribution_model": {
+              "description": "The contract has the logics for ANC distribution speed",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              ]
+            },
+            "faucet_contract": {
+              "description": "Faucet contract to drip ANC token to users",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              ]
+            },
+            "interest_model": {
+              "description": "The contract has the logics for Anchor borrow interest rate",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              ]
+            },
             "overseer_contract": {
               "$ref": "#/definitions/HumanAddr"
             }
@@ -69,6 +105,16 @@
               "anyOf": [
                 {
                   "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "max_borrow_factor": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
                 },
                 {
                   "type": "null"

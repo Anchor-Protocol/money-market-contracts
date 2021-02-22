@@ -30,10 +30,6 @@ fn proper_initialization() {
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
-        interest_model: HumanAddr::from("interest"),
-        distribution_model: HumanAddr::from("distribution"),
-        collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
@@ -89,15 +85,23 @@ fn proper_initialization() {
     let _res = handle(&mut deps, env, msg).unwrap_err();
 
     // Register overseer contract
-    let msg = HandleMsg::RegisterOverseer {
+    let msg = HandleMsg::RegisterContracts {
         overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Cannot register again
-    let msg = HandleMsg::RegisterOverseer {
+    let msg = HandleMsg::RegisterContracts {
         overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap_err();
@@ -141,10 +145,6 @@ fn update_config() {
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
-        interest_model: HumanAddr::from("interest"),
-        distribution_model: HumanAddr::from("distribution"),
-        collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
@@ -168,8 +168,12 @@ fn update_config() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Register overseer contract
-    let msg = HandleMsg::RegisterOverseer {
+    let msg = HandleMsg::RegisterContracts {
         overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -246,10 +250,6 @@ fn deposit_stable_huge_amount() {
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
-        interest_model: HumanAddr::from("interest"),
-        distribution_model: HumanAddr::from("distribution"),
-        collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
@@ -273,8 +273,12 @@ fn deposit_stable_huge_amount() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Register overseer contract
-    let msg = HandleMsg::RegisterOverseer {
+    let msg = HandleMsg::RegisterContracts {
         overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -399,10 +403,6 @@ fn deposit_stable() {
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
-        interest_model: HumanAddr::from("interest"),
-        distribution_model: HumanAddr::from("distribution"),
-        collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
@@ -426,8 +426,12 @@ fn deposit_stable() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Register overseer contract
-    let msg = HandleMsg::RegisterOverseer {
+    let msg = HandleMsg::RegisterContracts {
         overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -628,10 +632,6 @@ fn redeem_stable() {
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
-        interest_model: HumanAddr::from("interest"),
-        distribution_model: HumanAddr::from("distribution"),
-        collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
@@ -656,8 +656,12 @@ fn redeem_stable() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Register overseer contract
-    let msg = HandleMsg::RegisterOverseer {
+    let msg = HandleMsg::RegisterContracts {
         overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -823,10 +827,6 @@ fn borrow_stable() {
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
-        interest_model: HumanAddr::from("interest"),
-        distribution_model: HumanAddr::from("distribution"),
-        collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
@@ -850,8 +850,12 @@ fn borrow_stable() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Register overseer contract
-    let msg = HandleMsg::RegisterOverseer {
+    let msg = HandleMsg::RegisterContracts {
         overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
     };
     let mut env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
@@ -1028,10 +1032,6 @@ fn repay_stable() {
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
-        interest_model: HumanAddr::from("interest"),
-        distribution_model: HumanAddr::from("distribution"),
-        collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
@@ -1055,8 +1055,12 @@ fn repay_stable() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Register overseer contract
-    let msg = HandleMsg::RegisterOverseer {
+    let msg = HandleMsg::RegisterContracts {
         overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
     };
     let mut env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
@@ -1208,10 +1212,6 @@ fn repay_stable_from_liquidation() {
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
-        interest_model: HumanAddr::from("interest"),
-        distribution_model: HumanAddr::from("distribution"),
-        collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
@@ -1235,8 +1235,12 @@ fn repay_stable_from_liquidation() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Register overseer contract
-    let msg = HandleMsg::RegisterOverseer {
+    let msg = HandleMsg::RegisterContracts {
         overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
     };
     let mut env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
@@ -1376,10 +1380,6 @@ fn claim_rewards() {
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
-        interest_model: HumanAddr::from("interest"),
-        distribution_model: HumanAddr::from("distribution"),
-        collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
@@ -1404,8 +1404,12 @@ fn claim_rewards() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Register overseer contract
-    let msg = HandleMsg::RegisterOverseer {
+    let msg = HandleMsg::RegisterContracts {
         overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
     };
     let mut env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
@@ -1502,10 +1506,6 @@ fn execute_epoch_operations() {
 
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
-        interest_model: HumanAddr::from("interest"),
-        distribution_model: HumanAddr::from("distribution"),
-        collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
         stable_denom: "uusd".to_string(),
         reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
@@ -1530,8 +1530,12 @@ fn execute_epoch_operations() {
     let _res = handle(&mut deps, env, msg).unwrap();
 
     // Register overseer contract
-    let msg = HandleMsg::RegisterOverseer {
+    let msg = HandleMsg::RegisterContracts {
         overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        faucet_contract: HumanAddr::from("faucet"),
     };
     let mut env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap();

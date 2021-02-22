@@ -33,6 +33,16 @@
                   "type": "null"
                 }
               ]
+            },
+            "owner": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }

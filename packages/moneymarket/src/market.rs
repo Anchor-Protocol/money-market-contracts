@@ -14,16 +14,6 @@ pub struct InitMsg {
 
     /// Owner address for config update
     pub owner_addr: HumanAddr,
-    /// The contract has the logics for
-    /// Anchor borrow interest rate
-    pub interest_model: HumanAddr,
-    /// The contract has the logics for
-    /// ANC distribution speed
-    pub distribution_model: HumanAddr,
-    /// Collector contract to send all the reserve
-    pub collector_contract: HumanAddr,
-    /// Faucet contract to drip ANC token to users
-    pub faucet_contract: HumanAddr,
     /// stable coin denom used to borrow & repay
     pub stable_denom: String,
     /// reserve ratio applied to interest
@@ -44,9 +34,19 @@ pub enum HandleMsg {
     ////////////////////
     /// Owner operations
     ////////////////////
-    /// Register Overseer contract address
-    RegisterOverseer {
+    /// Register Contracts contract address
+    RegisterContracts {
         overseer_contract: HumanAddr,
+        /// The contract has the logics for
+        /// Anchor borrow interest rate
+        interest_model: HumanAddr,
+        /// The contract has the logics for
+        /// ANC distribution speed
+        distribution_model: HumanAddr,
+        /// Collector contract to send all the reserve
+        collector_contract: HumanAddr,
+        /// Faucet contract to drip ANC token to users
+        faucet_contract: HumanAddr,
     },
 
     /// (internal) Register A-token contract address
