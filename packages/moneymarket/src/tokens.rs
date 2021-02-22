@@ -25,10 +25,24 @@ pub trait TokensToRaw {
 
 impl TokensMath for Tokens {
     fn sub(&mut self, tokens: Tokens) -> StdResult<()> {
-        self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
+        self.sort_by(|a, b| {
+            let res = a.0.as_slice().cmp(&b.0.as_slice());
+            if res == std::cmp::Ordering::Equal {
+                panic!("Invalid Tokens")
+            }
+
+            res
+        });
 
         let mut tokens = tokens;
-        tokens.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
+        tokens.sort_by(|a, b| {
+            let res = a.0.as_slice().cmp(&b.0.as_slice());
+            if res == std::cmp::Ordering::Equal {
+                panic!("Invalid Tokens")
+            }
+
+            res
+        });
 
         let mut i = 0;
         let mut j = 0;
@@ -58,10 +72,24 @@ impl TokensMath for Tokens {
     }
 
     fn add(&mut self, tokens: Tokens) {
-        self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
+        self.sort_by(|a, b| {
+            let res = a.0.as_slice().cmp(&b.0.as_slice());
+            if res == std::cmp::Ordering::Equal {
+                panic!("Invalid Tokens")
+            }
+
+            res
+        });
 
         let mut tokens = tokens;
-        tokens.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
+        tokens.sort_by(|a, b| {
+            let res = a.0.as_slice().cmp(&b.0.as_slice());
+            if res == std::cmp::Ordering::Equal {
+                panic!("Invalid Tokens")
+            }
+
+            res
+        });
 
         let mut i = 0;
         let mut j = 0;
