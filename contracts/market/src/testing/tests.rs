@@ -1567,6 +1567,14 @@ fn execute_epoch_operations() {
         deposit_rate: Decimal256::one(),
     };
 
+    // only overseer can execute this
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Err(StdError::Unauthorized { .. }) => {}
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    env.message.sender = HumanAddr::from("overseer");
     let res = handle(&mut deps, env.clone(), msg).unwrap();
     assert_eq!(
         res.messages,

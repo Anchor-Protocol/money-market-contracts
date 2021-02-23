@@ -284,6 +284,10 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     deposit_rate: Decimal256,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
+    if config.overseer_contract != deps.api.canonical_address(&env.message.sender)? {
+        return Err(StdError::unauthorized());
+    }
+
     let mut state: State = read_state(&deps.storage)?;
 
     // Compute interest and reward before updating anc_emission_rate
