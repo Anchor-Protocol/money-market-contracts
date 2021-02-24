@@ -68,6 +68,9 @@ impl TokensMath for Tokens {
             return Err(StdError::generic_err("Subtraction underflow"));
         }
 
+        // remove zero tokens
+        self.retain(|v| v.1 > Uint256::zero());
+
         Ok(())
     }
 
@@ -112,6 +115,9 @@ impl TokensMath for Tokens {
             self.push(tokens[j].clone());
             j += 1;
         }
+
+        // remove zero tokens
+        self.retain(|v| v.1 > Uint256::zero());
     }
 }
 

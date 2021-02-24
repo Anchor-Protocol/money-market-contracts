@@ -157,6 +157,27 @@ fn tokens_math() {
 }
 
 #[test]
+fn token_math_zero_token() {
+    let deps = mock_dependencies(20, &[]);
+
+    let tokens_1: TokensHuman = vec![
+        (HumanAddr::from("token1"), Uint256::from(1000000u64)),
+        (HumanAddr::from("token2"), Uint256::from(1000000u64)),
+    ];
+
+    let tokens_2: TokensHuman = vec![
+        (HumanAddr::from("token1"), Uint256::from(1000000u64)),
+        (HumanAddr::from("token2"), Uint256::from(1000000u64)),
+    ];
+
+    let mut tokens_1_raw: Tokens = tokens_1.to_raw(&deps).unwrap();
+    let tokens_2_raw: Tokens = tokens_2.to_raw(&deps).unwrap();
+
+    tokens_1_raw.sub(tokens_2_raw).unwrap();
+    assert_eq!(tokens_1_raw.len(), 0);
+}
+
+#[test]
 #[should_panic]
 fn token_math_invalid_token() {
     let deps = mock_dependencies(20, &[]);

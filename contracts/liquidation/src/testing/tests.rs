@@ -487,13 +487,14 @@ fn query_liquidation_amount() {
         collateral_prices: vec![Decimal256::percent(10)],
     };
 
-    let res = query(&mut deps, msg);
-    match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot liquidate an undercollateralized loan")
+    let res = query(&mut deps, msg).unwrap();
+    let res: LiquidationAmountResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        res,
+        LiquidationAmountResponse {
+            collaterals: vec![(HumanAddr::from("token0000"), Uint256::from(1000000u64))],
         }
-        _ => panic!("DO NOT ENTER HERE"),
-    }
+    );
 
     let msg = QueryMsg::LiquidationAmount {
         borrow_amount: Uint256::from(100000u64),

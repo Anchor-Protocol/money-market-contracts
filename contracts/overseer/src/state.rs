@@ -126,7 +126,11 @@ pub fn store_collaterals<S: Storage>(
     collaterals: &Tokens,
 ) -> StdResult<()> {
     let mut collaterals_bucket: Bucket<S, Tokens> = Bucket::new(PREFIX_COLLATERALS, storage);
-    collaterals_bucket.save(&borrower.as_slice(), &collaterals)?;
+    if collaterals.len() == 0 {
+        collaterals_bucket.remove(&borrower.as_slice());
+    } else {
+        collaterals_bucket.save(&borrower.as_slice(), &collaterals)?;
+    }
 
     Ok(())
 }
