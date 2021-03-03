@@ -11,6 +11,7 @@ static KEY_CONFIG: &[u8] = b"config";
 pub struct Config {
     pub owner: CanonicalAddr,
     pub emission_cap: Decimal256,
+    pub emission_floor: Decimal256,
     pub increment_multiplier: Decimal256,
     pub decrement_multiplier: Decimal256,
 }

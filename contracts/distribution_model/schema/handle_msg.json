@@ -31,6 +31,16 @@
                 }
               ]
             },
+            "emission_floor": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "increment_multiplier": {
               "anyOf": [
                 {

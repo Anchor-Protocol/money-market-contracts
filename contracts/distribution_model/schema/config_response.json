@@ -5,6 +5,7 @@
   "required": [
     "decrement_multiplier",
     "emission_cap",
+    "emission_floor",
     "increment_multiplier",
     "owner"
   ],
@@ -13,6 +14,9 @@
       "$ref": "#/definitions/Decimal256"
     },
     "emission_cap": {
+      "$ref": "#/definitions/Decimal256"
+    },
+    "emission_floor": {
       "$ref": "#/definitions/Decimal256"
     },
     "increment_multiplier": {

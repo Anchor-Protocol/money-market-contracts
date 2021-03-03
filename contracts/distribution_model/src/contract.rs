@@ -19,6 +19,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         &Config {
             owner: deps.api.canonical_address(&msg.owner)?,
             emission_cap: msg.emission_cap,
+            emission_floor: msg.emission_floor,
             increment_multiplier: msg.increment_multiplier,
             decrement_multiplier: msg.decrement_multiplier,
         },
@@ -36,6 +37,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::UpdateConfig {
             owner,
             emission_cap,
+            emission_floor,
             increment_multiplier,
             decrement_multiplier,
         } => update_config(
@@ -43,6 +45,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             env,
             owner,
             emission_cap,
+            emission_floor,
             increment_multiplier,
             decrement_multiplier,
         ),
@@ -54,6 +57,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     env: Env,
     owner: Option<HumanAddr>,
     emission_cap: Option<Decimal256>,
+    emission_floor: Option<Decimal256>,
     increment_multiplier: Option<Decimal256>,
     decrement_multiplier: Option<Decimal256>,
 ) -> HandleResult {
@@ -68,6 +72,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(emission_cap) = emission_cap {
         config.emission_cap = emission_cap;
+    }
+
+    if let Some(emission_floor) = emission_floor {
+        config.emission_floor = emission_floor
     }
 
     if let Some(increment_multiplier) = increment_multiplier {
@@ -108,6 +116,7 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
     let resp = ConfigResponse {
         owner: deps.api.human_address(&state.owner)?,
         emission_cap: state.emission_cap,
+        emission_floor: state.emission_floor,
         increment_multiplier: state.increment_multiplier,
         decrement_multiplier: state.decrement_multiplier,
     };
@@ -133,6 +142,8 @@ fn query_anc_emission_rate<S: Storage, A: Api, Q: Querier>(
 
     let emission_rate = if emission_rate > config.emission_cap {
         config.emission_cap
+    } else if emission_rate < config.emission_floor {
+        config.emission_floor
     } else {
         emission_rate
     };
@@ -144,7 +155,7 @@ fn query_anc_emission_rate<S: Storage, A: Api, Q: Querier>(
 mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::StdError;
+    use cosmwasm_std::{from_binary, StdError};
 
     #[test]
     fn proper_initialization() {
@@ -153,6 +164,7 @@ mod tests {
         let msg = InitMsg {
             owner: HumanAddr("owner0000".to_string()),
             emission_cap: Decimal256::from_uint256(100u64),
+            emission_floor: Decimal256::from_uint256(10u64),
             increment_multiplier: Decimal256::percent(110),
             decrement_multiplier: Decimal256::percent(90),
         };
@@ -167,6 +179,7 @@ mod tests {
         let value = query_config(&deps).unwrap();
         assert_eq!("owner0000", value.owner.as_str());
         assert_eq!("100", &value.emission_cap.to_string());
+        assert_eq!("10", &value.emission_floor.to_string());
         assert_eq!("1.1", &value.increment_multiplier.to_string());
         assert_eq!("0.9", &value.decrement_multiplier.to_string());
 
@@ -205,6 +218,7 @@ mod tests {
         let msg = InitMsg {
             owner: HumanAddr("owner0000".to_string()),
             emission_cap: Decimal256::from_uint256(100u64),
+            emission_floor: Decimal256::from_uint256(10u64),
             increment_multiplier: Decimal256::percent(110),
             decrement_multiplier: Decimal256::percent(90),
         };
@@ -217,6 +231,7 @@ mod tests {
         let msg = HandleMsg::UpdateConfig {
             owner: Some(HumanAddr("owner0001".to_string())),
             emission_cap: None,
+            emission_floor: None,
             increment_multiplier: None,
             decrement_multiplier: None,
         };
@@ -228,6 +243,7 @@ mod tests {
         let value = query_config(&deps).unwrap();
         assert_eq!("owner0001", value.owner.as_str());
         assert_eq!("100", &value.emission_cap.to_string());
+        assert_eq!("10", &value.emission_floor.to_string());
         assert_eq!("1.1", &value.increment_multiplier.to_string());
         assert_eq!("0.9", &value.decrement_multiplier.to_string());
 
@@ -236,6 +252,7 @@ mod tests {
         let msg = HandleMsg::UpdateConfig {
             owner: None,
             emission_cap: Some(Decimal256::from_uint256(100u64)),
+            emission_floor: Some(Decimal256::from_uint256(10u64)),
             increment_multiplier: Some(Decimal256::percent(110)),
             decrement_multiplier: Some(Decimal256::percent(90)),
         };
@@ -245,5 +262,43 @@ mod tests {
             Err(StdError::Unauthorized { .. }) => {}
             _ => panic!("Must return unauthorized error"),
         }
+    }
+
+    #[test]
+    fn proper_emission_rate() {
+        let mut deps = mock_dependencies(20, &[]);
+
+        let msg = InitMsg {
+            owner: HumanAddr("owner0000".to_string()),
+            emission_cap: Decimal256::from_uint256(100u64),
+            emission_floor: Decimal256::from_uint256(10u64),
+            increment_multiplier: Decimal256::percent(110),
+            decrement_multiplier: Decimal256::percent(90),
+        };
+
+        let env = mock_env("addr0000", &[]);
+        let _res = init(&mut deps, env, msg).unwrap();
+
+        //set emission rate to floor
+        let query_emission = QueryMsg::AncEmissionRate {
+            deposit_rate: Decimal256::from_uint256(2000u64),
+            target_deposit_rate: Decimal256::from_uint256(1000u64),
+            current_emission_rate: Decimal256::percent(9),
+        };
+
+        let res: AncEmissionRateResponse =
+            from_binary(&query(&deps, query_emission).unwrap()).unwrap();
+        assert_eq!(res.emission_rate, Decimal256::from_uint256(10u64));
+
+        //set emission rate to cap
+        let query_emission = QueryMsg::AncEmissionRate {
+            deposit_rate: Decimal256::from_uint256(1000u64),
+            target_deposit_rate: Decimal256::from_uint256(10000u64),
+            current_emission_rate: Decimal256::percent(90000),
+        };
+
+        let res: AncEmissionRateResponse =
+            from_binary(&query(&deps, query_emission).unwrap()).unwrap();
+        assert_eq!(res.emission_rate, Decimal256::from_uint256(100u64));
     }
 }
