@@ -304,7 +304,6 @@ pub(crate) fn compute_borrower_interest(state: &State, liability: &mut BorrowerI
     liability.loan_amount =
         liability.loan_amount * state.global_interest_index / liability.interest_index;
     liability.interest_index = state.global_interest_index;
-    liability.reward_index = state.global_reward_index;
 }
 
 /// Compute distributed reward and update global index

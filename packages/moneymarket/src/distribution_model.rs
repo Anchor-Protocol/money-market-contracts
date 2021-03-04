@@ -8,6 +8,7 @@ use cosmwasm_std::HumanAddr;
 pub struct InitMsg {
     pub owner: HumanAddr,
     pub emission_cap: Decimal256,
+    pub emission_floor: Decimal256,
     pub increment_multiplier: Decimal256,
     pub decrement_multiplier: Decimal256,
 }
@@ -18,6 +19,7 @@ pub enum HandleMsg {
     UpdateConfig {
         owner: Option<HumanAddr>,
         emission_cap: Option<Decimal256>,
+        emission_floor: Option<Decimal256>,
         increment_multiplier: Option<Decimal256>,
         decrement_multiplier: Option<Decimal256>,
     },
@@ -39,6 +41,7 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub owner: HumanAddr,
     pub emission_cap: Decimal256,
+    pub emission_floor: Decimal256,
     pub increment_multiplier: Decimal256,
     pub decrement_multiplier: Decimal256,
 }
