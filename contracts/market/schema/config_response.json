@@ -6,7 +6,7 @@
     "aterra_contract",
     "collector_contract",
     "distribution_model",
-    "faucet_contract",
+    "distributor_contract",
     "interest_model",
     "max_borrow_factor",
     "overseer_contract",
@@ -24,7 +24,7 @@
     "distribution_model": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "faucet_contract": {
+    "distributor_contract": {
       "$ref": "#/definitions/HumanAddr"
     },
     "interest_model": {

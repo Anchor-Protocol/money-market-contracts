@@ -1,4 +1,4 @@
-use anchor_token::faucet::HandleMsg as FaucetHandleMsg;
+use anchor_token::distributor::HandleMsg as FaucetHandleMsg;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     log, to_binary, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
@@ -219,7 +219,7 @@ pub fn claim_rewards<S: Storage, A: Api, Q: Querier>(
 
     let messages: Vec<CosmosMsg> = if !claim_amount.is_zero() {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.faucet_contract)?,
+            contract_addr: deps.api.human_address(&config.distributor_contract)?,
             send: vec![],
             msg: to_binary(&FaucetHandleMsg::Spend {
                 recipient: if let Some(to) = to { to } else { borrower },

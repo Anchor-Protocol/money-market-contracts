@@ -46,7 +46,7 @@ pub enum HandleMsg {
         /// Collector contract to send all the reserve
         collector_contract: HumanAddr,
         /// Faucet contract to drip ANC token to users
-        faucet_contract: HumanAddr,
+        distributor_contract: HumanAddr,
     },
 
     /// (internal) Register A-token contract address
@@ -135,7 +135,7 @@ pub struct ConfigResponse {
     pub distribution_model: HumanAddr,
     pub overseer_contract: HumanAddr,
     pub collector_contract: HumanAddr,
-    pub faucet_contract: HumanAddr,
+    pub distributor_contract: HumanAddr,
     pub stable_denom: String,
     pub reserve_factor: Decimal256,
     pub max_borrow_factor: Decimal256,

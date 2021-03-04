@@ -37,9 +37,9 @@ fn proper_compute_exchange_rate() {
             .api
             .canonical_address(&HumanAddr::from("distribution"))
             .unwrap(),
-        faucet_contract: deps
+        distributor_contract: deps
             .api
-            .canonical_address(&HumanAddr::from("faucet"))
+            .canonical_address(&HumanAddr::from("distributor"))
             .unwrap(),
         collector_contract: deps
             .api

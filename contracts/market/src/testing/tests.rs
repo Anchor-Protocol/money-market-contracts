@@ -2,7 +2,7 @@ use crate::contract::{handle, init, query, INITIAL_DEPOSIT_AMOUNT};
 use crate::state::{read_borrower_infos, read_state, store_state, State};
 use crate::testing::mock_querier::mock_dependencies;
 
-use anchor_token::faucet::HandleMsg as FaucetHandleMsg;
+use anchor_token::distributor::HandleMsg as FaucetHandleMsg;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
@@ -90,7 +90,7 @@ fn proper_initialization() {
         interest_model: HumanAddr::from("interest"),
         distribution_model: HumanAddr::from("distribution"),
         collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
+        distributor_contract: HumanAddr::from("distributor"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -101,7 +101,7 @@ fn proper_initialization() {
         interest_model: HumanAddr::from("interest"),
         distribution_model: HumanAddr::from("distribution"),
         collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
+        distributor_contract: HumanAddr::from("distributor"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap_err();
@@ -115,7 +115,7 @@ fn proper_initialization() {
         HumanAddr::from("distribution"),
         config_res.distribution_model
     );
-    assert_eq!(HumanAddr::from("faucet"), config_res.faucet_contract);
+    assert_eq!(HumanAddr::from("distributor"), config_res.distributor_contract);
     assert_eq!(HumanAddr::from("collector"), config_res.collector_contract);
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
     assert_eq!("uusd".to_string(), config_res.stable_denom);
@@ -173,7 +173,7 @@ fn update_config() {
         interest_model: HumanAddr::from("interest"),
         distribution_model: HumanAddr::from("distribution"),
         collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
+        distributor_contract: HumanAddr::from("distributor"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -278,7 +278,7 @@ fn deposit_stable_huge_amount() {
         interest_model: HumanAddr::from("interest"),
         distribution_model: HumanAddr::from("distribution"),
         collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
+        distributor_contract: HumanAddr::from("distributor"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -431,7 +431,7 @@ fn deposit_stable() {
         interest_model: HumanAddr::from("interest"),
         distribution_model: HumanAddr::from("distribution"),
         collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
+        distributor_contract: HumanAddr::from("distributor"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -661,7 +661,7 @@ fn redeem_stable() {
         interest_model: HumanAddr::from("interest"),
         distribution_model: HumanAddr::from("distribution"),
         collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
+        distributor_contract: HumanAddr::from("distributor"),
     };
     let env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env, msg).unwrap();
@@ -855,7 +855,7 @@ fn borrow_stable() {
         interest_model: HumanAddr::from("interest"),
         distribution_model: HumanAddr::from("distribution"),
         collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
+        distributor_contract: HumanAddr::from("distributor"),
     };
     let mut env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
@@ -1060,7 +1060,7 @@ fn repay_stable() {
         interest_model: HumanAddr::from("interest"),
         distribution_model: HumanAddr::from("distribution"),
         collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
+        distributor_contract: HumanAddr::from("distributor"),
     };
     let mut env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
@@ -1240,7 +1240,7 @@ fn repay_stable_from_liquidation() {
         interest_model: HumanAddr::from("interest"),
         distribution_model: HumanAddr::from("distribution"),
         collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
+        distributor_contract: HumanAddr::from("distributor"),
     };
     let mut env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
@@ -1409,7 +1409,7 @@ fn claim_rewards() {
         interest_model: HumanAddr::from("interest"),
         distribution_model: HumanAddr::from("distribution"),
         collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
+        distributor_contract: HumanAddr::from("distributor"),
     };
     let mut env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
@@ -1459,7 +1459,7 @@ fn claim_rewards() {
     assert_eq!(
         res.messages,
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("faucet"),
+            contract_addr: HumanAddr::from("distributor"),
             send: vec![],
             msg: to_binary(&FaucetHandleMsg::Spend {
                 recipient: HumanAddr::from("addr0001"),
@@ -1535,7 +1535,7 @@ fn execute_epoch_operations() {
         interest_model: HumanAddr::from("interest"),
         distribution_model: HumanAddr::from("distribution"),
         collector_contract: HumanAddr::from("collector"),
-        faucet_contract: HumanAddr::from("faucet"),
+        distributor_contract: HumanAddr::from("distributor"),
     };
     let mut env = mock_env("addr0000", &[]);
     let _res = handle(&mut deps, env.clone(), msg).unwrap();

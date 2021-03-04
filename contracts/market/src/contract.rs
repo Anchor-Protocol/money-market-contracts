@@ -54,7 +54,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             interest_model: CanonicalAddr::default(),
             distribution_model: CanonicalAddr::default(),
             collector_contract: CanonicalAddr::default(),
-            faucet_contract: CanonicalAddr::default(),
+            distributor_contract: CanonicalAddr::default(),
             stable_denom: msg.stable_denom.clone(),
             reserve_factor: msg.reserve_factor,
             max_borrow_factor: msg.max_borrow_factor,
@@ -114,14 +114,14 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             interest_model,
             distribution_model,
             collector_contract,
-            faucet_contract,
+            distributor_contract,
         } => register_contracts(
             deps,
             overseer_contract,
             interest_model,
             distribution_model,
             collector_contract,
-            faucet_contract,
+            distributor_contract,
         ),
         HandleMsg::UpdateConfig {
             owner_addr,
@@ -205,14 +205,14 @@ pub fn register_contracts<S: Storage, A: Api, Q: Querier>(
     interest_model: HumanAddr,
     distribution_model: HumanAddr,
     collector_contract: HumanAddr,
-    faucet_contract: HumanAddr,
+    distributor_contract: HumanAddr,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
     if config.overseer_contract != CanonicalAddr::default()
         || config.interest_model != CanonicalAddr::default()
         || config.distribution_model != CanonicalAddr::default()
         || config.collector_contract != CanonicalAddr::default()
-        || config.faucet_contract != CanonicalAddr::default()
+        || config.distributor_contract != CanonicalAddr::default()
     {
         return Err(StdError::unauthorized());
     }
@@ -221,7 +221,7 @@ pub fn register_contracts<S: Storage, A: Api, Q: Querier>(
     config.interest_model = deps.api.canonical_address(&interest_model)?;
     config.distribution_model = deps.api.canonical_address(&distribution_model)?;
     config.collector_contract = deps.api.canonical_address(&collector_contract)?;
-    config.faucet_contract = deps.api.canonical_address(&faucet_contract)?;
+    config.distributor_contract = deps.api.canonical_address(&distributor_contract)?;
     store_config(&mut deps.storage, &config)?;
 
     Ok(HandleResponse::default())
@@ -365,7 +365,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         distribution_model: deps.api.human_address(&config.distribution_model)?,
         overseer_contract: deps.api.human_address(&config.overseer_contract)?,
         collector_contract: deps.api.human_address(&config.collector_contract)?,
-        faucet_contract: deps.api.human_address(&config.faucet_contract)?,
+        distributor_contract: deps.api.human_address(&config.distributor_contract)?,
         stable_denom: config.stable_denom,
         reserve_factor: config.reserve_factor,
         max_borrow_factor: config.max_borrow_factor,

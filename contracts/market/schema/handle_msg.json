@@ -25,7 +25,7 @@
           "required": [
             "collector_contract",
             "distribution_model",
-            "faucet_contract",
+            "distributor_contract",
             "interest_model",
             "overseer_contract"
           ],
@@ -46,7 +46,7 @@
                 }
               ]
             },
-            "faucet_contract": {
+            "distributor_contract": {
               "description": "Faucet contract to drip ANC token to users",
               "allOf": [
                 {
