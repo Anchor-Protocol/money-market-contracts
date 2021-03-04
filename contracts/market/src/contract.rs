@@ -80,8 +80,11 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             send: vec![],
             label: None,
             msg: to_binary(&TokenInitMsg {
-                name: format!("Anchor Terra for {}", msg.stable_denom),
-                symbol: format!("AT-{}", msg.stable_denom),
+                name: format!("Anchor Terra {}", msg.stable_denom[1..].to_uppercase()),
+                symbol: format!(
+                    "a{}T",
+                    msg.stable_denom[1..(msg.stable_denom.len() - 1)].to_uppercase()
+                ),
                 decimals: 6u8,
                 initial_balances: vec![Cw20CoinHuman {
                     address: env.contract.address.clone(),

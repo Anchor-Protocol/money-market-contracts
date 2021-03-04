@@ -54,8 +54,8 @@ fn proper_initialization() {
             send: vec![],
             label: None,
             msg: to_binary(&TokenInitMsg {
-                name: "Anchor Terra for uusd".to_string(),
-                symbol: "AT-uusd".to_string(),
+                name: "Anchor Terra USD".to_string(),
+                symbol: "aUST".to_string(),
                 decimals: 6u8,
                 initial_balances: vec![Cw20CoinHuman {
                     address: HumanAddr::from(MOCK_CONTRACT_ADDR),
