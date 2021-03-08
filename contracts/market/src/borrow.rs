@@ -48,11 +48,6 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
         )));
     }
 
-    liability.loan_amount += borrow_amount;
-    state.total_liabilities += Decimal256::from_uint256(borrow_amount);
-    store_state(&mut deps.storage, &state)?;
-    store_borrower_info(&mut deps.storage, &borrower_raw, &liability)?;
-
     let current_balance = query_balance(
         &deps,
         &env.contract.address,
@@ -60,7 +55,12 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     )?;
 
     // Assert borrow amount
-    assert_borrow_amount(&config, &state, current_balance, borrow_amount)?;
+    assert_max_borrow_factor(&config, &state, current_balance, borrow_amount)?;
+
+    liability.loan_amount += borrow_amount;
+    state.total_liabilities += Decimal256::from_uint256(borrow_amount);
+    store_state(&mut deps.storage, &state)?;
+    store_borrower_info(&mut deps.storage, &borrower_raw, &liability)?;
 
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Bank(BankMsg::Send {
@@ -371,7 +371,7 @@ pub fn query_borrower_infos<S: Storage, A: Api, Q: Querier>(
     Ok(BorrowerInfosResponse { borrower_infos })
 }
 
-fn assert_borrow_amount(
+fn assert_max_borrow_factor(
     config: &Config,
     state: &State,
     current_balance: Uint256,

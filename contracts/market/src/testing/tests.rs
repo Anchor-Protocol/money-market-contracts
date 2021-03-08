@@ -115,7 +115,10 @@ fn proper_initialization() {
         HumanAddr::from("distribution"),
         config_res.distribution_model
     );
-    assert_eq!(HumanAddr::from("distributor"), config_res.distributor_contract);
+    assert_eq!(
+        HumanAddr::from("distributor"),
+        config_res.distributor_contract
+    );
     assert_eq!(HumanAddr::from("collector"), config_res.collector_contract);
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
     assert_eq!("uusd".to_string(), config_res.stable_denom);
@@ -1011,6 +1014,112 @@ fn borrow_stable() {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(
             msg,
             "Borrow amount too high; Loan liability becomes greater than borrow limit: 1000000"
+        ),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+}
+
+#[test]
+fn assert_max_borrow_factor() {
+    let mut deps = mock_dependencies(
+        20,
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+
+    let msg = InitMsg {
+        owner_addr: HumanAddr::from("owner"),
+        stable_denom: "uusd".to_string(),
+        reserve_factor: Decimal256::permille(3),
+        aterra_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::percent(1),
+    };
+
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    // Register anchor token contract
+    let msg = HandleMsg::RegisterATerra {};
+    let env = mock_env("AT-uusd", &[]);
+    let _res = handle(&mut deps, env, msg).unwrap();
+
+    // Register overseer contract
+    let msg = HandleMsg::RegisterContracts {
+        overseer_contract: HumanAddr::from("overseer"),
+        interest_model: HumanAddr::from("interest"),
+        distribution_model: HumanAddr::from("distribution"),
+        collector_contract: HumanAddr::from("collector"),
+        distributor_contract: HumanAddr::from("distributor"),
+    };
+    let env = mock_env("addr0000", &[]);
+    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+    deps.querier
+        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
+    deps.querier
+        .with_borrow_limit(&[(&HumanAddr::from("addr0000"), &Uint256::from(1000000u64))]);
+
+    store_state(
+        &mut deps.storage,
+        &State {
+            total_liabilities: Decimal256::zero(),
+            total_reserves: Decimal256::zero(),
+            last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
+            global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
+        },
+    )
+    .unwrap();
+
+    let msg = HandleMsg::BorrowStable {
+        borrow_amount: Uint256::from(10000u64),
+        to: None,
+    };
+
+    let res = handle(&mut deps, env.clone(), msg).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "borrow_stable"),
+            log("borrower", "addr0000"),
+            log("borrow_amount", "10000")
+        ]
+    );
+
+    // subtract borrow amount
+    deps.querier.update_balance(
+        MOCK_CONTRACT_ADDR,
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT - 10000u128),
+        }],
+    );
+
+    let msg = HandleMsg::BorrowStable {
+        borrow_amount: Uint256::from(1u64),
+        to: None,
+    };
+    let res = handle(&mut deps, env.clone(), msg);
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(
+            msg,
+            "Exceeds uusd max borrow factor; borrow demand too high"
         ),
         _ => panic!("DO NOT ENTER HERE"),
     }
