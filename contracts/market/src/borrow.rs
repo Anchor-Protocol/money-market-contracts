@@ -199,9 +199,6 @@ pub fn claim_rewards<S: Storage, A: Api, Q: Querier>(
     let borrower = env.message.sender;
     let borrower_raw = deps.api.canonical_address(&borrower)?;
     let mut liability: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
-    if liability.loan_amount.is_zero() {
-        return Err(StdError::generic_err("No loan exist for claim"));
-    }
 
     // Compute interest
     compute_interest(&deps, &config, &mut state, env.block.height, None)?;

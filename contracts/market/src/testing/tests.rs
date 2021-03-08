@@ -1433,12 +1433,10 @@ fn claim_rewards() {
     )
     .unwrap();
 
+    // zero loan claim, will return empty messages
     let msg = HandleMsg::ClaimRewards { to: None };
-    let res = handle(&mut deps, env.clone(), msg);
-    match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "No loan exist for claim"),
-        _ => panic!("DO NOT ENTER HERE"),
-    }
+    let res = handle(&mut deps, env.clone(), msg).unwrap();
+    assert_eq!(res.messages.len(), 0);
 
     let msg = HandleMsg::BorrowStable {
         borrow_amount: Uint256::from(500000u64),
