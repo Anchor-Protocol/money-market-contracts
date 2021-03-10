@@ -125,7 +125,7 @@ fn proper_initialization() {
     assert_eq!(Decimal256::permille(3), config_res.reserve_factor);
     assert_eq!(Decimal256::one(), config_res.max_borrow_factor);
 
-    let query_res = query(&deps, QueryMsg::State {}).unwrap();
+    let query_res = query(&deps, QueryMsg::State { block_height: None }).unwrap();
     let state: State = from_binary(&query_res).unwrap();
     assert_eq!(Decimal256::zero(), state.total_liabilities);
     assert_eq!(Decimal256::zero(), state.total_reserves);
@@ -924,10 +924,9 @@ fn borrow_stable() {
         }),]
     );
 
-    let res = query(&deps, QueryMsg::State {}).unwrap();
-    let state: State = from_binary(&res).unwrap();
     assert_eq!(
-        state,
+        from_binary::<State>(&query(&deps, QueryMsg::State { block_height: None }).unwrap())
+            .unwrap(),
         State {
             total_liabilities: Decimal256::from_uint256(2500000u128),
             total_reserves: Decimal256::from_uint256(3000u128),
@@ -935,6 +934,29 @@ fn borrow_stable() {
             last_reward_updated: env.block.height,
             global_interest_index: Decimal256::from_uint256(2u128),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
+            anc_emission_rate: Decimal256::one(),
+        }
+    );
+
+    // after 1 block state
+    assert_eq!(
+        from_binary::<State>(
+            &query(
+                &deps,
+                QueryMsg::State {
+                    block_height: Some(env.block.height + 1u64)
+                }
+            )
+            .unwrap()
+        )
+        .unwrap(),
+        State {
+            total_liabilities: Decimal256::from_uint256(2525000u128),
+            total_reserves: Decimal256::from_uint256(3075u128),
+            last_interest_updated: env.block.height + 1u64,
+            last_reward_updated: env.block.height + 1u64,
+            global_interest_index: Decimal256::from_str("2.02").unwrap(),
+            global_reward_index: Decimal256::from_str("0.0001008").unwrap(),
             anc_emission_rate: Decimal256::one(),
         }
     );

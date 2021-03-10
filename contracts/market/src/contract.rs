@@ -345,7 +345,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::State {} => to_binary(&query_state(deps)?),
+        QueryMsg::State { block_height } => to_binary(&query_state(deps, block_height)?),
         QueryMsg::EpochState { block_height } => to_binary(&query_epoch_state(deps, block_height)?),
         QueryMsg::BorrowerInfo {
             borrower,
@@ -377,8 +377,50 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
 
 pub fn query_state<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
+    block_height: Option<u64>,
 ) -> StdResult<StateResponse> {
-    let state: State = read_state(&deps.storage)?;
+    let mut state: State = read_state(&deps.storage)?;
+
+    if let Some(block_height) = block_height {
+        if block_height < state.last_interest_updated {
+            return Err(StdError::generic_err(
+                "block_height must bigger than last_interest_updated",
+            ));
+        }
+
+        if block_height < state.last_reward_updated {
+            return Err(StdError::generic_err(
+                "block_height must bigger than last_reward_updated",
+            ));
+        }
+
+        let config: Config = read_config(&deps.storage)?;
+        let balance = query_balance(
+            &deps,
+            &deps.api.human_address(&config.contract_addr)?,
+            config.stable_denom.to_string(),
+        )?;
+
+        let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
+            &deps,
+            &deps.api.human_address(&config.interest_model)?,
+            balance,
+            state.total_liabilities,
+            state.total_reserves,
+        )?;
+
+        // Compute interest rate with given block height
+        compute_interest_raw(
+            &mut state,
+            block_height,
+            borrow_rate_res.rate,
+            config.reserve_factor,
+        );
+
+        // Compute reward rate with given block height
+        compute_reward(&mut state, block_height);
+    }
+
     Ok(StateResponse {
         total_liabilities: state.total_liabilities,
         total_reserves: state.total_reserves,
@@ -405,6 +447,12 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
     )?;
 
     if let Some(block_height) = block_height {
+        if block_height < state.last_interest_updated {
+            return Err(StdError::generic_err(
+                "block_height must bigger than last_interest_updated",
+            ));
+        }
+
         let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
             &deps,
             &deps.api.human_address(&config.interest_model)?,
