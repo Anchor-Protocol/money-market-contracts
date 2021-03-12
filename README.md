@@ -17,6 +17,7 @@ Money Market depends on [Anchor Token Contracts](https://github.com/anchor-proto
 | [`interest_model`](./contracts/interest_model)              | [doc](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/money-market/interest_model)       | Calculates the current borrow interest rate based on the market situation |
 | [`distribution_model`](./contracts/distribution_model)        | [doc](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/money-market/distribution_model)    | Calculates the borrower ANC emission rate based on the previous emission rate                                                                   |
 | [`oracle`](./contracts/oracle)      | [doc](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/money-market/oracle)   | Provides a price feed for bAsset collaterals                                                                            |
+| [`liquidation`](./contracts/liquidation)      | [doc](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/liquidations/liquidation-contract)   | OTC exchange contract for bAsset collateral liquidations                                                                            |
 
 ## Development
 
