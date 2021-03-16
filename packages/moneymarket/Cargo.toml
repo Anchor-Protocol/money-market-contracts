@@ -30,3 +30,6 @@ cosmwasm-schema = "0.10.1"
 
 [profile.dev]
 overflow-checks = true
+
+[profile.release]
+overflow-checks = true
