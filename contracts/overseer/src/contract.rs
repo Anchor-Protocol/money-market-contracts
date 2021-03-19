@@ -19,8 +19,7 @@ use moneymarket::custody::HandleMsg as CustodyHandleMsg;
 use moneymarket::market::EpochStateResponse;
 use moneymarket::market::HandleMsg as MarketHandleMsg;
 use moneymarket::overseer::{
-    ConfigResponse, DistributionParamsResponse, HandleMsg, InitMsg, QueryMsg, WhitelistResponse,
-    WhitelistResponseElem,
+    ConfigResponse, HandleMsg, InitMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
 use moneymarket::querier::{deduct_tax, query_balance};
 
@@ -434,8 +433,9 @@ pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
             contract_addr: market_contract,
             send: vec![],
             msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
-                target_deposit_rate: config.target_deposit_rate,
                 deposit_rate,
+                target_deposit_rate: config.target_deposit_rate,
+                threshold_deposit_rate: config.threshold_deposit_rate,
             })?,
         })],
         log: vec![
@@ -470,7 +470,6 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::AllCollaterals { start_after, limit } => {
             to_binary(&query_all_collaterals(deps, start_after, limit)?)
         }
-        QueryMsg::DistributionParams {} => to_binary(&query_distribution_params(deps)?),
         QueryMsg::BorrowLimit {
             borrower,
             block_time,
@@ -534,17 +533,4 @@ pub fn query_whitelist<S: Storage, A: Api, Q: Querier>(
         let whitelist: Vec<WhitelistResponseElem> = read_whitelist(&deps, start_after, limit)?;
         Ok(WhitelistResponse { elems: whitelist })
     }
-}
-
-pub fn query_distribution_params<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<DistributionParamsResponse> {
-    let config: Config = read_config(&deps.storage)?;
-    let epoch_state: EpochState = read_epoch_state(&deps.storage)?;
-
-    Ok(DistributionParamsResponse {
-        target_deposit_rate: config.target_deposit_rate,
-        deposit_rate: epoch_state.deposit_rate,
-        threshold_deposit_rate: config.threshold_deposit_rate,
-    })
 }

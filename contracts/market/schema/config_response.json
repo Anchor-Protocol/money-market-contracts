@@ -11,7 +11,6 @@
     "max_borrow_factor",
     "overseer_contract",
     "owner_addr",
-    "reserve_factor",
     "stable_denom"
   ],
   "properties": {
@@ -38,9 +37,6 @@
     },
     "owner_addr": {
       "$ref": "#/definitions/HumanAddr"
-    },
-    "reserve_factor": {
-      "$ref": "#/definitions/Decimal256"
     },
     "stable_denom": {
       "type": "string"

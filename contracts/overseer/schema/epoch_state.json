@@ -6,7 +6,8 @@
     "deposit_rate",
     "last_executed_height",
     "prev_aterra_supply",
-    "prev_exchange_rate"
+    "prev_exchange_rate",
+    "prev_interest_buffer"
   ],
   "properties": {
     "deposit_rate": {
@@ -22,6 +23,9 @@
     },
     "prev_exchange_rate": {
       "$ref": "#/definitions/Decimal256"
+    },
+    "prev_interest_buffer": {
+      "$ref": "#/definitions/Uint256"
     }
   },
   "definitions": {

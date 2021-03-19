@@ -118,7 +118,6 @@ pub enum QueryMsg {
         start_after: Option<HumanAddr>,
         limit: Option<u32>,
     },
-    DistributionParams {},
     BorrowLimit {
         borrower: HumanAddr,
         block_time: Option<u64>,
@@ -169,14 +168,6 @@ pub struct CollateralsResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct AllCollateralsResponse {
     pub all_collaterals: Vec<CollateralsResponse>,
-}
-
-// We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct DistributionParamsResponse {
-    pub deposit_rate: Decimal256,
-    pub target_deposit_rate: Decimal256,
-    pub threshold_deposit_rate: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

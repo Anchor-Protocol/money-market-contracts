@@ -7,7 +7,6 @@
     "aterra_code_id",
     "max_borrow_factor",
     "owner_addr",
-    "reserve_factor",
     "stable_denom"
   ],
   "properties": {
@@ -34,18 +33,10 @@
       ]
     },
     "owner_addr": {
-      "description": "overseer contract can be registered after we register market contract to overseer contract Owner address for config update",
+      "description": "Owner address for config update",
       "allOf": [
         {
           "$ref": "#/definitions/HumanAddr"
-        }
-      ]
-    },
-    "reserve_factor": {
-      "description": "reserve ratio applied to interest",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Decimal256"
         }
       ]
     },

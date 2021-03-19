@@ -3,8 +3,9 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
+    "anc_purchase_factor",
     "buffer_distribution_factor",
-    "threshold_deposit_rate",
+    "collector_contract",
     "epoch_period",
     "liquidation_contract",
     "market_contract",
@@ -12,14 +13,18 @@
     "owner_addr",
     "price_timeframe",
     "stable_denom",
-    "target_deposit_rate"
+    "target_deposit_rate",
+    "threshold_deposit_rate"
   ],
   "properties": {
+    "anc_purchase_factor": {
+      "$ref": "#/definitions/Decimal256"
+    },
     "buffer_distribution_factor": {
       "$ref": "#/definitions/Decimal256"
     },
-    "threshold_deposit_rate": {
-      "$ref": "#/definitions/Decimal256"
+    "collector_contract": {
+      "$ref": "#/definitions/HumanAddr"
     },
     "epoch_period": {
       "type": "integer",
@@ -47,6 +52,9 @@
       "type": "string"
     },
     "target_deposit_rate": {
+      "$ref": "#/definitions/Decimal256"
+    },
+    "threshold_deposit_rate": {
       "$ref": "#/definitions/Decimal256"
     }
   },

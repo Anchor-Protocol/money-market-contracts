@@ -8,16 +8,10 @@ use cw20::Cw20ReceiveMsg;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct InitMsg {
-    /// overseer contract can be registered after
-    /// we register market contract to overseer contract
-    // pub overseer_contract: HumanAddr,
-
     /// Owner address for config update
     pub owner_addr: HumanAddr,
     /// stable coin denom used to borrow & repay
     pub stable_denom: String,
-    /// reserve ratio applied to interest
-    pub reserve_factor: Decimal256,
     /// Anchor token code ID used to instantiate
     pub aterra_code_id: u64,
     /// Anchor token distribution speed
@@ -56,7 +50,6 @@ pub enum HandleMsg {
     /// Update config values
     UpdateConfig {
         owner_addr: Option<HumanAddr>,
-        reserve_factor: Option<Decimal256>,
         max_borrow_factor: Option<Decimal256>,
         interest_model: Option<HumanAddr>,
         distribution_model: Option<HumanAddr>,
@@ -75,8 +68,9 @@ pub enum HandleMsg {
     /// 1. send reserve to collector contract
     /// 2. update anc_emission_rate state
     ExecuteEpochOperations {
-        target_deposit_rate: Decimal256,
         deposit_rate: Decimal256,
+        target_deposit_rate: Decimal256,
+        threshold_deposit_rate: Decimal256,
     },
 
     ////////////////////
@@ -110,6 +104,14 @@ pub enum Cw20HookMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub struct MigrateMsg {
+    pub collector_contract: HumanAddr,
+    pub prev_aterra_supply: Uint256,
+    pub prev_exchange_rate: Decimal256,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
     State {
@@ -139,7 +141,6 @@ pub struct ConfigResponse {
     pub collector_contract: HumanAddr,
     pub distributor_contract: HumanAddr,
     pub stable_denom: String,
-    pub reserve_factor: Decimal256,
     pub max_borrow_factor: Decimal256,
 }
 
@@ -153,6 +154,8 @@ pub struct StateResponse {
     pub global_interest_index: Decimal256,
     pub global_reward_index: Decimal256,
     pub anc_emission_rate: Decimal256,
+    pub prev_aterra_supply: Uint256,
+    pub prev_exchange_rate: Decimal256,
 }
 
 // We define a custom struct for each query response

@@ -611,8 +611,9 @@ fn update_epoch_state() {
             contract_addr: HumanAddr::from("market"),
             send: vec![],
             msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
-                target_deposit_rate: Decimal256::permille(5),
                 deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
+                target_deposit_rate: Decimal256::permille(5),
+                threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
             })
             .unwrap(),
         })]
@@ -642,8 +643,9 @@ fn update_epoch_state() {
             contract_addr: HumanAddr::from("market"),
             send: vec![],
             msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
-                target_deposit_rate: Decimal256::permille(5),
                 deposit_rate: Decimal256::from_str("0.000000482253086419").unwrap(),
+                target_deposit_rate: Decimal256::permille(5),
+                threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
             })
             .unwrap(),
         })]

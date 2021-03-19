@@ -99,11 +99,13 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::AncEmissionRate {
             deposit_rate,
             target_deposit_rate,
+            threshold_deposit_rate,
             current_emission_rate,
         } => to_binary(&query_anc_emission_rate(
             deps,
             deposit_rate,
             target_deposit_rate,
+            threshold_deposit_rate,
             current_emission_rate,
         )?),
     }
@@ -128,13 +130,19 @@ fn query_anc_emission_rate<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     deposit_rate: Decimal256,
     target_deposit_rate: Decimal256,
+    threshold_deposit_rate: Decimal256,
     current_emission_rate: Decimal256,
 ) -> StdResult<AncEmissionRateResponse> {
     let config: Config = read_config(&deps.storage)?;
 
-    let emission_rate = if deposit_rate < target_deposit_rate {
+    let half_dec = Decimal256::one() + Decimal256::one();
+    let mid_rate = (threshold_deposit_rate + target_deposit_rate) / half_dec;
+    let high_trigger = (mid_rate + target_deposit_rate) / half_dec;
+    let low_trigger = (mid_rate + threshold_deposit_rate) / half_dec;
+
+    let emission_rate = if deposit_rate < low_trigger {
         current_emission_rate * config.increment_multiplier
-    } else if deposit_rate > target_deposit_rate {
+    } else if deposit_rate > high_trigger {
         current_emission_rate * config.decrement_multiplier
     } else {
         current_emission_rate
@@ -155,7 +163,7 @@ fn query_anc_emission_rate<S: Storage, A: Api, Q: Querier>(
 mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::{from_binary, StdError};
+    use cosmwasm_std::StdError;
 
     #[test]
     fn proper_initialization() {
@@ -182,33 +190,6 @@ mod tests {
         assert_eq!("10", &value.emission_floor.to_string());
         assert_eq!("1.1", &value.increment_multiplier.to_string());
         assert_eq!("0.9", &value.decrement_multiplier.to_string());
-
-        let value = query_anc_emission_rate(
-            &deps,
-            Decimal256::percent(10),
-            Decimal256::percent(10),
-            Decimal256::from_uint256(99u128),
-        )
-        .unwrap();
-        assert_eq!("99", &value.emission_rate.to_string());
-
-        let value = query_anc_emission_rate(
-            &deps,
-            Decimal256::percent(10),
-            Decimal256::percent(12),
-            Decimal256::from_uint256(99u128),
-        )
-        .unwrap();
-        assert_eq!("100", &value.emission_rate.to_string());
-
-        let value = query_anc_emission_rate(
-            &deps,
-            Decimal256::percent(15),
-            Decimal256::percent(12),
-            Decimal256::from_uint256(99u128),
-        )
-        .unwrap();
-        assert_eq!("89.1", &value.emission_rate.to_string());
     }
 
     #[test]
@@ -279,26 +260,60 @@ mod tests {
         let env = mock_env("addr0000", &[]);
         let _res = init(&mut deps, env, msg).unwrap();
 
-        //set emission rate to floor
-        let query_emission = QueryMsg::AncEmissionRate {
-            deposit_rate: Decimal256::from_uint256(2000u64),
-            target_deposit_rate: Decimal256::from_uint256(1000u64),
-            current_emission_rate: Decimal256::percent(9),
-        };
+        // high = 8.75
+        // low = 6.25
+        // no changes
+        let value = query_anc_emission_rate(
+            &deps,
+            Decimal256::percent(7),
+            Decimal256::percent(10),
+            Decimal256::percent(5),
+            Decimal256::from_uint256(99u128),
+        )
+        .unwrap();
+        assert_eq!("99", &value.emission_rate.to_string());
 
-        let res: AncEmissionRateResponse =
-            from_binary(&query(&deps, query_emission).unwrap()).unwrap();
-        assert_eq!(res.emission_rate, Decimal256::from_uint256(10u64));
+        // increment
+        let value = query_anc_emission_rate(
+            &deps,
+            Decimal256::percent(5),
+            Decimal256::percent(10),
+            Decimal256::percent(5),
+            Decimal256::from_uint256(80u128),
+        )
+        .unwrap();
+        assert_eq!("88", &value.emission_rate.to_string());
 
-        //set emission rate to cap
-        let query_emission = QueryMsg::AncEmissionRate {
-            deposit_rate: Decimal256::from_uint256(1000u64),
-            target_deposit_rate: Decimal256::from_uint256(10000u64),
-            current_emission_rate: Decimal256::percent(90000),
-        };
+        // cap
+        let value = query_anc_emission_rate(
+            &deps,
+            Decimal256::percent(5),
+            Decimal256::percent(10),
+            Decimal256::percent(5),
+            Decimal256::from_uint256(99u128),
+        )
+        .unwrap();
+        assert_eq!("100", &value.emission_rate.to_string());
+        // decrement
+        let value = query_anc_emission_rate(
+            &deps,
+            Decimal256::percent(9),
+            Decimal256::percent(10),
+            Decimal256::percent(5),
+            Decimal256::from_uint256(99u128),
+        )
+        .unwrap();
+        assert_eq!("89.1", &value.emission_rate.to_string());
 
-        let res: AncEmissionRateResponse =
-            from_binary(&query(&deps, query_emission).unwrap()).unwrap();
-        assert_eq!(res.emission_rate, Decimal256::from_uint256(100u64));
+        // floor
+        let value = query_anc_emission_rate(
+            &deps,
+            Decimal256::percent(9),
+            Decimal256::percent(10),
+            Decimal256::percent(5),
+            Decimal256::from_uint256(11u128),
+        )
+        .unwrap();
+        assert_eq!("10", &value.emission_rate.to_string());
     }
 }

@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use cw20::TokenInfoResponse;
 use moneymarket::distribution_model::AncEmissionRateResponse;
 use moneymarket::interest_model::BorrowRateResponse;
-use moneymarket::overseer::BorrowLimitResponse;
+use moneymarket::overseer::{BorrowLimitResponse, ConfigResponse};
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -32,10 +32,13 @@ pub enum QueryMsg {
     },
     /// Query ANC emission rate to distribution model contract
     AncEmissionRate {
-        target_deposit_rate: Decimal256,
         deposit_rate: Decimal256,
+        target_deposit_rate: Decimal256,
+        threshold_deposit_rate: Decimal256,
         current_emission_rate: Decimal256,
     },
+    /// Query overseer config to get target deposit rate
+    Config {},
 }
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -239,11 +242,26 @@ impl WasmMockQuerier {
                         }),
                     },
                     QueryMsg::AncEmissionRate {
-                        target_deposit_rate: _,
                         deposit_rate: _,
+                        target_deposit_rate: _,
+                        threshold_deposit_rate: _,
                         current_emission_rate: _,
                     } => Ok(to_binary(&AncEmissionRateResponse {
                         emission_rate: Decimal256::from_uint256(5u64),
+                    })),
+                    QueryMsg::Config {} => Ok(to_binary(&ConfigResponse {
+                        owner_addr: HumanAddr::default(),
+                        oracle_contract: HumanAddr::default(),
+                        market_contract: HumanAddr::default(),
+                        liquidation_contract: HumanAddr::default(),
+                        collector_contract: HumanAddr::default(),
+                        threshold_deposit_rate: Decimal256::one(),
+                        target_deposit_rate: Decimal256::from_ratio(1, 100),
+                        buffer_distribution_factor: Decimal256::one(),
+                        anc_purchase_factor: Decimal256::one(),
+                        stable_denom: "uusd".to_string(),
+                        epoch_period: 100u64,
+                        price_timeframe: 100u64,
                     })),
                 }
             }
@@ -253,25 +271,17 @@ impl WasmMockQuerier {
                 let prefix_token_info = to_length_prefixed(b"token_info").to_vec();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
 
-                let balances: &HashMap<HumanAddr, Uint128> =
+                let balances: HashMap<HumanAddr, Uint128> =
                     match self.token_querier.balances.get(contract_addr) {
-                        Some(balances) => balances,
-                        None => {
-                            return Err(SystemError::InvalidRequest {
-                                error: format!(
-                                    "No balance info exists for the contract {}",
-                                    contract_addr
-                                ),
-                                request: key.into(),
-                            })
-                        }
+                        Some(balances) => balances.clone(),
+                        None => HashMap::new(),
                     };
 
                 if key.to_vec() == prefix_token_info {
                     let mut total_supply = Uint128::zero();
 
                     for balance in balances {
-                        total_supply += *balance.1;
+                        total_supply += balance.1;
                     }
 
                     Ok(to_binary(

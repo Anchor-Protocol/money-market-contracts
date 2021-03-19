@@ -164,6 +164,10 @@ pub fn compute_exchange_rate_raw(
     aterra_supply: Uint256,
     contract_balance: Uint256,
 ) -> Decimal256 {
+    if aterra_supply.is_zero() {
+        return Decimal256::one();
+    }
+
     // (aterra / stable_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / aterra_supply
     (Decimal256::from_uint256(contract_balance) + state.total_liabilities - state.total_reserves)

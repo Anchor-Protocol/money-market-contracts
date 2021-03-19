@@ -32,6 +32,7 @@ pub enum QueryMsg {
     AncEmissionRate {
         deposit_rate: Decimal256,
         target_deposit_rate: Decimal256,
+        threshold_deposit_rate: Decimal256,
         current_emission_rate: Decimal256,
     },
 }
