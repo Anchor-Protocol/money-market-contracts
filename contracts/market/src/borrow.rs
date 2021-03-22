@@ -312,7 +312,6 @@ pub fn compute_interest_raw(
     state.total_liabilities += interest_accrued;
 
     let effective_deposit_rate = exchange_rate / state.prev_exchange_rate;
-    println!("SIBONG {}", effective_deposit_rate);
     let deposit_rate = (effective_deposit_rate - Decimal256::one()) / passed_blocks;
 
     if deposit_rate > target_deposit_rate {
