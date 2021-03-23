@@ -442,7 +442,7 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
         config.stable_denom.to_string(),
     )?;
 
-    if let Some(block_height) = block_height {
+    let exchange_rate = if let Some(block_height) = block_height {
         if block_height < state.last_interest_updated {
             return Err(StdError::generic_err(
                 "block_height must bigger than last_interest_updated",
@@ -469,10 +469,14 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
             borrow_rate_res.rate,
             target_deposit_rate,
         );
-    }
+
+        state.prev_exchange_rate
+    } else {
+        compute_exchange_rate_raw(&state, aterra_supply, balance)
+    };
 
     Ok(EpochStateResponse {
-        exchange_rate: compute_exchange_rate_raw(&state, aterra_supply, balance),
+        exchange_rate,
         aterra_supply,
     })
 }

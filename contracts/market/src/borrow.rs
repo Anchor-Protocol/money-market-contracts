@@ -307,7 +307,7 @@ pub fn compute_interest_raw(
         state.global_interest_index * (Decimal256::one() + interest_factor);
     state.total_liabilities += interest_accrued;
 
-    let exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
+    let mut exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
     let effective_deposit_rate = exchange_rate / state.prev_exchange_rate;
     let deposit_rate = (effective_deposit_rate - Decimal256::one()) / passed_blocks;
 
@@ -319,11 +319,13 @@ pub fn compute_interest_raw(
 
         // excess_yield = prev_deposits * excess_deposit_rate(_per_block) * blocks
         let excess_yield = prev_deposits * passed_blocks * excess_deposit_rate;
+        
         state.total_reserves += excess_yield;
+        exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
     }
 
     state.prev_aterra_supply = aterra_supply;
-    state.prev_exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
+    state.prev_exchange_rate = exchange_rate;
     state.last_interest_updated = block_height;
 }
 
