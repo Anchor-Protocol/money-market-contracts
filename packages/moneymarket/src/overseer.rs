@@ -178,4 +178,7 @@ pub struct BorrowLimitResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub target_deposit_rate: Decimal256,
+    pub threshold_deposit_rate: Decimal256,
+}

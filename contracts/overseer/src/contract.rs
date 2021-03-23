@@ -537,9 +537,16 @@ pub fn query_whitelist<S: Storage, A: Api, Q: Querier>(
 }
 
 pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
+    deps: &mut Extern<S, A, Q>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> MigrateResult {
+    let config: Config = read_config(&deps.storage)?;
+    store_config(&mut deps.storage, &Config {
+        target_deposit_rate: msg.target_deposit_rate,
+        threshold_deposit_rate: msg.threshold_deposit_rate,
+        ..config
+    })?;
+
     Ok(MigrateResponse::default())
 }
