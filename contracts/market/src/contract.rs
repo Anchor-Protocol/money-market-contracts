@@ -312,8 +312,17 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     )?;
 
     // Compute total_reserves to fund collector contract
+    // Update total_reserves and send it to collector contract
+    // only when there is enough balance
+    let balance = query_balance(
+        &deps,
+        &env.contract.address,
+        config.stable_denom.to_string(),
+    )?;
     let total_reserves = state.total_reserves * Uint256::one();
-    let messages: Vec<CosmosMsg> = if !total_reserves.is_zero() {
+    let messages: Vec<CosmosMsg> = if !total_reserves.is_zero() && balance > total_reserves {
+        state.total_reserves = state.total_reserves - Decimal256::from_uint256(total_reserves);
+
         vec![CosmosMsg::Bank(BankMsg::Send {
             from_address: env.contract.address,
             to_address: deps.api.human_address(&config.collector_contract)?,
@@ -330,7 +339,6 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     };
 
     state.anc_emission_rate = anc_emission_rate_res.emission_rate;
-    state.total_reserves = state.total_reserves - Decimal256::from_uint256(total_reserves);
     store_state(&mut deps.storage, &state)?;
 
     return Ok(HandleResponse {
@@ -434,7 +442,6 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
         config.stable_denom.to_string(),
     )?;
 
-    let exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
     if let Some(block_height) = block_height {
         if block_height < state.last_interest_updated {
             return Err(StdError::generic_err(
@@ -457,14 +464,15 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
         compute_interest_raw(
             &mut state,
             block_height,
+            balance,
+            aterra_supply,
             borrow_rate_res.rate,
-            exchange_rate,
             target_deposit_rate,
         );
     }
 
     Ok(EpochStateResponse {
-        exchange_rate,
+        exchange_rate: compute_exchange_rate_raw(&state, aterra_supply, balance),
         aterra_supply,
     })
 }

@@ -605,7 +605,9 @@ fn deposit_stable() {
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
     // State: global_interest_index: 1
-    // total_liabilities: 50000
+    // balance: 1000000
+    // aterra_supply: 1000000
+    // total_liabilities: 100000
     // total_reserves: 550000
 
     assert_eq!(
@@ -619,7 +621,7 @@ fn deposit_stable() {
             last_reward_updated: env.block.height,
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT),
-            prev_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            prev_exchange_rate: Decimal256::from_ratio(55u64, 100u64),
         }
     );
 }
@@ -1736,6 +1738,61 @@ fn execute_epoch_operations() {
         State {
             total_liabilities: Decimal256::from_uint256(2000000u128),
             total_reserves: Decimal256::zero(),
+            last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
+            global_interest_index: Decimal256::from_uint256(2u64),
+            global_reward_index: Decimal256::from_str("0.0001").unwrap(),
+            anc_emission_rate: Decimal256::from_uint256(5u64),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
+        }
+    );
+
+    // When there is not enough balance to cover reserve
+    // no message will be sent and reserve will be left as same
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(2999u128),
+        }],
+    );
+
+    let mut env = mock_env("overseer", &[]);
+    store_state(
+        &mut deps.storage,
+        &State {
+            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_reserves: Decimal256::from_uint256(3000u128),
+            last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
+            global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
+        },
+    )
+    .unwrap();
+
+    env.block.height += 100;
+
+    // reserve == 3000
+    let msg = HandleMsg::ExecuteEpochOperations {
+        deposit_rate: Decimal256::one(),
+        target_deposit_rate: Decimal256::one(),
+        threshold_deposit_rate: Decimal256::one(),
+    };
+
+    let res = handle(&mut deps, env.clone(), msg).unwrap();
+    assert_eq!(res.messages.len(), 0);
+
+    let state = read_state(&deps.storage).unwrap();
+    assert_eq!(
+        state,
+        State {
+            total_liabilities: Decimal256::from_uint256(2000000u128),
+            total_reserves: Decimal256::from_uint256(3000u128),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
             global_interest_index: Decimal256::from_uint256(2u64),

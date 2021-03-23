@@ -269,19 +269,14 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
     let target_deposit_rate: Decimal256 =
         query_target_deposit_rate(&deps, &deps.api.human_address(&config.overseer_contract)?)?;
 
-    let exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
-
     compute_interest_raw(
         state,
         block_height,
+        balance,
+        aterra_supply,
         borrow_rate_res.rate,
-        exchange_rate,
         target_deposit_rate,
     );
-
-    state.prev_aterra_supply = aterra_supply;
-    state.prev_exchange_rate = exchange_rate;
-    state.last_interest_updated = block_height;
 
     Ok(())
 }
@@ -294,8 +289,9 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
 pub fn compute_interest_raw(
     state: &mut State,
     block_height: u64,
+    balance: Uint256,
+    aterra_supply: Uint256,
     borrow_rate: Decimal256,
-    exchange_rate: Decimal256,
     target_deposit_rate: Decimal256,
 ) {
     if state.last_interest_updated >= block_height {
@@ -311,6 +307,7 @@ pub fn compute_interest_raw(
         state.global_interest_index * (Decimal256::one() + interest_factor);
     state.total_liabilities += interest_accrued;
 
+    let exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
     let effective_deposit_rate = exchange_rate / state.prev_exchange_rate;
     let deposit_rate = (effective_deposit_rate - Decimal256::one()) / passed_blocks;
 
@@ -324,6 +321,10 @@ pub fn compute_interest_raw(
         let excess_yield = prev_deposits * passed_blocks * excess_deposit_rate;
         state.total_reserves += excess_yield;
     }
+
+    state.prev_aterra_supply = aterra_supply;
+    state.prev_exchange_rate = exchange_rate;
+    state.last_interest_updated = block_height;
 }
 
 /// Compute new interest and apply to liability
