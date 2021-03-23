@@ -3,10 +3,10 @@ use crate::state::{read_config, store_config, Config};
 use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::{
     to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr, InitResponse,
-    Querier, StdError, StdResult, Storage,
+    MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
 };
 use moneymarket::distribution_model::{
-    AncEmissionRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg,
+    AncEmissionRateResponse, ConfigResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
 };
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -157,6 +157,14 @@ fn query_anc_emission_rate<S: Storage, A: Api, Q: Querier>(
     };
 
     Ok(AncEmissionRateResponse { emission_rate })
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }
 
 #[cfg(test)]

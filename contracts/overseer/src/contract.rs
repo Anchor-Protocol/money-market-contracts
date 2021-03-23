@@ -1,8 +1,8 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     log, to_binary, Api, BankMsg, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError, StdResult, Storage,
-    WasmMsg,
+    HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse, MigrateResult, Querier,
+    StdError, StdResult, Storage, WasmMsg,
 };
 
 use crate::collateral::{
@@ -19,7 +19,8 @@ use moneymarket::custody::HandleMsg as CustodyHandleMsg;
 use moneymarket::market::EpochStateResponse;
 use moneymarket::market::HandleMsg as MarketHandleMsg;
 use moneymarket::overseer::{
-    ConfigResponse, HandleMsg, InitMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
+    ConfigResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg, WhitelistResponse,
+    WhitelistResponseElem,
 };
 use moneymarket::querier::{deduct_tax, query_balance};
 
@@ -533,4 +534,12 @@ pub fn query_whitelist<S: Storage, A: Api, Q: Querier>(
         let whitelist: Vec<WhitelistResponseElem> = read_whitelist(&deps, start_after, limit)?;
         Ok(WhitelistResponse { elems: whitelist })
     }
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }

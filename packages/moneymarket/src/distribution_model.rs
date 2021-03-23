@@ -52,3 +52,7 @@ pub struct ConfigResponse {
 pub struct AncEmissionRateResponse {
     pub emission_rate: Decimal256,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MigrateMsg {}
