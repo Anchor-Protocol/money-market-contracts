@@ -470,6 +470,8 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
             target_deposit_rate,
         );
 
+        // compute_interest_raw store current exchange rate
+        // as prev_exchange_rate, so just return prev_exchange_rate
         state.prev_exchange_rate
     } else {
         compute_exchange_rate_raw(&state, aterra_supply, balance)
