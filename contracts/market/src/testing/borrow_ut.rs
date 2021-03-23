@@ -219,7 +219,7 @@ fn proper_compute_interest() {
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(2000000u64),
-            prev_exchange_rate: Decimal256::from_uint256(3u64),
+            prev_exchange_rate: Decimal256::from_uint256(2u64),
         }
     );
 }

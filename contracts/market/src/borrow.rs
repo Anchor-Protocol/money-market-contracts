@@ -323,7 +323,7 @@ pub fn compute_interest_raw(
     }
 
     state.prev_aterra_supply = aterra_supply;
-    state.prev_exchange_rate = exchange_rate;
+    state.prev_exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
     state.last_interest_updated = block_height;
 }
 
