@@ -507,7 +507,7 @@ fn deposit_stable() {
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
             anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
+            prev_aterra_supply: Uint256::from(1000000u64),
             prev_exchange_rate: Decimal256::one(),
         }
     );
@@ -609,6 +609,8 @@ fn deposit_stable() {
     // aterra_supply: 1000000
     // total_liabilities: 100000
     // total_reserves: 550000
+    // exchange_rate: 0.55
+    // mint_amount: 0.55 * 1000000 = 1,818,181
 
     assert_eq!(
         read_state(&deps.storage).unwrap(),
@@ -620,7 +622,7 @@ fn deposit_stable() {
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
             anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT),
+            prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT + 1818181),
             prev_exchange_rate: Decimal256::from_ratio(55u64, 100u64),
         }
     );
@@ -760,7 +762,7 @@ fn redeem_stable() {
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
+            prev_aterra_supply: Uint256::from(2000000u64),
             prev_exchange_rate: Decimal256::one(),
         },
     )
@@ -1803,3 +1805,94 @@ fn execute_epoch_operations() {
         }
     );
 }
+
+// #[test]
+// fn borrow_repay_execute_operations() {
+//     let mut deps = mock_dependencies(
+//         20,
+//         &[Coin {
+//             denom: "uusd".to_string(),
+//             amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+//         }],
+//     );
+
+//     let msg = InitMsg {
+//         owner_addr: HumanAddr::from("owner"),
+//         stable_denom: "uusd".to_string(),
+//         aterra_code_id: 123u64,
+//         anc_emission_rate: Decimal256::one(),
+//         max_borrow_factor: Decimal256::one(),
+//     };
+
+//     let env = mock_env(
+//         "addr0000",
+//         &[Coin {
+//             denom: "uusd".to_string(),
+//             amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+//         }],
+//     );
+
+//     // we can just call .unwrap() to assert this was a success
+//     let _res = init(&mut deps, env.clone(), msg).unwrap();
+//     // Register anchor token contract
+//     let msg = HandleMsg::RegisterATerra {};
+//     let env = mock_env("AT-uusd", &[]);
+//     let _res = handle(&mut deps, env, msg).unwrap();
+
+//     // Register overseer contract
+//     let msg = HandleMsg::RegisterContracts {
+//         overseer_contract: HumanAddr::from("overseer"),
+//         interest_model: HumanAddr::from("interest"),
+//         distribution_model: HumanAddr::from("distribution"),
+//         collector_contract: HumanAddr::from("collector"),
+//         distributor_contract: HumanAddr::from("distributor"),
+//     };
+//     let env = mock_env("addr0000", &[]);
+//     let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+//     deps.querier
+//         .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
+//     deps.querier.with_token_balances(&[(
+//         &HumanAddr::from("AT-uusd"),
+//         &[(
+//             &HumanAddr::from(MOCK_CONTRACT_ADDR),
+//             &Uint128::from(1000000u128),
+//         )],
+//     )]);
+//     deps.querier.update_balance(
+//         HumanAddr::from(MOCK_CONTRACT_ADDR),
+//         vec![Coin {
+//             denom: "uusd".to_string(),
+//             amount: Uint128::from(373025692u128),
+//         }],
+//     );
+
+//     let mut env = mock_env("overseer", &[]);
+
+//     store_state(
+//         &mut deps.storage,
+//         &State {
+//             total_liabilities: Decimal256::from_str("8.198749212085782102").unwrap(),
+//             total_reserves: Decimal256::from_str("372025697.802295205294219818").unwrap(),
+//             last_interest_updated: env.block.height,
+//             last_reward_updated: env.block.height,
+//             global_interest_index: Decimal256::from_str("1.000005078160215988").unwrap(),
+//             global_reward_index: Decimal256::from_str("119531.277425251814227128").unwrap(),
+//             anc_emission_rate: Decimal256::from_str("980001.99").unwrap(),
+//             prev_aterra_supply: Uint256::from(1000000001000000u128),
+//             prev_exchange_rate: Decimal256::from_str("1.0000022").unwrap(),
+//         },
+//     )
+//     .unwrap();
+
+//     env.block.height += 100;
+
+//     let msg = HandleMsg::ExecuteEpochOperations {
+//         deposit_rate: Decimal256::one(),
+//         target_deposit_rate: Decimal256::from_str("0.000000040762727704").unwrap(),
+//         threshold_deposit_rate: Decimal256::from_str("0.000000030572045778").unwrap(),
+//     };
+
+//     // only overseer can execute this
+//     let _ = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+// }

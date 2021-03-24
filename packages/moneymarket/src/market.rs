@@ -106,8 +106,6 @@ pub enum Cw20HookMsg {
 #[serde(rename_all = "snake_case")]
 pub struct MigrateMsg {
     pub collector_contract: HumanAddr,
-    pub prev_aterra_supply: Uint256,
-    pub prev_exchange_rate: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
