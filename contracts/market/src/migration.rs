@@ -41,6 +41,21 @@ fn read_legacy_state<S: Storage>(storage: &S) -> StdResult<LegacyState> {
     ReadonlySingleton::new(storage, KEY_STATE).load()
 }
 
+fn compute_exchange_rate_with_legacy_state(
+    state: &LegacyState,
+    aterra_supply: Uint256,
+    contract_balance: Uint256,
+) -> Decimal256 {
+    if aterra_supply.is_zero() {
+        return Decimal256::one();
+    }
+
+    // (aterra / stable_denom)
+    // exchange_rate = (balance + total_liabilities - total_reserves) / aterra_supply
+    (Decimal256::from_uint256(contract_balance) + state.total_liabilities - state.total_reserves)
+        / Decimal256::from_uint256(aterra_supply)
+}
+
 pub fn migrate_config<S: Storage>(
     storage: &mut S,
     collector_contract: CanonicalAddr,
@@ -65,10 +80,13 @@ pub fn migrate_config<S: Storage>(
 
 pub fn migrate_state<S: Storage>(
     storage: &mut S,
-    prev_aterra_supply: Uint256,
-    prev_exchange_rate: Decimal256,
+    aterra_supply: Uint256,
+    balance: Uint256,
 ) -> StdResult<()> {
     let legacy_state: LegacyState = read_legacy_state(storage)?;
+    let exchange_rate =
+        compute_exchange_rate_with_legacy_state(&legacy_state, aterra_supply, balance);
+
     store_state(
         storage,
         &State {
@@ -79,8 +97,8 @@ pub fn migrate_state<S: Storage>(
             global_interest_index: legacy_state.global_interest_index,
             global_reward_index: legacy_state.global_reward_index,
             anc_emission_rate: legacy_state.anc_emission_rate,
-            prev_aterra_supply: prev_aterra_supply,
-            prev_exchange_rate: prev_exchange_rate,
+            prev_aterra_supply: aterra_supply,
+            prev_exchange_rate: exchange_rate,
         },
     )
 }

@@ -513,13 +513,11 @@ pub fn migrate<S: Storage, A: Api, Q: Querier>(
     )?;
 
     let config: Config = read_config(&deps.storage)?;
-    let state: State = read_state(&deps.storage)?;
     let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
     let balance = query_balance(&deps, &env.contract.address, config.stable_denom)?;
-    let exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
 
     // migrate state to use new State
-    // also update prev_* to the given values
-    migrate_state(&mut deps.storage, aterra_supply, exchange_rate)?;
+    migrate_state(&mut deps.storage, aterra_supply, balance)?;
+
     Ok(MigrateResponse::default())
 }
