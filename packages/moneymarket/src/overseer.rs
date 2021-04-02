@@ -81,6 +81,7 @@ pub enum HandleMsg {
     ExecuteEpochOperations {},
     UpdateEpochState {
         interest_buffer: Uint256,
+        distributed_interest: Uint256,
     },
 
     ////////////////////
@@ -96,9 +97,7 @@ pub enum HandleMsg {
     /////////////////////////////
     /// Permissionless operations
     /////////////////////////////
-    LiquidateCollateral {
-        borrower: HumanAddr,
-    },
+    LiquidateCollateral { borrower: HumanAddr },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

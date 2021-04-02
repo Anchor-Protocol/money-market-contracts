@@ -199,9 +199,13 @@
         "update_epoch_state": {
           "type": "object",
           "required": [
+            "distributed_interest",
             "interest_buffer"
           ],
           "properties": {
+            "distributed_interest": {
+              "$ref": "#/definitions/Uint256"
+            },
             "interest_buffer": {
               "$ref": "#/definitions/Uint256"
             }

@@ -424,7 +424,8 @@ fn execute_epoch_operations() {
                 contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
                 send: vec![],
                 msg: to_binary(&HandleMsg::UpdateEpochState {
-                    interest_buffer: Uint256::from(8_000_000_000u128)
+                    interest_buffer: Uint256::from(8_000_000_000u128),
+                    distributed_interest: Uint256::zero(),
                 })
                 .unwrap(),
             })
@@ -516,6 +517,7 @@ fn execute_epoch_operations() {
                 send: vec![],
                 msg: to_binary(&HandleMsg::UpdateEpochState {
                     interest_buffer: Uint256::from(9999746320u128),
+                    distributed_interest: Uint256::from(53149u128),
                 })
                 .unwrap(),
             })
@@ -529,7 +531,7 @@ fn execute_epoch_operations() {
             log("deposit_rate", "0.000000482253086419"),
             log("exchange_rate", "1.25"),
             log("aterra_supply", "1000000"),
-            log("distributed_interest", "53680"),
+            log("distributed_interest", "53149"),
             log("anc_purchase_amount", "200000")
         ]
     );
@@ -588,6 +590,7 @@ fn update_epoch_state() {
     // only contract itself can execute update_epoch_state
     let msg = HandleMsg::UpdateEpochState {
         interest_buffer: Uint256::from(10000000000u128),
+        distributed_interest: Uint256::from(1000000u128),
     };
     let res = handle(&mut deps, env.clone(), msg.clone());
     match res {
@@ -614,6 +617,7 @@ fn update_epoch_state() {
                 deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
                 target_deposit_rate: Decimal256::permille(5),
                 threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
+                distributed_interest: Uint256::from(1000000u128),
             })
             .unwrap(),
         })]
@@ -646,6 +650,7 @@ fn update_epoch_state() {
                 deposit_rate: Decimal256::from_str("0.000000482253086419").unwrap(),
                 target_deposit_rate: Decimal256::permille(5),
                 threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
+                distributed_interest: Uint256::from(1000000u128),
             })
             .unwrap(),
         })]

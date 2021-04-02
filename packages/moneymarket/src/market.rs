@@ -71,6 +71,7 @@ pub enum HandleMsg {
         deposit_rate: Decimal256,
         target_deposit_rate: Decimal256,
         threshold_deposit_rate: Decimal256,
+        distributed_interest: Uint256,
     },
 
     ////////////////////

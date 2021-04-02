@@ -1711,6 +1711,7 @@ fn execute_epoch_operations() {
         deposit_rate: Decimal256::one(),
         target_deposit_rate: Decimal256::one(),
         threshold_deposit_rate: Decimal256::one(),
+        distributed_interest: Uint256::zero(),
     };
 
     // only overseer can execute this
@@ -1784,6 +1785,7 @@ fn execute_epoch_operations() {
         deposit_rate: Decimal256::one(),
         target_deposit_rate: Decimal256::one(),
         threshold_deposit_rate: Decimal256::one(),
+        distributed_interest: Uint256::zero(),
     };
 
     let res = handle(&mut deps, env.clone(), msg).unwrap();

@@ -146,12 +146,14 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             deposit_rate,
             target_deposit_rate,
             threshold_deposit_rate,
+            distributed_interest,
         } => execute_epoch_operations(
             deps,
             env,
             deposit_rate,
             target_deposit_rate,
             threshold_deposit_rate,
+            distributed_interest,
         ),
         HandleMsg::DepositStable {} => deposit_stable(deps, env),
         HandleMsg::BorrowStable { borrow_amount, to } => {
@@ -289,6 +291,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     deposit_rate: Decimal256,
     target_deposit_rate: Decimal256,
     threshold_deposit_rate: Decimal256,
+    distributed_interest: Uint256,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     if config.overseer_contract != deps.api.canonical_address(&env.message.sender)? {
@@ -303,7 +306,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
         config.stable_denom.to_string(),
-    )?;
+    )? - distributed_interest;
 
     let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
         &deps,
@@ -356,6 +359,9 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     };
 
     state.anc_emission_rate = anc_emission_rate_res.emission_rate;
+    state.prev_exchange_rate =
+        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest);
+
     store_state(&mut deps.storage, &state)?;
 
     return Ok(HandleResponse {
