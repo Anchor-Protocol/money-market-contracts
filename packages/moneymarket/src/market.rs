@@ -118,6 +118,7 @@ pub enum QueryMsg {
     },
     EpochState {
         block_height: Option<u64>,
+        distributed_interest: Option<Uint256>,
     },
     BorrowerInfo {
         borrower: HumanAddr,

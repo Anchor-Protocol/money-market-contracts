@@ -384,7 +384,14 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State { block_height } => to_binary(&query_state(deps, block_height)?),
-        QueryMsg::EpochState { block_height } => to_binary(&query_epoch_state(deps, block_height)?),
+        QueryMsg::EpochState {
+            block_height,
+            distributed_interest,
+        } => to_binary(&query_epoch_state(
+            deps,
+            block_height,
+            distributed_interest,
+        )?),
         QueryMsg::BorrowerInfo {
             borrower,
             block_height,
@@ -456,16 +463,18 @@ pub fn query_state<S: Storage, A: Api, Q: Querier>(
 pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     block_height: Option<u64>,
+    distributed_interest: Option<Uint256>,
 ) -> StdResult<EpochStateResponse> {
     let config: Config = read_config(&deps.storage)?;
     let mut state: State = read_state(&deps.storage)?;
 
+    let distributed_interest = distributed_interest.unwrap_or(Uint256::zero());
     let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
     let balance = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
         config.stable_denom.to_string(),
-    )?;
+    )? - distributed_interest;
 
     let exchange_rate = if let Some(block_height) = block_height {
         if block_height < state.last_interest_updated {
@@ -497,9 +506,9 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
 
         // compute_interest_raw store current exchange rate
         // as prev_exchange_rate, so just return prev_exchange_rate
-        state.prev_exchange_rate
+        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest)
     } else {
-        compute_exchange_rate_raw(&state, aterra_supply, balance)
+        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest)
     };
 
     Ok(EpochStateResponse {

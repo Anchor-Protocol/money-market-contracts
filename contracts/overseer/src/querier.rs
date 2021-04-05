@@ -11,12 +11,14 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     market_addr: &HumanAddr,
     block_height: u64,
+    distributed_interest: Option<Uint256>,
 ) -> StdResult<EpochStateResponse> {
     let epoch_state: EpochStateResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: HumanAddr::from(market_addr),
             msg: to_binary(&MarketQueryMsg::EpochState {
                 block_height: Some(block_height),
+                distributed_interest: distributed_interest,
             })?,
         }))?;
 

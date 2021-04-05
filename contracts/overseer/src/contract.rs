@@ -292,7 +292,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     // Compute next epoch state
     let market_contract: HumanAddr = deps.api.human_address(&config.market_contract)?;
     let epoch_state: EpochStateResponse =
-        query_epoch_state(&deps, &market_contract, env.block.height)?;
+        query_epoch_state(&deps, &market_contract, env.block.height, None)?;
 
     // effective_deposit_rate = cur_exchange_rate / prev_exchange_rate
     // deposit_rate = (effective_deposit_rate - 1) / blocks
@@ -422,8 +422,12 @@ pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
 
     // Compute next epoch state
     let market_contract: HumanAddr = deps.api.human_address(&config.market_contract)?;
-    let market_epoch_state: EpochStateResponse =
-        query_epoch_state(&deps, &market_contract, env.block.height)?;
+    let market_epoch_state: EpochStateResponse = query_epoch_state(
+        &deps,
+        &market_contract,
+        env.block.height,
+        Some(distributed_interest),
+    )?;
 
     // effective_deposit_rate = cur_exchange_rate / prev_exchange_rate
     // deposit_rate = (effective_deposit_rate - 1) / blocks
