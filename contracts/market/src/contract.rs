@@ -324,17 +324,12 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
         borrow_rate_res.rate,
         target_deposit_rate,
     );
-    compute_reward(&mut state, env.block.height);
 
-    // Query updated anc_emission_rate
-    let anc_emission_rate_res = query_anc_emission_rate(
-        &deps,
-        &deps.api.human_address(&config.distribution_model)?,
-        deposit_rate,
-        target_deposit_rate,
-        threshold_deposit_rate,
-        state.anc_emission_rate,
-    )?;
+    // recompute prev_exchange_rate with distributed_interest
+    state.prev_exchange_rate =
+        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest);
+
+    compute_reward(&mut state, env.block.height);
 
     // Compute total_reserves to fund collector contract
     // Update total_reserves and send it to collector contract
@@ -358,9 +353,16 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
         vec![]
     };
 
-    state.anc_emission_rate = anc_emission_rate_res.emission_rate;
-    state.prev_exchange_rate =
-        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest);
+    // Query updated anc_emission_rate
+    state.anc_emission_rate = query_anc_emission_rate(
+        &deps,
+        &deps.api.human_address(&config.distribution_model)?,
+        deposit_rate,
+        target_deposit_rate,
+        threshold_deposit_rate,
+        state.anc_emission_rate,
+    )?
+    .emission_rate;
 
     store_state(&mut deps.storage, &state)?;
 
