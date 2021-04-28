@@ -134,7 +134,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::Feeder { asset } => to_binary(&query_feeder(deps, asset)?),
         QueryMsg::Price { base, quote } => to_binary(&query_price(deps, base, quote)?),
         QueryMsg::Prices { start_after, limit } => {
-            to_binary(&query_prices(deps, start_after, limit))
+            to_binary(&query_prices(deps, start_after, limit)?)
         }
     }
 }
