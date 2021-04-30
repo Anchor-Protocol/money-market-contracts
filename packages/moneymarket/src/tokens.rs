@@ -10,6 +10,7 @@ pub type TokensHuman = Vec<TokenHuman>;
 pub trait TokensMath {
     fn sub(&mut self, collaterals: Tokens) -> StdResult<()>;
     fn add(&mut self, collaterals: Tokens);
+    fn assert_duplicate_token(&self);
 }
 
 pub trait TokensToHuman {
@@ -25,24 +26,12 @@ pub trait TokensToRaw {
 
 impl TokensMath for Tokens {
     fn sub(&mut self, tokens: Tokens) -> StdResult<()> {
-        self.sort_by(|a, b| {
-            let res = a.0.as_slice().cmp(&b.0.as_slice());
-            if res == std::cmp::Ordering::Equal {
-                panic!("Invalid Tokens")
-            }
-
-            res
-        });
+        self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
+        self.assert_duplicate_token();
 
         let mut tokens = tokens;
-        tokens.sort_by(|a, b| {
-            let res = a.0.as_slice().cmp(&b.0.as_slice());
-            if res == std::cmp::Ordering::Equal {
-                panic!("Invalid Tokens")
-            }
-
-            res
-        });
+        tokens.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
+        tokens.assert_duplicate_token();
 
         let mut i = 0;
         let mut j = 0;
@@ -75,49 +64,68 @@ impl TokensMath for Tokens {
     }
 
     fn add(&mut self, tokens: Tokens) {
-        self.sort_by(|a, b| {
-            let res = a.0.as_slice().cmp(&b.0.as_slice());
-            if res == std::cmp::Ordering::Equal {
-                panic!("Invalid Tokens")
-            }
-
-            res
-        });
+        self.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
+        self.assert_duplicate_token();
 
         let mut tokens = tokens;
-        tokens.sort_by(|a, b| {
-            let res = a.0.as_slice().cmp(&b.0.as_slice());
-            if res == std::cmp::Ordering::Equal {
-                panic!("Invalid Tokens")
-            }
+        tokens.sort_by(|a, b| a.0.as_slice().cmp(&b.0.as_slice()));
+        tokens.assert_duplicate_token();
 
-            res
-        });
+        let mut tmp_tokens: Tokens = vec![];
 
         let mut i = 0;
         let mut j = 0;
         while i < self.len() && j < tokens.len() {
             if self[i].0 == tokens[j].0 {
-                self[i].1 += tokens[j].1;
+                tmp_tokens.push((self[i].0.clone(), self[i].1 + tokens[j].1));
 
                 i += 1;
                 j += 1;
             } else if self[i].0.as_slice().cmp(&tokens[j].0.as_slice())
                 == std::cmp::Ordering::Greater
             {
+                tmp_tokens.push((tokens[j].0.clone(), tokens[j].1));
+
                 j += 1;
             } else {
+                tmp_tokens.push((self[i].0.clone(), self[i].1));
+
                 i += 1;
             }
         }
 
         while j < tokens.len() {
-            self.push(tokens[j].clone());
+            tmp_tokens.push((tokens[j].0.clone(), tokens[j].1));
             j += 1;
         }
 
+        while i < self.len() {
+            tmp_tokens.push((self[i].0.clone(), self[i].1));
+            i += 1;
+        }
+
         // remove zero tokens
-        self.retain(|v| v.1 > Uint256::zero());
+        tmp_tokens.retain(|v| v.1 > Uint256::zero());
+
+        self.clear();
+        self.extend(tmp_tokens);
+    }
+
+    fn assert_duplicate_token(&self) {
+        if self.len() > 1 {
+            let mut before_token = self[0].0.as_slice();
+
+            let mut i = 1;
+            while i < self.len() {
+                let next_token = self[i].0.as_slice();
+                if before_token == next_token {
+                    panic!("duplicate token address");
+                }
+
+                before_token = next_token;
+                i += 1;
+            }
+        }
     }
 }
 
