@@ -6,11 +6,11 @@ use crate::state::{
 use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::{
     log, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, Querier, StdError, StdResult, Storage,
+    InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
 };
 
 use moneymarket::oracle::{
-    ConfigResponse, FeederResponse, HandleMsg, InitMsg, PriceResponse, PricesResponse,
+    ConfigResponse, FeederResponse, HandleMsg, InitMsg, MigrateMsg, PriceResponse, PricesResponse,
     PricesResponseElem, QueryMsg,
 };
 
@@ -134,7 +134,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::Feeder { asset } => to_binary(&query_feeder(deps, asset)?),
         QueryMsg::Price { base, quote } => to_binary(&query_price(deps, base, quote)?),
         QueryMsg::Prices { start_after, limit } => {
-            to_binary(&query_prices(deps, start_after, limit))
+            to_binary(&query_prices(deps, start_after, limit)?)
         }
     }
 }
@@ -403,4 +403,12 @@ mod tests {
             _ => panic!("Must return unauthorized error"),
         }
     }
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }
