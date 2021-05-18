@@ -12,7 +12,7 @@
         "update_config": {
           "type": "object",
           "properties": {
-            "buffer_distribution_factor": {
+            "anc_purchase_factor": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal256"
@@ -22,7 +22,7 @@
                 }
               ]
             },
-            "threshold_deposit_rate": {
+            "buffer_distribution_factor": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal256"
@@ -87,6 +87,16 @@
                   "type": "null"
                 }
               ]
+            },
+            "threshold_deposit_rate": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }
@@ -104,7 +114,9 @@
           "required": [
             "collateral_token",
             "custody_contract",
-            "max_ltv"
+            "max_ltv",
+            "name",
+            "symbol"
           ],
           "properties": {
             "collateral_token": {
@@ -115,6 +127,12 @@
             },
             "max_ltv": {
               "$ref": "#/definitions/Decimal256"
+            },
+            "name": {
+              "type": "string"
+            },
+            "symbol": {
+              "type": "string"
             }
           }
         }
@@ -179,7 +197,19 @@
       ],
       "properties": {
         "update_epoch_state": {
-          "type": "object"
+          "type": "object",
+          "required": [
+            "distributed_interest",
+            "interest_buffer"
+          ],
+          "properties": {
+            "distributed_interest": {
+              "$ref": "#/definitions/Uint256"
+            },
+            "interest_buffer": {
+              "$ref": "#/definitions/Uint256"
+            }
+          }
         }
       }
     },

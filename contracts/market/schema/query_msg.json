@@ -20,7 +20,17 @@
       ],
       "properties": {
         "state": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "block_height": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
         }
       }
     },

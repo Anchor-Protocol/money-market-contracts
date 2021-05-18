@@ -11,7 +11,7 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20CoinHuman, Cw20HandleMsg, Cw20ReceiveMsg, MinterResponse};
 use moneymarket::market::{
-    BorrowerInfoResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg,
+    BorrowerInfoResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg, StateResponse,
 };
 use moneymarket::querier::deduct_tax;
 use std::str::FromStr;
@@ -31,7 +31,6 @@ fn proper_initialization() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
@@ -122,16 +121,17 @@ fn proper_initialization() {
     assert_eq!(HumanAddr::from("collector"), config_res.collector_contract);
     assert_eq!(HumanAddr::from("overseer"), config_res.overseer_contract);
     assert_eq!("uusd".to_string(), config_res.stable_denom);
-    assert_eq!(Decimal256::permille(3), config_res.reserve_factor);
     assert_eq!(Decimal256::one(), config_res.max_borrow_factor);
 
     let query_res = query(&deps, QueryMsg::State { block_height: None }).unwrap();
-    let state: State = from_binary(&query_res).unwrap();
+    let state: StateResponse = from_binary(&query_res).unwrap();
     assert_eq!(Decimal256::zero(), state.total_liabilities);
     assert_eq!(Decimal256::zero(), state.total_reserves);
     assert_eq!(env.block.height, state.last_interest_updated);
     assert_eq!(Decimal256::one(), state.global_interest_index);
     assert_eq!(Decimal256::one(), state.anc_emission_rate);
+    assert_eq!(Uint256::zero(), state.prev_aterra_supply);
+    assert_eq!(Decimal256::one(), state.prev_exchange_rate);
 }
 
 #[test]
@@ -149,7 +149,6 @@ fn update_config() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
@@ -187,7 +186,6 @@ fn update_config() {
         owner_addr: Some(HumanAddr("owner1".to_string())),
         interest_model: None,
         distribution_model: None,
-        reserve_factor: None,
         max_borrow_factor: None,
     };
 
@@ -205,7 +203,6 @@ fn update_config() {
         owner_addr: None,
         interest_model: Some(HumanAddr::from("interest2")),
         distribution_model: Some(HumanAddr::from("distribution2")),
-        reserve_factor: Some(Decimal256::percent(1)),
         max_borrow_factor: Some(Decimal256::percent(100)),
     };
 
@@ -216,7 +213,6 @@ fn update_config() {
     let res = query(&deps, QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&res).unwrap();
     assert_eq!(HumanAddr::from("owner1"), config_res.owner_addr);
-    assert_eq!(Decimal256::percent(1), config_res.reserve_factor);
     assert_eq!(HumanAddr::from("interest2"), config_res.interest_model);
     assert_eq!(
         HumanAddr::from("distribution2"),
@@ -230,7 +226,6 @@ fn update_config() {
         owner_addr: None,
         interest_model: None,
         distribution_model: None,
-        reserve_factor: None,
         max_borrow_factor: None,
     };
 
@@ -254,7 +249,6 @@ fn deposit_stable_huge_amount() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
@@ -407,7 +401,6 @@ fn deposit_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
@@ -514,6 +507,8 @@ fn deposit_stable() {
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::from(1000000u64),
+            prev_exchange_rate: Decimal256::one(),
         }
     );
 
@@ -551,6 +546,8 @@ fn deposit_stable() {
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
         },
     )
     .unwrap();
@@ -598,6 +595,8 @@ fn deposit_stable() {
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
         },
     )
     .unwrap();
@@ -606,8 +605,12 @@ fn deposit_stable() {
     let _res = handle(&mut deps, env.clone(), msg).unwrap();
 
     // State: global_interest_index: 1
-    // total_liabilities: 50000
+    // balance: 1000000
+    // aterra_supply: 1000000
+    // total_liabilities: 100000
     // total_reserves: 550000
+    // exchange_rate: 0.55
+    // mint_amount: 0.55 * 1000000 = 1,818,181
 
     assert_eq!(
         read_state(&deps.storage).unwrap(),
@@ -615,10 +618,12 @@ fn deposit_stable() {
             global_interest_index: Decimal256::from_uint256(2u128),
             global_reward_index: Decimal256::from_str("0.002").unwrap(),
             total_liabilities: Decimal256::from_uint256(100000u128),
-            total_reserves: Decimal256::from_uint256(550150u128),
+            total_reserves: Decimal256::from_uint256(550000u128),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT + 1818181),
+            prev_exchange_rate: Decimal256::from_ratio(55u64, 100u64),
         }
     );
 }
@@ -636,7 +641,6 @@ fn redeem_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
@@ -758,6 +762,8 @@ fn redeem_stable() {
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::from(2000000u64),
+            prev_exchange_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -831,7 +837,6 @@ fn borrow_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
@@ -878,6 +883,8 @@ fn borrow_stable() {
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -929,12 +936,14 @@ fn borrow_stable() {
             .unwrap(),
         State {
             total_liabilities: Decimal256::from_uint256(2500000u128),
-            total_reserves: Decimal256::from_uint256(3000u128),
+            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
             global_interest_index: Decimal256::from_uint256(2u128),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
         }
     );
 
@@ -952,12 +961,14 @@ fn borrow_stable() {
         .unwrap(),
         State {
             total_liabilities: Decimal256::from_uint256(2525000u128),
-            total_reserves: Decimal256::from_uint256(3075u128),
+            total_reserves: Decimal256::from_uint256(0u128),
             last_interest_updated: env.block.height + 1u64,
             last_reward_updated: env.block.height + 1u64,
             global_interest_index: Decimal256::from_str("2.02").unwrap(),
             global_reward_index: Decimal256::from_str("0.0001008").unwrap(),
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
         }
     );
 
@@ -1058,7 +1069,6 @@ fn assert_max_borrow_factor() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::percent(1),
@@ -1105,6 +1115,8 @@ fn assert_max_borrow_factor() {
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -1164,7 +1176,6 @@ fn repay_stable() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
@@ -1211,6 +1222,8 @@ fn repay_stable() {
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -1344,7 +1357,6 @@ fn repay_stable_from_liquidation() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
@@ -1391,6 +1403,8 @@ fn repay_stable_from_liquidation() {
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -1512,7 +1526,6 @@ fn claim_rewards() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
@@ -1560,6 +1573,8 @@ fn claim_rewards() {
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -1636,7 +1651,6 @@ fn execute_epoch_operations() {
     let msg = InitMsg {
         owner_addr: HumanAddr::from("owner"),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         aterra_code_id: 123u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
@@ -1678,12 +1692,14 @@ fn execute_epoch_operations() {
         &mut deps.storage,
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reserves: Decimal256::zero(),
+            total_reserves: Decimal256::from_uint256(3000u128),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
         },
     )
     .unwrap();
@@ -1692,8 +1708,10 @@ fn execute_epoch_operations() {
 
     // reserve == 3000
     let msg = HandleMsg::ExecuteEpochOperations {
-        target_deposit_rate: Decimal256::one(),
         deposit_rate: Decimal256::one(),
+        target_deposit_rate: Decimal256::one(),
+        threshold_deposit_rate: Decimal256::one(),
+        distributed_interest: Uint256::zero(),
     };
 
     // only overseer can execute this
@@ -1728,6 +1746,155 @@ fn execute_epoch_operations() {
             global_interest_index: Decimal256::from_uint256(2u64),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
+        }
+    );
+
+    // When there is not enough balance to cover reserve
+    // no message will be sent and reserve will be left as same
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(2999u128),
+        }],
+    );
+
+    let mut env = mock_env("overseer", &[]);
+    store_state(
+        &mut deps.storage,
+        &State {
+            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_reserves: Decimal256::from_uint256(3000u128),
+            last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
+            global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
+        },
+    )
+    .unwrap();
+
+    env.block.height += 100;
+
+    // reserve == 3000
+    let msg = HandleMsg::ExecuteEpochOperations {
+        deposit_rate: Decimal256::one(),
+        target_deposit_rate: Decimal256::one(),
+        threshold_deposit_rate: Decimal256::one(),
+        distributed_interest: Uint256::zero(),
+    };
+
+    let res = handle(&mut deps, env.clone(), msg).unwrap();
+    assert_eq!(res.messages.len(), 0);
+
+    let state = read_state(&deps.storage).unwrap();
+    assert_eq!(
+        state,
+        State {
+            total_liabilities: Decimal256::from_uint256(2000000u128),
+            total_reserves: Decimal256::from_uint256(3000u128),
+            last_interest_updated: env.block.height,
+            last_reward_updated: env.block.height,
+            global_interest_index: Decimal256::from_uint256(2u64),
+            global_reward_index: Decimal256::from_str("0.0001").unwrap(),
+            anc_emission_rate: Decimal256::from_uint256(5u64),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
         }
     );
 }
+
+// #[test]
+// fn borrow_repay_execute_operations() {
+//     let mut deps = mock_dependencies(
+//         20,
+//         &[Coin {
+//             denom: "uusd".to_string(),
+//             amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+//         }],
+//     );
+
+//     let msg = InitMsg {
+//         owner_addr: HumanAddr::from("owner"),
+//         stable_denom: "uusd".to_string(),
+//         aterra_code_id: 123u64,
+//         anc_emission_rate: Decimal256::one(),
+//         max_borrow_factor: Decimal256::one(),
+//     };
+
+//     let env = mock_env(
+//         "addr0000",
+//         &[Coin {
+//             denom: "uusd".to_string(),
+//             amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
+//         }],
+//     );
+
+//     // we can just call .unwrap() to assert this was a success
+//     let _res = init(&mut deps, env.clone(), msg).unwrap();
+//     // Register anchor token contract
+//     let msg = HandleMsg::RegisterATerra {};
+//     let env = mock_env("AT-uusd", &[]);
+//     let _res = handle(&mut deps, env, msg).unwrap();
+
+//     // Register overseer contract
+//     let msg = HandleMsg::RegisterContracts {
+//         overseer_contract: HumanAddr::from("overseer"),
+//         interest_model: HumanAddr::from("interest"),
+//         distribution_model: HumanAddr::from("distribution"),
+//         collector_contract: HumanAddr::from("collector"),
+//         distributor_contract: HumanAddr::from("distributor"),
+//     };
+//     let env = mock_env("addr0000", &[]);
+//     let _res = handle(&mut deps, env.clone(), msg).unwrap();
+
+//     deps.querier
+//         .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
+//     deps.querier.with_token_balances(&[(
+//         &HumanAddr::from("AT-uusd"),
+//         &[(
+//             &HumanAddr::from(MOCK_CONTRACT_ADDR),
+//             &Uint128::from(1000000u128),
+//         )],
+//     )]);
+//     deps.querier.update_balance(
+//         HumanAddr::from(MOCK_CONTRACT_ADDR),
+//         vec![Coin {
+//             denom: "uusd".to_string(),
+//             amount: Uint128::from(373025692u128),
+//         }],
+//     );
+
+//     let mut env = mock_env("overseer", &[]);
+
+//     store_state(
+//         &mut deps.storage,
+//         &State {
+//             total_liabilities: Decimal256::from_str("8.198749212085782102").unwrap(),
+//             total_reserves: Decimal256::from_str("372025697.802295205294219818").unwrap(),
+//             last_interest_updated: env.block.height,
+//             last_reward_updated: env.block.height,
+//             global_interest_index: Decimal256::from_str("1.000005078160215988").unwrap(),
+//             global_reward_index: Decimal256::from_str("119531.277425251814227128").unwrap(),
+//             anc_emission_rate: Decimal256::from_str("980001.99").unwrap(),
+//             prev_aterra_supply: Uint256::from(1000000001000000u128),
+//             prev_exchange_rate: Decimal256::from_str("1.0000022").unwrap(),
+//         },
+//     )
+//     .unwrap();
+
+//     env.block.height += 100;
+
+//     let msg = HandleMsg::ExecuteEpochOperations {
+//         deposit_rate: Decimal256::one(),
+//         target_deposit_rate: Decimal256::from_str("0.000000040762727704").unwrap(),
+//         threshold_deposit_rate: Decimal256::from_str("0.000000030572045778").unwrap(),
+//     };
+
+//     // only overseer can execute this
+//     let _ = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+// }

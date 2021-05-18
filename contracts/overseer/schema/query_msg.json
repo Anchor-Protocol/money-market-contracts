@@ -118,17 +118,6 @@
     {
       "type": "object",
       "required": [
-        "distribution_params"
-      ],
-      "properties": {
-        "distribution_params": {
-          "type": "object"
-        }
-      }
-    },
-    {
-      "type": "object",
-      "required": [
         "borrow_limit"
       ],
       "properties": {

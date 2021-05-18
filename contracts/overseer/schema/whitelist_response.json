@@ -26,7 +26,9 @@
       "required": [
         "collateral_token",
         "custody_contract",
-        "max_ltv"
+        "max_ltv",
+        "name",
+        "symbol"
       ],
       "properties": {
         "collateral_token": {
@@ -37,6 +39,12 @@
         },
         "max_ltv": {
           "$ref": "#/definitions/Decimal256"
+        },
+        "name": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
         }
       }
     }

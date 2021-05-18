@@ -3,20 +3,22 @@ use crate::borrow::{
     query_borrower_info, query_borrower_infos, repay_stable, repay_stable_from_liquidation,
 };
 use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
-use crate::querier::{query_anc_emission_rate, query_borrow_rate};
+use crate::migration::{migrate_config, migrate_state};
+use crate::querier::{query_anc_emission_rate, query_borrow_rate, query_target_deposit_rate};
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError,
-    StdResult, Storage, Uint128, WasmMsg,
+    HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse,
+    MigrateResult, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 use cw20::{Cw20CoinHuman, Cw20ReceiveMsg, MinterResponse};
 
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{
-    ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, QueryMsg, StateResponse,
+    ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
+    StateResponse,
 };
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
 use terraswap::hook::InitHook;
@@ -56,7 +58,6 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             collector_contract: CanonicalAddr::default(),
             distributor_contract: CanonicalAddr::default(),
             stable_denom: msg.stable_denom.clone(),
-            reserve_factor: msg.reserve_factor,
             max_borrow_factor: msg.max_borrow_factor,
         },
     )?;
@@ -71,6 +72,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: msg.anc_emission_rate,
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
         },
     )?;
 
@@ -130,7 +133,6 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             owner_addr,
             interest_model,
             distribution_model,
-            reserve_factor,
             max_borrow_factor,
         } => update_config(
             deps,
@@ -138,13 +140,21 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             owner_addr,
             interest_model,
             distribution_model,
-            reserve_factor,
             max_borrow_factor,
         ),
         HandleMsg::ExecuteEpochOperations {
-            target_deposit_rate,
             deposit_rate,
-        } => execute_epoch_operations(deps, env, target_deposit_rate, deposit_rate),
+            target_deposit_rate,
+            threshold_deposit_rate,
+            distributed_interest,
+        } => execute_epoch_operations(
+            deps,
+            env,
+            deposit_rate,
+            target_deposit_rate,
+            threshold_deposit_rate,
+            distributed_interest,
+        ),
         HandleMsg::DepositStable {} => deposit_stable(deps, env),
         HandleMsg::BorrowStable { borrow_amount, to } => {
             borrow_stable(deps, env, borrow_amount, to)
@@ -236,7 +246,6 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     owner_addr: Option<HumanAddr>,
     interest_model: Option<HumanAddr>,
     distribution_model: Option<HumanAddr>,
-    reserve_factor: Option<Decimal256>,
     max_borrow_factor: Option<Decimal256>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
@@ -250,17 +259,13 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.owner_addr = deps.api.canonical_address(&owner_addr)?;
     }
 
-    if reserve_factor.is_some() || interest_model.is_some() {
+    if interest_model.is_some() {
         let mut state: State = read_state(&deps.storage)?;
         compute_interest(&deps, &config, &mut state, env.block.height, None)?;
         store_state(&mut deps.storage, &state)?;
 
         if let Some(interest_model) = interest_model {
             config.interest_model = deps.api.canonical_address(&interest_model)?;
-        }
-
-        if let Some(reserve_factor) = reserve_factor {
-            config.reserve_factor = reserve_factor;
         }
     }
 
@@ -283,8 +288,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    target_deposit_rate: Decimal256,
     deposit_rate: Decimal256,
+    target_deposit_rate: Decimal256,
+    threshold_deposit_rate: Decimal256,
+    distributed_interest: Uint256,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     if config.overseer_contract != deps.api.canonical_address(&env.message.sender)? {
@@ -294,21 +301,43 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     let mut state: State = read_state(&deps.storage)?;
 
     // Compute interest and reward before updating anc_emission_rate
-    compute_interest(&deps, &config, &mut state, env.block.height, None)?;
-    compute_reward(&mut state, env.block.height);
-
-    // Query updated anc_emission_rate
-    let anc_emission_rate_res = query_anc_emission_rate(
+    let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
+    let balance: Uint256 = query_balance(
         &deps,
-        &deps.api.human_address(&config.distribution_model)?,
-        target_deposit_rate,
-        deposit_rate,
-        state.anc_emission_rate,
+        &deps.api.human_address(&config.contract_addr)?,
+        config.stable_denom.to_string(),
+    )? - distributed_interest;
+
+    let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
+        &deps,
+        &deps.api.human_address(&config.interest_model)?,
+        balance,
+        state.total_liabilities,
+        state.total_reserves,
     )?;
 
+    compute_interest_raw(
+        &mut state,
+        env.block.height,
+        balance,
+        aterra_supply,
+        borrow_rate_res.rate,
+        target_deposit_rate,
+    );
+
+    // recompute prev_exchange_rate with distributed_interest
+    state.prev_exchange_rate =
+        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest);
+
+    compute_reward(&mut state, env.block.height);
+
     // Compute total_reserves to fund collector contract
+    // Update total_reserves and send it to collector contract
+    // only when there is enough balance
     let total_reserves = state.total_reserves * Uint256::one();
-    let messages: Vec<CosmosMsg> = if !total_reserves.is_zero() {
+    let messages: Vec<CosmosMsg> = if !total_reserves.is_zero() && balance > total_reserves {
+        state.total_reserves = state.total_reserves - Decimal256::from_uint256(total_reserves);
+
         vec![CosmosMsg::Bank(BankMsg::Send {
             from_address: env.contract.address,
             to_address: deps.api.human_address(&config.collector_contract)?,
@@ -324,8 +353,17 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
         vec![]
     };
 
-    state.anc_emission_rate = anc_emission_rate_res.emission_rate;
-    state.total_reserves = state.total_reserves - Decimal256::from_uint256(total_reserves);
+    // Query updated anc_emission_rate
+    state.anc_emission_rate = query_anc_emission_rate(
+        &deps,
+        &deps.api.human_address(&config.distribution_model)?,
+        deposit_rate,
+        target_deposit_rate,
+        threshold_deposit_rate,
+        state.anc_emission_rate,
+    )?
+    .emission_rate;
+
     store_state(&mut deps.storage, &state)?;
 
     return Ok(HandleResponse {
@@ -346,7 +384,14 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State { block_height } => to_binary(&query_state(deps, block_height)?),
-        QueryMsg::EpochState { block_height } => to_binary(&query_epoch_state(deps, block_height)?),
+        QueryMsg::EpochState {
+            block_height,
+            distributed_interest,
+        } => to_binary(&query_epoch_state(
+            deps,
+            block_height,
+            distributed_interest,
+        )?),
         QueryMsg::BorrowerInfo {
             borrower,
             block_height,
@@ -370,7 +415,6 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         collector_contract: deps.api.human_address(&config.collector_contract)?,
         distributor_contract: deps.api.human_address(&config.distributor_contract)?,
         stable_denom: config.stable_denom,
-        reserve_factor: config.reserve_factor,
         max_borrow_factor: config.max_borrow_factor,
     })
 }
@@ -395,27 +439,9 @@ pub fn query_state<S: Storage, A: Api, Q: Querier>(
         }
 
         let config: Config = read_config(&deps.storage)?;
-        let balance = query_balance(
-            &deps,
-            &deps.api.human_address(&config.contract_addr)?,
-            config.stable_denom.to_string(),
-        )?;
-
-        let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
-            &deps,
-            &deps.api.human_address(&config.interest_model)?,
-            balance,
-            state.total_liabilities,
-            state.total_reserves,
-        )?;
 
         // Compute interest rate with given block height
-        compute_interest_raw(
-            &mut state,
-            block_height,
-            borrow_rate_res.rate,
-            config.reserve_factor,
-        );
+        compute_interest(&deps, &config, &mut state, block_height, None)?;
 
         // Compute reward rate with given block height
         compute_reward(&mut state, block_height);
@@ -429,24 +455,28 @@ pub fn query_state<S: Storage, A: Api, Q: Querier>(
         global_interest_index: state.global_interest_index,
         global_reward_index: state.global_reward_index,
         anc_emission_rate: state.anc_emission_rate,
+        prev_aterra_supply: state.prev_aterra_supply,
+        prev_exchange_rate: state.prev_exchange_rate,
     })
 }
 
 pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     block_height: Option<u64>,
+    distributed_interest: Option<Uint256>,
 ) -> StdResult<EpochStateResponse> {
     let config: Config = read_config(&deps.storage)?;
     let mut state: State = read_state(&deps.storage)?;
 
+    let distributed_interest = distributed_interest.unwrap_or(Uint256::zero());
     let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
     let balance = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
         config.stable_denom.to_string(),
-    )?;
+    )? - distributed_interest;
 
-    if let Some(block_height) = block_height {
+    let exchange_rate = if let Some(block_height) = block_height {
         if block_height < state.last_interest_updated {
             return Err(StdError::generic_err(
                 "block_height must bigger than last_interest_updated",
@@ -461,19 +491,50 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
             state.total_reserves,
         )?;
 
+        let target_deposit_rate: Decimal256 =
+            query_target_deposit_rate(&deps, &deps.api.human_address(&config.overseer_contract)?)?;
+
         // Compute interest rate to return latest epoch state
         compute_interest_raw(
             &mut state,
             block_height,
+            balance,
+            aterra_supply,
             borrow_rate_res.rate,
-            config.reserve_factor,
+            target_deposit_rate,
         );
-    }
 
-    let exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
+        // compute_interest_raw store current exchange rate
+        // as prev_exchange_rate, so just return prev_exchange_rate
+        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest)
+    } else {
+        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest)
+    };
 
     Ok(EpochStateResponse {
         exchange_rate,
         aterra_supply,
     })
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    msg: MigrateMsg,
+) -> MigrateResult {
+    // migrate config to use new Config
+    // also update collector_contract to the given address
+    migrate_config(
+        &mut deps.storage,
+        deps.api.canonical_address(&msg.collector_contract)?,
+    )?;
+
+    let config: Config = read_config(&deps.storage)?;
+    let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
+    let balance = query_balance(&deps, &env.contract.address, config.stable_denom)?;
+
+    // migrate state to use new State
+    migrate_state(&mut deps.storage, aterra_supply, balance)?;
+
+    Ok(MigrateResponse::default())
 }

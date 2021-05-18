@@ -1,8 +1,8 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     log, to_binary, Api, BankMsg, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError, StdResult, Storage,
-    WasmMsg,
+    HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse, MigrateResult, Querier,
+    StdError, StdResult, Storage, WasmMsg,
 };
 
 use crate::collateral::{
@@ -19,7 +19,7 @@ use moneymarket::custody::HandleMsg as CustodyHandleMsg;
 use moneymarket::market::EpochStateResponse;
 use moneymarket::market::HandleMsg as MarketHandleMsg;
 use moneymarket::overseer::{
-    ConfigResponse, DistributionParamsResponse, HandleMsg, InitMsg, QueryMsg, WhitelistResponse,
+    ConfigResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg, WhitelistResponse,
     WhitelistResponseElem,
 };
 use moneymarket::querier::{deduct_tax, query_balance};
@@ -111,9 +111,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             max_ltv,
         } => update_whitelist(deps, env, collateral_token, custody_contract, max_ltv),
         HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
-        HandleMsg::UpdateEpochState { interest_buffer } => {
-            update_epoch_state(deps, env, interest_buffer)
-        }
+        HandleMsg::UpdateEpochState {
+            interest_buffer,
+            distributed_interest,
+        } => update_epoch_state(deps, env, interest_buffer, distributed_interest),
         HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
         HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
         HandleMsg::LiquidateCollateral { borrower } => liquidate_collateral(deps, env, borrower),
@@ -291,7 +292,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     // Compute next epoch state
     let market_contract: HumanAddr = deps.api.human_address(&config.market_contract)?;
     let epoch_state: EpochStateResponse =
-        query_epoch_state(&deps, &market_contract, env.block.height)?;
+        query_epoch_state(&deps, &market_contract, env.block.height, None)?;
 
     // effective_deposit_rate = cur_exchange_rate / prev_exchange_rate
     // deposit_rate = (effective_deposit_rate - 1) / blocks
@@ -344,17 +345,26 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
         interest_buffer = interest_buffer - distributed_interest;
 
         if !distributed_interest.is_zero() {
+            // deduct tax
+            distributed_interest = Uint256::from(
+                deduct_tax(
+                    &deps,
+                    Coin {
+                        denom: config.stable_denom.to_string(),
+                        amount: distributed_interest.into(),
+                    },
+                )?
+                .amount,
+            );
+
             // Send some portion of interest buffer to Market contract
             messages.push(CosmosMsg::Bank(BankMsg::Send {
                 from_address: env.contract.address.clone(),
                 to_address: market_contract,
-                amount: vec![deduct_tax(
-                    &deps,
-                    Coin {
-                        denom: config.stable_denom,
-                        amount: distributed_interest.into(),
-                    },
-                )?],
+                amount: vec![Coin {
+                    denom: config.stable_denom,
+                    amount: distributed_interest.into(),
+                }],
             }));
         }
     }
@@ -373,7 +383,10 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: env.contract.address,
         send: vec![],
-        msg: to_binary(&HandleMsg::UpdateEpochState { interest_buffer })?,
+        msg: to_binary(&HandleMsg::UpdateEpochState {
+            interest_buffer,
+            distributed_interest,
+        })?,
     }));
 
     Ok(HandleResponse {
@@ -396,24 +409,30 @@ pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
     // To store interest buffer before receiving epoch staking rewards,
     // pass interest_buffer from execute_epoch_operations
     interest_buffer: Uint256,
+    distributed_interest: Uint256,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
-    let state: EpochState = read_epoch_state(&deps.storage)?;
+    let overseer_epoch_state: EpochState = read_epoch_state(&deps.storage)?;
     if env.message.sender != env.contract.address {
         return Err(StdError::unauthorized());
     }
 
     // # of blocks from the last executed height
-    let blocks = Uint256::from(env.block.height - state.last_executed_height);
+    let blocks = Uint256::from(env.block.height - overseer_epoch_state.last_executed_height);
 
     // Compute next epoch state
     let market_contract: HumanAddr = deps.api.human_address(&config.market_contract)?;
-    let epoch_state: EpochStateResponse =
-        query_epoch_state(&deps, &market_contract, env.block.height)?;
+    let market_epoch_state: EpochStateResponse = query_epoch_state(
+        &deps,
+        &market_contract,
+        env.block.height,
+        Some(distributed_interest),
+    )?;
 
     // effective_deposit_rate = cur_exchange_rate / prev_exchange_rate
     // deposit_rate = (effective_deposit_rate - 1) / blocks
-    let effective_deposit_rate = epoch_state.exchange_rate / state.prev_exchange_rate;
+    let effective_deposit_rate =
+        market_epoch_state.exchange_rate / overseer_epoch_state.prev_exchange_rate;
     let deposit_rate =
         (effective_deposit_rate - Decimal256::one()) / Decimal256::from_uint256(blocks);
 
@@ -422,8 +441,8 @@ pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
         &mut deps.storage,
         &EpochState {
             last_executed_height: env.block.height,
-            prev_aterra_supply: epoch_state.aterra_supply,
-            prev_exchange_rate: epoch_state.exchange_rate,
+            prev_aterra_supply: market_epoch_state.aterra_supply,
+            prev_exchange_rate: market_epoch_state.exchange_rate,
             prev_interest_buffer: interest_buffer,
             deposit_rate,
         },
@@ -434,15 +453,17 @@ pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
             contract_addr: market_contract,
             send: vec![],
             msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
-                target_deposit_rate: config.target_deposit_rate,
                 deposit_rate,
+                target_deposit_rate: config.target_deposit_rate,
+                threshold_deposit_rate: config.threshold_deposit_rate,
+                distributed_interest,
             })?,
         })],
         log: vec![
             log("action", "update_epoch_state"),
             log("deposit_rate", deposit_rate),
-            log("aterra_supply", epoch_state.aterra_supply),
-            log("exchange_rate", epoch_state.exchange_rate),
+            log("aterra_supply", market_epoch_state.aterra_supply),
+            log("exchange_rate", market_epoch_state.exchange_rate),
             log("interest_buffer", interest_buffer),
         ],
         data: None,
@@ -470,7 +491,6 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::AllCollaterals { start_after, limit } => {
             to_binary(&query_all_collaterals(deps, start_after, limit)?)
         }
-        QueryMsg::DistributionParams {} => to_binary(&query_distribution_params(deps)?),
         QueryMsg::BorrowLimit {
             borrower,
             block_time,
@@ -536,15 +556,20 @@ pub fn query_whitelist<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn query_distribution_params<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<DistributionParamsResponse> {
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    msg: MigrateMsg,
+) -> MigrateResult {
     let config: Config = read_config(&deps.storage)?;
-    let epoch_state: EpochState = read_epoch_state(&deps.storage)?;
+    store_config(
+        &mut deps.storage,
+        &Config {
+            target_deposit_rate: msg.target_deposit_rate,
+            threshold_deposit_rate: msg.threshold_deposit_rate,
+            ..config
+        },
+    )?;
 
-    Ok(DistributionParamsResponse {
-        target_deposit_rate: config.target_deposit_rate,
-        deposit_rate: epoch_state.deposit_rate,
-        threshold_deposit_rate: config.threshold_deposit_rate,
-    })
+    Ok(MigrateResponse::default())
 }

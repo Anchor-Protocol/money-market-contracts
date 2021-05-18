@@ -7,9 +7,10 @@ use cosmwasm_std::{
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{BorrowerInfoResponse, BorrowerInfosResponse};
 use moneymarket::overseer::BorrowLimitResponse;
-use moneymarket::querier::{deduct_tax, query_balance};
+use moneymarket::querier::{deduct_tax, query_balance, query_supply};
 
-use crate::querier::{query_borrow_limit, query_borrow_rate};
+use crate::deposit::compute_exchange_rate_raw;
+use crate::querier::{query_borrow_limit, query_borrow_rate, query_target_deposit_rate};
 use crate::state::{
     read_borrower_info, read_borrower_infos, read_config, read_state, store_borrower_info,
     store_state, BorrowerInfo, Config, State,
@@ -250,6 +251,7 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
         return Ok(());
     }
 
+    let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
     let balance: Uint256 = query_balance(
         &deps,
         &deps.api.human_address(&config.contract_addr)?,
@@ -264,21 +266,33 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
         state.total_reserves,
     )?;
 
+    let target_deposit_rate: Decimal256 =
+        query_target_deposit_rate(&deps, &deps.api.human_address(&config.overseer_contract)?)?;
+
     compute_interest_raw(
         state,
         block_height,
+        balance,
+        aterra_supply,
         borrow_rate_res.rate,
-        config.reserve_factor,
+        target_deposit_rate,
     );
 
     Ok(())
 }
 
+// CONTRACT: to use this function as state update purpose,
+// executor must update following three state after execution
+// * state.prev_aterra_supply
+// * state.prev_exchange_rate
+// * state.last_interest_updated
 pub fn compute_interest_raw(
     state: &mut State,
     block_height: u64,
+    balance: Uint256,
+    aterra_supply: Uint256,
     borrow_rate: Decimal256,
-    reserve_factor: Decimal256,
+    target_deposit_rate: Decimal256,
 ) {
     if state.last_interest_updated >= block_height {
         return;
@@ -292,7 +306,26 @@ pub fn compute_interest_raw(
     state.global_interest_index =
         state.global_interest_index * (Decimal256::one() + interest_factor);
     state.total_liabilities += interest_accrued;
-    state.total_reserves += interest_accrued * reserve_factor;
+
+    let mut exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
+    let effective_deposit_rate = exchange_rate / state.prev_exchange_rate;
+    let deposit_rate = (effective_deposit_rate - Decimal256::one()) / passed_blocks;
+
+    if deposit_rate > target_deposit_rate {
+        // excess_deposit_rate(_per_block)
+        let excess_deposit_rate = deposit_rate - target_deposit_rate;
+        let prev_deposits =
+            Decimal256::from_uint256(state.prev_aterra_supply * state.prev_exchange_rate);
+
+        // excess_yield = prev_deposits * excess_deposit_rate(_per_block) * blocks
+        let excess_yield = prev_deposits * passed_blocks * excess_deposit_rate;
+        
+        state.total_reserves += excess_yield;
+        exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
+    }
+
+    state.prev_aterra_supply = aterra_supply;
+    state.prev_exchange_rate = exchange_rate;
     state.last_interest_updated = block_height;
 }
 

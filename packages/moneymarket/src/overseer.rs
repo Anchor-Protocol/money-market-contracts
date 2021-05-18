@@ -81,6 +81,7 @@ pub enum HandleMsg {
     ExecuteEpochOperations {},
     UpdateEpochState {
         interest_buffer: Uint256,
+        distributed_interest: Uint256,
     },
 
     ////////////////////
@@ -96,9 +97,7 @@ pub enum HandleMsg {
     /////////////////////////////
     /// Permissionless operations
     /////////////////////////////
-    LiquidateCollateral {
-        borrower: HumanAddr,
-    },
+    LiquidateCollateral { borrower: HumanAddr },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -118,7 +117,6 @@ pub enum QueryMsg {
         start_after: Option<HumanAddr>,
         limit: Option<u32>,
     },
-    DistributionParams {},
     BorrowLimit {
         borrower: HumanAddr,
         block_time: Option<u64>,
@@ -171,16 +169,15 @@ pub struct AllCollateralsResponse {
     pub all_collaterals: Vec<CollateralsResponse>,
 }
 
-// We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct DistributionParamsResponse {
-    pub deposit_rate: Decimal256,
-    pub target_deposit_rate: Decimal256,
-    pub threshold_deposit_rate: Decimal256,
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BorrowLimitResponse {
     pub borrower: HumanAddr,
     pub borrow_limit: Uint256,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MigrateMsg {
+    pub target_deposit_rate: Decimal256,
+    pub threshold_deposit_rate: Decimal256,
 }

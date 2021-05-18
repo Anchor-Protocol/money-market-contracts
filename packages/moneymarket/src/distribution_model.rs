@@ -32,6 +32,7 @@ pub enum QueryMsg {
     AncEmissionRate {
         deposit_rate: Decimal256,
         target_deposit_rate: Decimal256,
+        threshold_deposit_rate: Decimal256,
         current_emission_rate: Decimal256,
     },
 }
@@ -51,3 +52,7 @@ pub struct ConfigResponse {
 pub struct AncEmissionRateResponse {
     pub emission_rate: Decimal256,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MigrateMsg {}

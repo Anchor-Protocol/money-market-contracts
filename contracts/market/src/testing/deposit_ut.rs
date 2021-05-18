@@ -50,7 +50,6 @@ fn proper_compute_exchange_rate() {
             .canonical_address(&HumanAddr::from("overseer"))
             .unwrap(),
         stable_denom: "uusd".to_string(),
-        reserve_factor: Decimal256::permille(3),
         max_borrow_factor: Decimal256::one(),
     };
     deps.querier.with_token_balances(&[(
@@ -60,6 +59,7 @@ fn proper_compute_exchange_rate() {
             &Uint128::from(1000000u128),
         )],
     )]);
+
     let mock_state = State {
         total_liabilities: Decimal256::from_uint256(50000u128),
         total_reserves: Decimal256::from_uint256(550000u128),
@@ -68,6 +68,8 @@ fn proper_compute_exchange_rate() {
         global_interest_index: Decimal256::one(),
         global_reward_index: Decimal256::zero(),
         anc_emission_rate: Decimal256::one(),
+        prev_aterra_supply: Uint256::zero(),
+        prev_exchange_rate: Decimal256::one(),
     };
     let mock_deposit_amount = Some(Uint256::from(1000000u128));
 

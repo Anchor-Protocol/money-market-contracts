@@ -130,16 +130,6 @@
                   "type": "null"
                 }
               ]
-            },
-            "reserve_factor": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Decimal256"
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           }
         }
@@ -180,13 +170,21 @@
           "type": "object",
           "required": [
             "deposit_rate",
-            "target_deposit_rate"
+            "distributed_interest",
+            "target_deposit_rate",
+            "threshold_deposit_rate"
           ],
           "properties": {
             "deposit_rate": {
               "$ref": "#/definitions/Decimal256"
             },
+            "distributed_interest": {
+              "$ref": "#/definitions/Uint256"
+            },
             "target_deposit_rate": {
+              "$ref": "#/definitions/Decimal256"
+            },
+            "threshold_deposit_rate": {
               "$ref": "#/definitions/Decimal256"
             }
           }

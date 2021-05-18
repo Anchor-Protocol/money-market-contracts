@@ -3,8 +3,9 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
+    "anc_purchase_factor",
     "buffer_distribution_factor",
-    "threshold_deposit_rate",
+    "collector_contract",
     "epoch_period",
     "liquidation_contract",
     "market_contract",
@@ -12,9 +13,18 @@
     "owner_addr",
     "price_timeframe",
     "stable_denom",
-    "target_deposit_rate"
+    "target_deposit_rate",
+    "threshold_deposit_rate"
   ],
   "properties": {
+    "anc_purchase_factor": {
+      "description": "Ratio to be used for purchasing ANC token from the interest buffer",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal256"
+        }
+      ]
+    },
     "buffer_distribution_factor": {
       "description": "Ratio to be distributed from the interest buffer",
       "allOf": [
@@ -23,11 +33,11 @@
         }
       ]
     },
-    "threshold_deposit_rate": {
-      "description": "Distribute interest buffer to market contract, when deposit_rate < threshold_deposit_rate",
+    "collector_contract": {
+      "description": "Collector contract address which is purchasing ANC token",
       "allOf": [
         {
-          "$ref": "#/definitions/Decimal256"
+          "$ref": "#/definitions/HumanAddr"
         }
       ]
     },
@@ -81,6 +91,14 @@
     },
     "target_deposit_rate": {
       "description": "Target deposit rate. When current deposit rate is bigger than this, Custody contracts send rewards to interest buffer",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal256"
+        }
+      ]
+    },
+    "threshold_deposit_rate": {
+      "description": "Distribute interest buffer to market contract, when deposit_rate < threshold_deposit_rate",
       "allOf": [
         {
           "$ref": "#/definitions/Decimal256"

@@ -7,8 +7,8 @@ use cosmwasm_storage::{bucket, bucket_read, ReadonlyBucket, ReadonlySingleton, S
 
 use moneymarket::market::BorrowerInfoResponse;
 
-const KEY_CONFIG: &[u8] = b"config";
-const KEY_STATE: &[u8] = b"state";
+pub const KEY_CONFIG: &[u8] = b"config";
+pub const KEY_STATE: &[u8] = b"state";
 
 const PREFIX_LIABILITY: &[u8] = b"liability";
 
@@ -23,7 +23,6 @@ pub struct Config {
     pub collector_contract: CanonicalAddr,
     pub distributor_contract: CanonicalAddr,
     pub stable_denom: String,
-    pub reserve_factor: Decimal256,
     pub max_borrow_factor: Decimal256,
 }
 
@@ -36,6 +35,8 @@ pub struct State {
     pub global_interest_index: Decimal256,
     pub global_reward_index: Decimal256,
     pub anc_emission_rate: Decimal256,
+    pub prev_aterra_supply: Uint256,
+    pub prev_exchange_rate: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

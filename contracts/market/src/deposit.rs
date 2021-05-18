@@ -48,6 +48,7 @@ pub fn deposit_stable<S: Storage, A: Api, Q: Querier>(
     let exchange_rate = compute_exchange_rate(deps, &config, &state, Some(deposit_amount))?;
     let mint_amount = deposit_amount / exchange_rate;
 
+    state.prev_aterra_supply = state.prev_aterra_supply + mint_amount;
     store_state(&mut deps.storage, &state)?;
     Ok(HandleResponse {
         messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
@@ -94,6 +95,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     // Assert redeem amount
     assert_redeem_amount(&config, &state, current_balance, redeem_amount)?;
 
+    state.prev_aterra_supply = state.prev_aterra_supply - Uint256::from(burn_amount);
     store_state(&mut deps.storage, &state)?;
     Ok(HandleResponse {
         messages: vec![
@@ -164,6 +166,10 @@ pub fn compute_exchange_rate_raw(
     aterra_supply: Uint256,
     contract_balance: Uint256,
 ) -> Decimal256 {
+    if aterra_supply.is_zero() {
+        return Decimal256::one();
+    }
+
     // (aterra / stable_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / aterra_supply
     (Decimal256::from_uint256(contract_balance) + state.total_liabilities - state.total_reserves)
