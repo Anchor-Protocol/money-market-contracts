@@ -32,7 +32,7 @@ fn test_compute_tax() {
     // normal tax
     assert_eq!(
         compute_tax(&deps, &Coin::new(50000000u128, "uusd")).unwrap(),
-        Uint256::from(495049u64)
+        Uint256::from(495050u64)
     );
 }
 
@@ -59,7 +59,7 @@ fn test_deduct_tax() {
         deduct_tax(&deps, Coin::new(50000000u128, "uusd")).unwrap(),
         Coin {
             denom: "uusd".to_string(),
-            amount: Uint128(49504951u128)
+            amount: Uint128(49504950u128)
         }
     );
 }

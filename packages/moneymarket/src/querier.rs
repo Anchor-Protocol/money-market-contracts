@@ -89,7 +89,7 @@ pub fn compute_tax<S: Storage, A: Api, Q: Querier>(
     let tax_cap = Uint256::from((terra_querier.query_tax_cap(coin.denom.to_string())?).cap);
     let amount = Uint256::from(coin.amount);
     Ok(std::cmp::min(
-        amount * (Decimal256::one() - Decimal256::one() / (Decimal256::one() + tax_rate)),
+        amount * Decimal256::one() - amount / (Decimal256::one() + tax_rate),
         tax_cap,
     ))
 }
