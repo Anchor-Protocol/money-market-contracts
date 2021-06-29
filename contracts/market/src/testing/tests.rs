@@ -1730,7 +1730,7 @@ fn execute_epoch_operations() {
             to_address: HumanAddr::from("collector"),
             amount: vec![Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128::from(2971u128), // 1% tax
+                amount: Uint128::from(2970u128), // 1% tax
             }],
         })]
     );
