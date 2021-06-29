@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BidsResponse",
+  "type": "object",
+  "required": [
+    "bids"
+  ],
+  "properties": {
+    "bids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/BidResponse"
+      }
+    }
+  },
+  "definitions": {
+    "BidResponse": {
+      "type": "object",
+      "required": [
+        "amount",
+        "collateral_token",
+        "idx",
+        "owner",
+        "pending_liquidated_collateral",
+        "premium_slot",
+        "share",
+        "spent"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint256"
+        },
+        "collateral_token": {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        "idx": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "owner": {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        "pending_liquidated_collateral": {
+          "$ref": "#/definitions/Uint256"
+        },
+        "premium_slot": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "share": {
+          "$ref": "#/definitions/Uint256"
+        },
+        "spent": {
+          "$ref": "#/definitions/Uint256"
+        },
+        "wait_end": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
+    },
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    },
+    "Uint256": {
+      "type": "string"
+    }
+  }
+}
