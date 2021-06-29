@@ -517,7 +517,7 @@ fn execute_epoch_operations() {
                 send: vec![],
                 msg: to_binary(&HandleMsg::UpdateEpochState {
                     interest_buffer: Uint256::from(9999746320u128),
-                    distributed_interest: Uint256::from(53149u128),
+                    distributed_interest: Uint256::from(53148u128),
                 })
                 .unwrap(),
             })
@@ -531,7 +531,7 @@ fn execute_epoch_operations() {
             log("deposit_rate", "0.000000482253086419"),
             log("exchange_rate", "1.25"),
             log("aterra_supply", "1000000"),
-            log("distributed_interest", "53149"),
+            log("distributed_interest", "53148"),
             log("anc_purchase_amount", "200000")
         ]
     );
