@@ -1,6 +1,9 @@
 use crate::asserts::assert_max_slot;
 use crate::bid::{activate_bids, claim_liquidations, execute_liquidation, retract_bid, submit_bid};
-use crate::query::{query_bid, query_bids_by_user, query_config, query_liquidation_amount};
+use crate::query::{
+    query_bid, query_bid_pool, query_bid_pools, query_bids_by_user, query_config,
+    query_liquidation_amount,
+};
 use crate::state::{
     read_collateral_info, read_config, store_available_bids, store_bid_idx, store_collateral_info,
     store_config, CollateralInfo, Config,
@@ -234,8 +237,30 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         )?),
         QueryMsg::Bid { bid_idx } => to_binary(&query_bid(deps, bid_idx)?),
         QueryMsg::BidsByUser {
-            collatera_token,
+            collateral_token,
             bidder,
-        } => to_binary(&query_bids_by_user(deps, collatera_token, bidder)?),
+            start_after,
+            limit,
+        } => to_binary(&query_bids_by_user(
+            deps,
+            collateral_token,
+            bidder,
+            start_after,
+            limit,
+        )?),
+        QueryMsg::BidPool {
+            collateral_token,
+            bid_slot,
+        } => to_binary(&query_bid_pool(deps, collateral_token, bid_slot)?),
+        QueryMsg::BidPoolsByCollateral {
+            collateral_token,
+            start_after,
+            limit,
+        } => to_binary(&query_bid_pools(
+            deps,
+            collateral_token,
+            start_after,
+            limit,
+        )?),
     }
 }

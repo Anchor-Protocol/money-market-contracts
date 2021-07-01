@@ -104,7 +104,13 @@ pub fn activate_bids<S: Storage, A: Api, Q: Querier>(
             .map(|idx| read_bid(&deps.storage, *idx))
             .collect::<StdResult<Vec<Bid>>>()?
     } else {
-        read_bids_by_user(&deps.storage, &collateral_token_raw, &sender_raw)?
+        read_bids_by_user(
+            &deps.storage,
+            &collateral_token_raw,
+            &sender_raw,
+            None,
+            None,
+        )?
     };
 
     let mut total_activated_amount = Uint256::zero();
@@ -371,7 +377,13 @@ pub fn claim_liquidations<S: Storage, A: Api, Q: Querier>(
             .map(|idx| read_bid(&deps.storage, *idx))
             .collect::<StdResult<Vec<Bid>>>()?
     } else {
-        read_bids_by_user(&deps.storage, &collateral_token_raw, &sender_raw)?
+        read_bids_by_user(
+            &deps.storage,
+            &collateral_token_raw,
+            &sender_raw,
+            None,
+            None,
+        )?
     };
 
     let mut claim_amount = Uint256::zero();

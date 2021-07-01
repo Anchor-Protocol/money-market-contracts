@@ -9,7 +9,8 @@
     "owner",
     "price_timeframe",
     "safe_ratio",
-    "stable_denom"
+    "stable_denom",
+    "waiting_period"
   ],
   "properties": {
     "bid_fee": {
@@ -34,6 +35,11 @@
     },
     "stable_denom": {
       "type": "string"
+    },
+    "waiting_period": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
     }
   },
   "definitions": {

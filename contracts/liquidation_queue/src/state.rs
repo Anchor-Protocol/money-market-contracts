@@ -15,6 +15,9 @@ static PREFIX_BID_BY_USER: &[u8] = b"bid_by_user";
 static PREFIX_BID_POOL: &[u8] = b"bid_pool";
 static PREFIX_COLLATERAL_INFO: &[u8] = b"collateral_info";
 
+const MAX_LIMIT: u8 = 30;
+const DEFAULT_LIMIT: u8 = 10;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub owner: CanonicalAddr,
@@ -108,11 +111,9 @@ pub fn store_bid_pool<S: Storage>(
     premium_slot: u8,
     bid_pool: &BidPool,
 ) -> StdResult<()> {
-    let mut bid_pool_bucket: Bucket<S, BidPool> = Bucket::new(PREFIX_BID_POOL, storage);
-    bid_pool_bucket.save(
-        &[&premium_slot.to_be_bytes(), collateral_token.as_slice()].concat(),
-        &bid_pool,
-    )?;
+    let mut bid_pool_bucket: Bucket<S, BidPool> =
+        Bucket::multilevel(&[PREFIX_BID_POOL, collateral_token.as_slice()], storage);
+    bid_pool_bucket.save(&premium_slot.to_be_bytes(), &bid_pool)?;
 
     Ok(())
 }
@@ -122,9 +123,10 @@ pub fn read_bid_pool<S: Storage>(
     collateral_token: &CanonicalAddr,
     premium_slot: u8,
 ) -> StdResult<BidPool> {
-    let bid_pool_bucket: ReadonlyBucket<S, BidPool> = ReadonlyBucket::new(PREFIX_BID_POOL, storage);
+    let bid_pool_bucket: ReadonlyBucket<S, BidPool> =
+        ReadonlyBucket::multilevel(&[PREFIX_BID_POOL, collateral_token.as_slice()], storage);
     bid_pool_bucket
-        .load(&[&premium_slot.to_be_bytes(), collateral_token.as_slice()].concat())
+        .load(&premium_slot.to_be_bytes())
         .map_err(|_| StdError::generic_err("No bid pool for the specified slot"))
 }
 
@@ -133,14 +135,12 @@ pub fn read_or_create_bid_pool<S: Storage>(
     collateral_info: &CollateralInfo,
     premium_slot: u8,
 ) -> StdResult<BidPool> {
-    let bid_pool_bucket: ReadonlyBucket<S, BidPool> = ReadonlyBucket::new(PREFIX_BID_POOL, storage);
-    match bid_pool_bucket.load(
-        &[
-            &premium_slot.to_be_bytes(),
-            collateral_info.collateral_token.as_slice(),
-        ]
-        .concat(),
-    ) {
+    let bid_pool_bucket: ReadonlyBucket<S, BidPool> = ReadonlyBucket::multilevel(
+        &[PREFIX_BID_POOL, collateral_info.collateral_token.as_slice()],
+        storage,
+    );
+
+    match bid_pool_bucket.load(&premium_slot.to_be_bytes()) {
         Ok(bid_pool) => Ok(bid_pool),
         Err(_) => {
             if (0..collateral_info.max_slot).contains(&premium_slot) {
@@ -163,6 +163,28 @@ pub fn read_or_create_bid_pool<S: Storage>(
             }
         }
     }
+}
+
+pub fn read_bid_pools<S: Storage>(
+    storage: &S,
+    collateral_token: &CanonicalAddr,
+    start_after: Option<u8>,
+    limit: Option<u8>,
+) -> StdResult<Vec<BidPool>> {
+    let bid_pool_bucket: ReadonlyBucket<S, BidPool> =
+        ReadonlyBucket::multilevel(&[PREFIX_BID_POOL, collateral_token.as_slice()], storage);
+
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let start = calc_range_start(start_after);
+
+    bid_pool_bucket
+        .range(start.as_deref(), None, Order::Ascending)
+        .take(limit)
+        .map(|elem| {
+            let (_, pool) = elem?;
+            Ok(pool)
+        })
+        .collect()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
@@ -227,6 +249,8 @@ pub fn read_bids_by_user<S: ReadonlyStorage>(
     storage: &S,
     collateral_token: &CanonicalAddr,
     bidder: &CanonicalAddr,
+    start_after: Option<Uint128>,
+    limit: Option<u8>,
 ) -> StdResult<Vec<Bid>> {
     let bid_user_index: ReadonlyBucket<S, bool> = ReadonlyBucket::multilevel(
         &[
@@ -237,8 +261,12 @@ pub fn read_bids_by_user<S: ReadonlyStorage>(
         storage,
     );
 
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let start = calc_range_start_idx(start_after);
+
     bid_user_index
-        .range(None, None, Order::Ascending)
+        .range(start.as_deref(), None, Order::Ascending)
+        .take(limit)
         .map(|elem| {
             let (k, _) = elem?;
             read_bid(storage, Uint128(bytes_to_u128(&k)?))
@@ -253,4 +281,22 @@ fn bytes_to_u128(data: &[u8]) -> StdResult<u128> {
             "Corrupted data found. 16 byte expected.",
         )),
     }
+}
+
+// this will set the first key after the provided key, by appending a 1 byte
+fn calc_range_start_idx(start_after: Option<Uint128>) -> Option<Vec<u8>> {
+    start_after.map(|idx| {
+        let mut v = idx.u128().to_be_bytes().to_vec();
+        v.push(1);
+        v
+    })
+}
+
+// this will set the first key after the provided key, by appending a 1 byte
+fn calc_range_start(start_after: Option<u8>) -> Option<Vec<u8>> {
+    start_after.map(|id| {
+        let mut v = id.to_be_bytes().to_vec();
+        v.push(1);
+        v
+    })
 }

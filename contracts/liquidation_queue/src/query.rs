@@ -1,10 +1,12 @@
 use crate::state::{
-    read_bid, read_bid_pool, read_bids_by_user, read_collateral_info, read_config, Bid, Config,
+    read_bid, read_bid_pool, read_bid_pools, read_bids_by_user, read_collateral_info, read_config,
+    Bid, BidPool, Config,
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::{Api, Extern, HumanAddr, Querier, StdResult, Storage, Uint128};
+use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdResult, Storage, Uint128};
 use moneymarket::liquidation_queue::{
-    BidResponse, BidsResponse, ConfigResponse, LiquidationAmountResponse,
+    BidPoolResponse, BidPoolsResponse, BidResponse, BidsResponse, ConfigResponse,
+    LiquidationAmountResponse,
 };
 use moneymarket::querier::query_tax_rate;
 use moneymarket::tokens::TokensHuman;
@@ -21,6 +23,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         bid_fee: config.bid_fee,
         liquidation_threshold: config.liquidation_threshold,
         price_timeframe: config.price_timeframe,
+        waiting_period: config.waiting_period,
     };
 
     Ok(resp)
@@ -142,25 +145,72 @@ pub fn query_bids_by_user<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     collateral_token: HumanAddr,
     bidder: HumanAddr,
+    start_after: Option<Uint128>,
+    limit: Option<u8>,
 ) -> StdResult<BidsResponse> {
     let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
     let bidder_raw = deps.api.canonical_address(&bidder)?;
 
-    let bids: Vec<BidResponse> =
-        read_bids_by_user(&deps.storage, &collateral_token_raw, &bidder_raw)?
+    let bids: Vec<BidResponse> = read_bids_by_user(
+        &deps.storage,
+        &collateral_token_raw,
+        &bidder_raw,
+        start_after,
+        limit,
+    )?
+    .iter()
+    .map(|bid| BidResponse {
+        idx: bid.idx,
+        collateral_token: deps.api.human_address(&bid.collateral_token).unwrap(),
+        owner: deps.api.human_address(&bid.owner).unwrap(),
+        amount: bid.amount,
+        premium_slot: bid.premium_slot,
+        pending_liquidated_collateral: bid.pending_liquidated_collateral,
+        share: bid.share,
+        spent: bid.spent,
+        wait_end: bid.wait_end,
+    })
+    .collect();
+
+    Ok(BidsResponse { bids })
+}
+
+pub fn query_bid_pool<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    collateral_token: HumanAddr,
+    bid_slot: u8,
+) -> StdResult<BidPoolResponse> {
+    let collateral_token_raw: CanonicalAddr = deps.api.canonical_address(&collateral_token)?;
+    let bid_pool: BidPool = read_bid_pool(&deps.storage, &collateral_token_raw, bid_slot)?;
+
+    Ok(BidPoolResponse {
+        liquidation_index: bid_pool.liquidation_index,
+        expense_index: bid_pool.expense_index,
+        total_bid_amount: bid_pool.total_bid_amount,
+        total_share: bid_pool.total_share,
+        premium_rate: bid_pool.premium_rate,
+    })
+}
+
+pub fn query_bid_pools<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    collateral_token: HumanAddr,
+    start_after: Option<u8>,
+    limit: Option<u8>,
+) -> StdResult<BidPoolsResponse> {
+    let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
+
+    let bid_pools: Vec<BidPoolResponse> =
+        read_bid_pools(&deps.storage, &collateral_token_raw, start_after, limit)?
             .iter()
-            .map(|bid| BidResponse {
-                idx: bid.idx,
-                collateral_token: deps.api.human_address(&bid.collateral_token).unwrap(),
-                owner: deps.api.human_address(&bid.owner).unwrap(),
-                amount: bid.amount,
-                premium_slot: bid.premium_slot,
-                pending_liquidated_collateral: bid.pending_liquidated_collateral,
-                share: bid.share,
-                spent: bid.spent,
-                wait_end: bid.wait_end,
+            .map(|bid_pool| BidPoolResponse {
+                liquidation_index: bid_pool.liquidation_index,
+                expense_index: bid_pool.expense_index,
+                total_bid_amount: bid_pool.total_bid_amount,
+                total_share: bid_pool.total_share,
+                premium_rate: bid_pool.premium_rate,
             })
             .collect();
 
-    Ok(BidsResponse { bids })
+    Ok(BidPoolsResponse { bid_pools })
 }

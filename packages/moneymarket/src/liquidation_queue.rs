@@ -87,12 +87,22 @@ pub enum QueryMsg {
         bid_idx: Uint128,
     },
     BidsByUser {
-        collatera_token: HumanAddr,
+        collateral_token: HumanAddr,
         bidder: HumanAddr,
+        start_after: Option<Uint128>,
+        limit: Option<u8>,
     },
+    BidPool {
+        collateral_token: HumanAddr,
+        bid_slot: u8,
+    },
+    BidPoolsByCollateral {
+        collateral_token: HumanAddr,
+        start_after: Option<u8>,
+        limit: Option<u8>
+    }
 }
 
-// We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
     pub owner: HumanAddr,
@@ -102,15 +112,14 @@ pub struct ConfigResponse {
     pub bid_fee: Decimal256,
     pub liquidation_threshold: Uint256,
     pub price_timeframe: u64,
+    pub waiting_period: u64,
 }
 
-// We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LiquidationAmountResponse {
     pub collaterals: TokensHuman,
 }
 
-// We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BidResponse {
     pub idx: Uint128,
@@ -124,8 +133,21 @@ pub struct BidResponse {
     pub wait_end: Option<u64>,
 }
 
-// We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BidsResponse {
     pub bids: Vec<BidResponse>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct BidPoolResponse {
+    pub liquidation_index: Decimal256,
+    pub expense_index: Decimal256,
+    pub total_share: Uint256,
+    pub total_bid_amount: Uint256,
+    pub premium_rate: Decimal256,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct BidPoolsResponse {
+    pub bid_pools: Vec<BidPoolResponse>,
 }

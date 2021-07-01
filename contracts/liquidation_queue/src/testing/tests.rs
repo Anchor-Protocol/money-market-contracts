@@ -44,6 +44,7 @@ fn proper_initialization() {
             bid_fee: Decimal256::percent(1),
             liquidation_threshold: Uint256::from(100000000u64),
             price_timeframe: 60u64,
+            waiting_period: 60u64,
         }
     );
 }
@@ -94,6 +95,7 @@ fn update_config() {
             bid_fee: Decimal256::percent(1),
             liquidation_threshold: Uint256::from(100000000u64),
             price_timeframe: 60u64,
+            waiting_period: 60u64,
         }
     );
 
@@ -125,6 +127,7 @@ fn update_config() {
             bid_fee: Decimal256::percent(2),
             liquidation_threshold: Uint256::from(150000000u64),
             price_timeframe: 120u64,
+            waiting_period: 100u64,
         }
     );
 
