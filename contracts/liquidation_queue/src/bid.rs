@@ -8,6 +8,7 @@ use cosmwasm_std::{
 use cw20::Cw20HandleMsg;
 use moneymarket::oracle::PriceResponse;
 use moneymarket::querier::{deduct_tax, query_price, TimeConstraints};
+use bigint::U256;
 
 pub fn submit_bid<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -457,7 +458,7 @@ fn process_bid_activation<S: Storage>(storage: &mut S, bid: &mut Bid, bid_pool: 
     };
 
     // if share causes overflow, deprecate current pool and submit the bid to the inheritor pool
-    if bid_share + active_bid_pool.total_share > Uint256::from(u128::MAX) {
+    if bid_share + active_bid_pool.total_share > Uint256::from(U256::exp10(45)) {
         active_bid_pool = BidPool {
             idx: pop_bid_pool_idx(storage)?,
             liquidation_index: Decimal256::zero(),

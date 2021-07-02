@@ -1,7 +1,4 @@
-use crate::state::{
-    read_bid, read_active_bid_pool, read_active_bid_pools, read_bids_by_user, read_collateral_info, read_config,
-    Bid, BidPool, Config,
-};
+use crate::state::{Bid, BidPool, Config, read_active_bid_pool, read_active_bid_pools, read_bid, read_bid_pool, read_bids_by_user, read_collateral_info, read_config};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdResult, Storage, Uint128};
 use moneymarket::liquidation_queue::{
@@ -67,7 +64,7 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
             if pool.total_bid_amount.is_zero() {
                 continue;
             }
-            println!("{} {}", collateral.1, pool.total_bid_amount);
+
             let mut pool_repay_amount =
                 collateral_to_liquidate * *price * (Decimal256::one() - pool.premium_rate);
 
@@ -89,7 +86,6 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     // expected_repay_amount must be bigger than borrow_amount
     // else force liquidate all collaterals
     let expected_repay_amount = expected_repay_amount * base_fee_deductor;
-    dbg!(&expected_repay_amount);
     if expected_repay_amount <= borrow_amount {
         return Ok(LiquidationAmountResponse { collaterals });
     }
@@ -130,6 +126,7 @@ pub fn query_bid<S: Storage, A: Api, Q: Querier>(
 
     Ok(BidResponse {
         idx: bid.idx,
+        bid_pool_idx: bid.bid_pool_idx,
         collateral_token: deps.api.human_address(&bid.collateral_token)?,
         owner: deps.api.human_address(&bid.owner)?,
         amount: bid.amount,
@@ -161,6 +158,7 @@ pub fn query_bids_by_user<S: Storage, A: Api, Q: Querier>(
     .iter()
     .map(|bid| BidResponse {
         idx: bid.idx,
+        bid_pool_idx: bid.bid_pool_idx,
         collateral_token: deps.api.human_address(&bid.collateral_token).unwrap(),
         owner: deps.api.human_address(&bid.owner).unwrap(),
         amount: bid.amount,
@@ -173,6 +171,22 @@ pub fn query_bids_by_user<S: Storage, A: Api, Q: Querier>(
     .collect();
 
     Ok(BidsResponse { bids })
+}
+
+pub fn query_bid_pool<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    bid_pool_idx: Uint128,
+) -> StdResult<BidPoolResponse> {
+    let bid_pool: BidPool = read_bid_pool(&deps.storage, bid_pool_idx)?;
+
+    Ok(BidPoolResponse {
+        liquidation_index: bid_pool.liquidation_index,
+        expense_index: bid_pool.expense_index,
+        total_bid_amount: bid_pool.total_bid_amount,
+        total_share: bid_pool.total_share,
+        premium_rate: bid_pool.premium_rate,
+        inheritor_pool_idx: bid_pool.inheritor_pool_idx,
+    })
 }
 
 pub fn query_active_bid_pool<S: Storage, A: Api, Q: Querier>(
@@ -189,6 +203,7 @@ pub fn query_active_bid_pool<S: Storage, A: Api, Q: Querier>(
         total_bid_amount: bid_pool.total_bid_amount,
         total_share: bid_pool.total_share,
         premium_rate: bid_pool.premium_rate,
+        inheritor_pool_idx: bid_pool.inheritor_pool_idx,
     })
 }
 
@@ -209,6 +224,7 @@ pub fn query_active_bid_pools<S: Storage, A: Api, Q: Querier>(
                 total_bid_amount: bid_pool.total_bid_amount,
                 total_share: bid_pool.total_share,
                 premium_rate: bid_pool.premium_rate,
+                inheritor_pool_idx: bid_pool.inheritor_pool_idx,
             })
             .collect();
 

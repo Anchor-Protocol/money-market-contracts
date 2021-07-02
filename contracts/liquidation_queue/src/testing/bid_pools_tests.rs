@@ -1,11 +1,11 @@
-use crate::contract::{handle, init};
+use crate::contract::{handle, init, query};
 use crate::testing::mock_querier::{mock_dependencies, mock_env_with_block_time};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::mock_env;
-use cosmwasm_std::{log, to_binary, Coin, Decimal, HumanAddr, StdError, Uint128};
+use cosmwasm_std::{Coin, Decimal, HumanAddr, StdError, Uint128, from_binary, log, to_binary};
 use cw20::Cw20ReceiveMsg;
-use moneymarket::liquidation_queue::{Cw20HookMsg, HandleMsg, InitMsg};
+use moneymarket::liquidation_queue::{BidPoolResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
 
 #[test]
 fn one_bidder_distribution() {
@@ -796,4 +796,145 @@ fn withdraw_removed_share_max() {
             log("amount", "7"),
         ]
     );
+}
+
+#[test]
+fn deprecate_bid_pool() {
+    const MAX_BID: u128 = 1000000000000000u128; // 1,000,000,000.000000 UST
+    let mut deps = mock_dependencies(20, &[]);
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+    let msg = InitMsg {
+        owner: HumanAddr::from("owner0000"),
+        oracle_contract: HumanAddr::from("oracle0000"),
+        stable_denom: "uusd".to_string(),
+        safe_ratio: Decimal256::percent(10),
+        bid_fee: Decimal256::percent(1),
+        liquidation_threshold: Uint256::from(100000000u64),
+        price_timeframe: 60u64,
+        waiting_period: 60u64,
+    };
+
+    let env = mock_env("addr0000", &[]);
+    deps.querier.with_oracle_price(&[(
+        &("col0000".to_string(), "uusd".to_string()),
+        &(Decimal256::percent(100), env.block.time, env.block.time),
+    )]);
+
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::WhitelistCollateral {
+        collateral_token: HumanAddr::from("col0000"),
+        max_slot: 30u8,
+        bid_threshold: Uint256::from(u128::MAX),
+    };
+    let env = mock_env("owner0000", &[]);
+    handle(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::SubmitBid {
+        collateral_token: HumanAddr::from("col0000"),
+        premium_slot: 0u8,
+    };
+    let env = mock_env(
+        "alice0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(MAX_BID),
+        }]
+    );
+    handle(&mut deps, env, msg).unwrap();
+
+    let env = mock_env("col0000", &[]);
+    let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+        sender: HumanAddr::from("addr0001"),
+        amount: Uint128::from(MAX_BID - 1u128),
+        msg: Some(
+            to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
+                fee_address: Some(HumanAddr::from("fee0000")),
+                repay_address: Some(HumanAddr::from("repay0000")),
+            })
+            .unwrap(),
+        ),
+    });
+    handle(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::SubmitBid {
+        collateral_token: HumanAddr::from("col0000"),
+        premium_slot: 0u8,
+    };
+    let env = mock_env(
+        "alice0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(MAX_BID),
+        }]
+    );
+    handle(&mut deps, env, msg).unwrap();
+
+    for _ in 0..3 {
+        let env = mock_env("col0000", &[]);
+        let msg = HandleMsg::Receive(Cw20ReceiveMsg {
+            sender: HumanAddr::from("addr0001"),
+            amount: Uint128::from(MAX_BID),
+            msg: Some(
+                to_binary(&Cw20HookMsg::ExecuteBid {
+                    liquidator: HumanAddr::from("liquidator00000"),
+                    fee_address: Some(HumanAddr::from("fee0000")),
+                    repay_address: Some(HumanAddr::from("repay0000")),
+                })
+                .unwrap(),
+            ),
+        });
+        handle(&mut deps, env.clone(), msg).unwrap();
+    
+        let msg = HandleMsg::SubmitBid {
+            collateral_token: HumanAddr::from("col0000"),
+            premium_slot: 0u8,
+        };
+        let env = mock_env(
+            "alice0000",
+            &[Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128::from(MAX_BID),
+            }]
+        );
+        handle(&mut deps, env, msg).unwrap();
+    }
+
+    let _bid_pool_response: BidPoolResponse = from_binary(
+        &query(
+            &deps,
+            QueryMsg::BidPool {
+                bid_pool_idx: Uint128(1u128),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    // dbg!(bid_pool_response);
+    // assert_eq!(
+    //     bid_pool_response,
+    //     BidPoolResponse {
+    //         liquidation_index: Decimal256::zero(),
+    //         expense_index: Decimal256::zero(),
+    //         total_bid_amount: Uint256::from(1000u128),
+    //         total_share: Uint256::from(1u128),
+    //         premium_rate: Decimal256::percent(5),
+    //     }
+    // );
+    let _bid_pool_response: BidPoolResponse = from_binary(
+        &query(
+            &deps,
+            QueryMsg::BidPool {
+                bid_pool_idx: Uint128(2u128),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    // dbg!(bid_pool_response);
+    // assert_eq!(true,false);
 }

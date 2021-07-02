@@ -206,6 +206,7 @@ fn query_bids() {
         bid_response,
         BidResponse {
             idx: Uint128::from(1u128),
+            bid_pool_idx: Uint128::from(1u128),
             collateral_token: HumanAddr::from("token0000"),
             owner: HumanAddr::from("addr0000"),
             amount: Uint256::from(1000u128),
@@ -236,6 +237,7 @@ fn query_bids() {
             bids: vec![
                 BidResponse {
                     idx: Uint128::from(1u128),
+                    bid_pool_idx: Uint128::from(1u128),
                     collateral_token: HumanAddr::from("token0000"),
                     owner: HumanAddr::from("addr0000"),
                     amount: Uint256::from(1000u128),
@@ -247,6 +249,7 @@ fn query_bids() {
                 },
                 BidResponse {
                     idx: Uint128::from(2u128),
+                    bid_pool_idx: Uint128::from(1u128),
                     collateral_token: HumanAddr::from("token0000"),
                     owner: HumanAddr::from("addr0000"),
                     amount: Uint256::from(1000u128),
@@ -258,6 +261,7 @@ fn query_bids() {
                 },
                 BidResponse {
                     idx: Uint128::from(3u128),
+                    bid_pool_idx: Uint128::from(2u128),
                     collateral_token: HumanAddr::from("token0000"),
                     owner: HumanAddr::from("addr0000"),
                     amount: Uint256::from(1000u128),
@@ -289,6 +293,7 @@ fn query_bids() {
         BidsResponse {
             bids: vec![BidResponse {
                 idx: Uint128::from(2u128),
+                bid_pool_idx: Uint128::from(1u128),
                 collateral_token: HumanAddr::from("token0000"),
                 owner: HumanAddr::from("addr0000"),
                 amount: Uint256::from(1000u128),
@@ -358,7 +363,7 @@ fn query_bid_pools() {
     let bid_pool_response: BidPoolResponse = from_binary(
         &query(
             &deps,
-            QueryMsg::BidPool {
+            QueryMsg::ActiveBidPool {
                 collateral_token: HumanAddr::from("token0000"),
                 bid_slot: 5u8,
             },
@@ -374,13 +379,14 @@ fn query_bid_pools() {
             total_bid_amount: Uint256::from(1000u128),
             total_share: Uint256::from(1u128),
             premium_rate: Decimal256::percent(5),
+            inheritor_pool_idx: None,
         }
     );
 
     let bid_pools_response: BidPoolsResponse = from_binary(
         &query(
             &deps,
-            QueryMsg::BidPoolsByCollateral {
+            QueryMsg::ActiveBidPoolsByCollateral {
                 collateral_token: HumanAddr::from("token0000"),
                 start_after: None,
                 limit: None,
@@ -399,6 +405,7 @@ fn query_bid_pools() {
                     total_bid_amount: Uint256::from(1000u128),
                     total_share: Uint256::from(1u128),
                     premium_rate: Decimal256::percent(5),
+                    inheritor_pool_idx: None,
                 },
                 BidPoolResponse {
                     liquidation_index: Decimal256::zero(),
@@ -406,6 +413,7 @@ fn query_bid_pools() {
                     total_bid_amount: Uint256::from(1000u128),
                     total_share: Uint256::from(1u128),
                     premium_rate: Decimal256::percent(6),
+                    inheritor_pool_idx: None,
                 },
                 BidPoolResponse {
                     liquidation_index: Decimal256::zero(),
@@ -413,6 +421,7 @@ fn query_bid_pools() {
                     total_bid_amount: Uint256::from(1000u128),
                     total_share: Uint256::from(1u128),
                     premium_rate: Decimal256::percent(10),
+                    inheritor_pool_idx: None,
                 }
             ]
         }
@@ -421,7 +430,7 @@ fn query_bid_pools() {
     let bid_pools_response: BidPoolsResponse = from_binary(
         &query(
             &deps,
-            QueryMsg::BidPoolsByCollateral {
+            QueryMsg::ActiveBidPoolsByCollateral {
                 collateral_token: HumanAddr::from("token0000"),
                 start_after: Some(1u8),
                 limit: Some(1u8),
@@ -439,6 +448,7 @@ fn query_bid_pools() {
                 total_bid_amount: Uint256::from(1000u128),
                 total_share: Uint256::from(1u128),
                 premium_rate: Decimal256::percent(5),
+                inheritor_pool_idx: None,
             },]
         }
     );

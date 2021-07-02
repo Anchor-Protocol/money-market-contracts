@@ -209,6 +209,7 @@ fn submit_bid() {
         bid_response,
         BidResponse {
             idx: Uint128::from(1u128),
+            bid_pool_idx: Uint128::from(0u128),
             collateral_token: HumanAddr::from("asset0000"),
             owner: HumanAddr::from("addr0000"),
             amount: Uint256::from(1000000u128),
@@ -293,6 +294,7 @@ fn activate_bid() {
         bid_response,
         BidResponse {
             idx: Uint128::from(1u128),
+            bid_pool_idx: Uint128::from(1u128),
             collateral_token: HumanAddr::from("asset0000"),
             owner: HumanAddr::from("addr0000"),
             amount: Uint256::from(1000000u128),

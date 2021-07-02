@@ -2,7 +2,7 @@ use crate::asserts::assert_max_slot;
 use crate::bid::{activate_bids, claim_liquidations, execute_liquidation, retract_bid, submit_bid};
 use crate::query::{
     query_bid, query_active_bid_pool, query_active_bid_pools, query_bids_by_user, query_config,
-    query_liquidation_amount,
+    query_liquidation_amount, query_bid_pool,
 };
 use crate::state::{
     read_collateral_info, read_config, store_available_bids, store_collateral_info,
@@ -249,10 +249,13 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             limit,
         )?),
         QueryMsg::BidPool {
+            bid_pool_idx
+        } => to_binary(&query_bid_pool(deps, bid_pool_idx)?),
+        QueryMsg::ActiveBidPool {
             collateral_token,
             bid_slot,
         } => to_binary(&query_active_bid_pool(deps, collateral_token, bid_slot)?),
-        QueryMsg::BidPoolsByCollateral {
+        QueryMsg::ActiveBidPoolsByCollateral {
             collateral_token,
             start_after,
             limit,
