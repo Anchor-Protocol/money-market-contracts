@@ -1,18 +1,18 @@
 use crate::asserts::assert_max_slot;
 use crate::bid::{activate_bids, claim_liquidations, execute_liquidation, retract_bid, submit_bid};
 use crate::query::{
-    query_bid, query_bid_pool, query_bid_pools, query_bids_by_user, query_config,
+    query_bid, query_active_bid_pool, query_active_bid_pools, query_bids_by_user, query_config,
     query_liquidation_amount,
 };
 use crate::state::{
-    read_collateral_info, read_config, store_available_bids, store_bid_idx, store_collateral_info,
+    read_collateral_info, read_config, store_available_bids, store_collateral_info,
     store_config, CollateralInfo, Config,
 };
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, Querier, StdError, StdResult, Storage, Uint128,
+    InitResponse, Querier, StdError, StdResult, Storage,
 };
 use cw20::Cw20ReceiveMsg;
 use moneymarket::liquidation_queue::{Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
@@ -35,8 +35,6 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             waiting_period: msg.waiting_period,
         },
     )?;
-
-    store_bid_idx(&mut deps.storage, Uint128::zero())?;
 
     Ok(InitResponse::default())
 }
@@ -253,12 +251,12 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::BidPool {
             collateral_token,
             bid_slot,
-        } => to_binary(&query_bid_pool(deps, collateral_token, bid_slot)?),
+        } => to_binary(&query_active_bid_pool(deps, collateral_token, bid_slot)?),
         QueryMsg::BidPoolsByCollateral {
             collateral_token,
             start_after,
             limit,
-        } => to_binary(&query_bid_pools(
+        } => to_binary(&query_active_bid_pools(
             deps,
             collateral_token,
             start_after,
