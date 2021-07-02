@@ -99,6 +99,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
     if let Some(msg) = cw20_msg.msg.clone() {
         match from_binary(&msg)? {
             Cw20HookMsg::ExecuteBid {
+                liquidator,
                 repay_address,
                 fee_address,
             } => {
@@ -109,6 +110,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
                 execute_liquidation(
                     deps,
                     env,
+                    liquidator,
                     repay_address,
                     fee_address,
                     collateral_token,

@@ -24,6 +24,7 @@ pub struct InitMsg {
     pub liquidation_threshold: Uint256,
     /// Valid oracle price timeframe
     pub price_timeframe: u64,
+    /// Time period that needs to pass for a bid to be activated (seconds)
     pub waiting_period: u64,
 }
 
@@ -41,23 +42,28 @@ pub enum HandleMsg {
         price_timeframe: Option<u64>,
         waiting_period: Option<u64>,
     },
+    /// Owner operation to whitelist a new collateral
     WhitelistCollateral {
         collateral_token: HumanAddr,
         bid_threshold: Uint256,
         max_slot: u8,
     },
+    /// Submit a new bid to a bid pool
     SubmitBid {
         collateral_token: HumanAddr,
         premium_slot: u8,
     },
+    /// Withdraw a bid
     RetractBid {
         bid_idx: Uint128,
         amount: Option<Uint256>,
     },
+    /// After waiting_period expires, user can activate the bid
     ActivateBids {
         collateral_token: HumanAddr,
         bids_idx: Option<Vec<Uint128>>,
     },
+    /// Claim the corresponding amount of liquidated collateral
     ClaimLiquidations {
         collateral_token: HumanAddr,
         bids_idx: Option<Vec<Uint128>>,
@@ -67,7 +73,9 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Cw20HookMsg {
+    /// Custody interface to liquidate the sent collateral
     ExecuteBid {
+        liquidator: HumanAddr, // Legacy parameter, ignored
         fee_address: Option<HumanAddr>,
         repay_address: Option<HumanAddr>,
     },

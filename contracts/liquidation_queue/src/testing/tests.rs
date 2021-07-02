@@ -509,6 +509,7 @@ fn execute_bid() {
         amount: Uint128::from(1000000u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
@@ -544,6 +545,7 @@ fn execute_bid() {
         amount: Uint128::from(1000000u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: None,
                 repay_address: None,
             })
@@ -578,6 +580,7 @@ fn execute_bid() {
         amount: Uint128::from(2020206u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
@@ -655,6 +658,7 @@ fn claim_liquidations() {
         amount: Uint128::from(1000000u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })

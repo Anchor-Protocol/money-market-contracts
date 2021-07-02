@@ -253,6 +253,7 @@ pub fn retract_bid<S: Storage, A: Api, Q: Querier>(
 pub fn execute_liquidation<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    _liquidator: HumanAddr,
     repay_address: HumanAddr,
     fee_address: HumanAddr,
     collateral_token: HumanAddr,

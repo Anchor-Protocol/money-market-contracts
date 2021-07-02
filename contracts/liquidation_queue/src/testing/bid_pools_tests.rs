@@ -71,6 +71,7 @@ fn one_bidder_distribution() {
         amount: Uint128::from(2u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
@@ -174,6 +175,7 @@ fn two_bidder_distribution() {
         amount: Uint128::from(4u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
@@ -217,6 +219,7 @@ fn two_bidder_distribution() {
         amount: Uint128::from(6u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
@@ -375,6 +378,7 @@ fn one_user_two_bid_slots() {
         amount: Uint128::from(5u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
@@ -406,6 +410,7 @@ fn one_user_two_bid_slots() {
         amount: Uint128::from(10u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
@@ -462,129 +467,6 @@ fn one_user_two_bid_slots() {
         ]
     );
 }
-
-// #[test]
-// fn skip_saiting_period() {
-//     let mut deps = mock_dependencies(20, &[]);
-//     deps.querier.with_tax(
-//         Decimal::percent(1),
-//         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
-//     );
-
-//     let msg = InitMsg {
-//         owner: HumanAddr::from("owner0000"),
-//         oracle_contract: HumanAddr::from("oracle0000"),
-//         stable_denom: "uusd".to_string(),
-//         safe_ratio: Decimal256::percent(10),
-//         bid_fee: Decimal256::percent(1),
-//         liquidation_threshold: Uint256::from(100000000u64),
-//         price_timeframe: 101u64,
-//         waiting_period: 60u64,
-//     };
-
-//     let env = mock_env("addr0000", &[]);
-//     deps.querier.with_oracle_price(&[(
-//         &("col0000".to_string(), "uusd".to_string()),
-//         &(Decimal256::percent(1000), env.block.time, env.block.time),
-//     )]);
-
-//     let _res = init(&mut deps, env, msg).unwrap();
-
-//     let msg = HandleMsg::WhitelistCollateral {
-//         collateral_token: HumanAddr::from("col0000"),
-//         max_slot: 30u8,
-//         bid_threshold: Uint256::from(10u128),
-//     };
-//     let env = mock_env("owner0000", &[]);
-//     handle(&mut deps, env, msg).unwrap();
-
-//     // ALICE BIDS 10 UST
-//     let msg = HandleMsg::SubmitBid {
-//         collateral_token: HumanAddr::from("col0000"),
-//         premium_slot: 1u8,
-//     };
-//     let env = mock_env(
-//         "alice0000",
-//         &[Coin {
-//             denom: "uusd".to_string(),
-//             amount: Uint128::from(10u128),
-//         }],
-//     );
-//     let wait_end = env.block.time + 60u64;
-//     handle(&mut deps, env, msg).unwrap();
-
-//     let msg = HandleMsg::ActivateBids {
-//         collateral_token: HumanAddr::from("col0000"),
-//         bids_idx: Some(vec![Uint128::from(1u128)]),
-//     };
-//     let env = mock_env_with_block_time("alice0000", &[], wait_end - 5u64); // before wait_end
-//     let err = handle(&mut deps, env, msg.clone()).unwrap_err(); // expect error
-//     assert_eq!(
-//         err,
-//         StdError::generic_err(format!("Wait period expires at {}", wait_end))
-//     );
-
-//     // succeed
-//     let env = mock_env_with_block_time("alice0000", &[], wait_end);
-//     handle(&mut deps, env, msg).unwrap();
-
-//     // set custody collateral balance to 100
-//     deps.querier.with_token_balances(&[(
-//         &HumanAddr::from("col0000"),
-//         &[(&HumanAddr::from("custody0000"), &Uint128::from(100u128))],
-//     )]);
-
-//     // REPEAT FOR BID OF 90 UST // since custody balance is 100, current bid is equal to 1%, so wait period is enforced
-//     let msg = HandleMsg::SubmitBid {
-//         collateral_token: HumanAddr::from("col0000"),
-//         premium_slot: 1u8,
-//     };
-//     let env = mock_env(
-//         "alice0000",
-//         &[Coin {
-//             denom: "uusd".to_string(),
-//             amount: Uint128::from(90u128),
-//         }],
-//     );
-//     let wait_end = env.block.time + 60u64;
-//     handle(&mut deps, env, msg.clone()).unwrap();
-
-//     let msg = HandleMsg::ActivateBids {
-//         collateral_token: HumanAddr::from("col0000"),
-//         bids_idx: Some(vec![Uint128::from(2u128)]),
-//     };
-//     let env = mock_env_with_block_time("alice0000", &[], wait_end);
-//     handle(&mut deps, env, msg).unwrap();
-
-//     // set custody collateral balance to 1000
-//     deps.querier.with_token_balances(&[(
-//         &HumanAddr::from("col0000"),
-//         &[(&HumanAddr::from("custody0000"), &Uint128::from(20000u128))],
-//     )]);
-
-//     // BID IS DIRECTLY ACTIVATED
-//     let msg = HandleMsg::SubmitBid {
-//         collateral_token: HumanAddr::from("col0000"),
-//         premium_slot: 1u8,
-//     };
-//     let env = mock_env(
-//         "alice0000",
-//         &[Coin {
-//             denom: "uusd".to_string(),
-//             amount: Uint128::from(90u128),
-//         }],
-//     );
-//     let wait_end = env.block.time + 60u64;
-//     handle(&mut deps, env, msg).unwrap();
-
-//     let msg = HandleMsg::ActivateBids {
-//         collateral_token: HumanAddr::from("col0000"),
-//         bids_idx: Some(vec![Uint128::from(3u128)]),
-//     };
-//     let env = mock_env_with_block_time("alice0000", &[], wait_end);
-//     let err = handle(&mut deps, env, msg.clone()).unwrap_err(); // expect error
-//     assert_eq!(err, StdError::generic_err("Bid is already active"));
-// }
 
 #[test]
 fn partial_withdraw_after_execution() {
@@ -649,6 +531,7 @@ fn partial_withdraw_after_execution() {
         amount: Uint128::from(10u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
@@ -692,6 +575,7 @@ fn partial_withdraw_after_execution() {
         amount: Uint128::from(4u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
@@ -829,6 +713,7 @@ fn withdraw_removed_share_max() {
         amount: Uint128::from(15u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
@@ -858,6 +743,7 @@ fn withdraw_removed_share_max() {
         amount: Uint128::from(40u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
@@ -887,6 +773,7 @@ fn withdraw_removed_share_max() {
         amount: Uint128::from(50u128),
         msg: Some(
             to_binary(&Cw20HookMsg::ExecuteBid {
+                liquidator: HumanAddr::from("liquidator00000"),
                 fee_address: Some(HumanAddr::from("fee0000")),
                 repay_address: Some(HumanAddr::from("repay0000")),
             })
