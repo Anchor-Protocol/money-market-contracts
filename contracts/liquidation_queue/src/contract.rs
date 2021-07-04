@@ -5,7 +5,7 @@ use crate::query::{
     query_liquidation_amount, query_bid_pool,
 };
 use crate::state::{
-    read_collateral_info, read_config, store_available_bids, store_collateral_info,
+    read_collateral_info, read_config, store_collateral_info,
     store_config, CollateralInfo, Config,
 };
 
@@ -208,7 +208,6 @@ pub fn whitelist_collateral<S: Storage, A: Api, Q: Querier>(
             bid_threshold,
         },
     )?;
-    store_available_bids(&mut deps.storage, &collateral_token_raw, Uint256::zero())?;
 
     Ok(HandleResponse {
         messages: vec![],

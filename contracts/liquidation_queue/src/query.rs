@@ -1,4 +1,4 @@
-use crate::state::{Bid, BidPool, Config, read_active_bid_pool, read_active_bid_pools, read_bid, read_bid_pool, read_bids_by_user, read_collateral_info, read_config};
+use crate::state::{Bid, BidPool, Config, read_active_bid_pool, read_active_bid_pools, read_available_bids, read_bid, read_bid_pool, read_bids_by_user, read_collateral_info, read_config};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdResult, Storage, Uint128};
 use moneymarket::liquidation_queue::{
@@ -57,27 +57,24 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
 
         let mut collateral_to_liquidate = collateral.1;
         for slot in 0..collateral_info.max_slot {
-            let pool = match read_active_bid_pool(&deps.storage, &collateral_token_raw, slot) {
-                Ok(v) => v,
-                Err(_) => continue,
-            };
-            if pool.total_bid_amount.is_zero() {
+            let slot_available_bids: Uint256 = read_available_bids(&deps.storage, &collateral_token_raw, slot).unwrap_or_default();
+            if slot_available_bids.is_zero() {
                 continue;
             }
+            let premium_rate = Decimal256::percent(slot as u64);
 
             let mut pool_repay_amount =
-                collateral_to_liquidate * *price * (Decimal256::one() - pool.premium_rate);
+                collateral_to_liquidate * *price * (Decimal256::one() - premium_rate);
 
-            if pool_repay_amount > pool.total_bid_amount {
-                pool_repay_amount = pool.total_bid_amount;
+            if pool_repay_amount > slot_available_bids {
+                pool_repay_amount = slot_available_bids;
                 let pool_collateral_to_liquidate =
-                    pool_repay_amount / ((Decimal256::one() - pool.premium_rate) * *price);
+                    pool_repay_amount / ((Decimal256::one() - premium_rate) * *price);
 
                 expected_repay_amount += pool_repay_amount;
                 collateral_to_liquidate = collateral_to_liquidate - pool_collateral_to_liquidate;
             } else {
                 expected_repay_amount += pool_repay_amount;
-                dbg!(pool_repay_amount);
                 break;
             }
         }

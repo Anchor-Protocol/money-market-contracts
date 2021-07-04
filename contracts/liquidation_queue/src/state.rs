@@ -57,10 +57,11 @@ pub fn pop_bid_pool_idx<S: Storage>(storage: &mut S) -> StdResult<Uint128> {
 pub fn store_available_bids<S: Storage>(
     storage: &mut S,
     collateral_token: &CanonicalAddr,
+    premium_slot: u8,
     available_bids: Uint256,
 ) -> StdResult<()> {
-    let mut available_bids_bucket: Bucket<S, Uint256> = Bucket::new(PREFIX_AVAILABLE_BIDS, storage);
-    available_bids_bucket.save(&collateral_token.as_slice(), &available_bids)?;
+    let mut available_bids_bucket: Bucket<S, Uint256> = Bucket::multilevel(&[PREFIX_AVAILABLE_BIDS, collateral_token.as_slice()], storage);
+    available_bids_bucket.save(&premium_slot.to_be_bytes(), &available_bids)?;
 
     Ok(())
 }
@@ -68,10 +69,26 @@ pub fn store_available_bids<S: Storage>(
 pub fn read_available_bids<S: Storage>(
     storage: &S,
     collateral_token: &CanonicalAddr,
+    premium_slot: u8,
 ) -> StdResult<Uint256> {
     let available_bids_bucket: ReadonlyBucket<S, Uint256> =
-        ReadonlyBucket::new(PREFIX_AVAILABLE_BIDS, storage);
-    available_bids_bucket.load(&collateral_token.as_slice())
+        ReadonlyBucket::multilevel(&[PREFIX_AVAILABLE_BIDS, collateral_token.as_slice()], storage);
+    available_bids_bucket.load(&premium_slot.to_be_bytes())
+}
+
+pub fn read_total_available_bids<S: Storage>(
+    storage: &S,
+    collateral_token: &CanonicalAddr,
+) -> StdResult<Uint256> {
+    let available_bids_bucket: ReadonlyBucket<S, Uint256> =
+        ReadonlyBucket::multilevel(&[PREFIX_AVAILABLE_BIDS, collateral_token.as_slice()], storage);
+    let mut total_available_bids = Uint256::zero();
+
+    for elem in available_bids_bucket.range(None, None, Order::Ascending) {
+        let (_, slot_available_bids) = elem?;
+        total_available_bids += slot_available_bids
+    }
+    Ok(total_available_bids)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

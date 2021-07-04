@@ -1,5 +1,5 @@
 use crate::asserts::{assert_activate_status, assert_withdraw_amount};
-use crate::state::{Bid, BidPool, CollateralInfo, Config, list_bid_pool, pop_bid_idx, pop_bid_pool_idx, read_active_bid_pool, read_available_bids, read_bid, read_bid_pool, read_bids_by_user, read_collateral_info, read_config, read_or_create_active_bid_pool, remove_bid, store_available_bids, store_bid, store_bid_pool};
+use crate::state::{Bid, BidPool, CollateralInfo, Config, list_bid_pool, pop_bid_idx, pop_bid_pool_idx, read_active_bid_pool, read_available_bids, read_bid, read_bid_pool, read_bids_by_user, read_collateral_info, read_config, read_or_create_active_bid_pool, remove_bid, store_available_bids, store_bid, store_bid_pool, read_total_available_bids,};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     log, to_binary, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Env, Extern, HandleResponse,
@@ -52,17 +52,19 @@ pub fn submit_bid<S: Storage, A: Api, Q: Querier>(
     };
 
     // if available bids is lower than bid_threshold, directly activate bid
-    let available_bids: Uint256 = read_available_bids(&deps.storage, &collateral_token_raw)?;
+    let available_bids: Uint256 = read_total_available_bids(&deps.storage, &collateral_token_raw)?;
     if available_bids < collateral_info.bid_threshold {
         let bid_pool_submited_to = process_bid_activation(&mut deps.storage, &mut bid, &mut bid_pool, amount)?;
         store_bid_pool(
             &mut deps.storage,
             &bid_pool_submited_to,
         )?;
+        let slot_available_bids = read_available_bids(&deps.storage, &collateral_token_raw, premium_slot).unwrap_or_default();
         store_available_bids(
             &mut deps.storage,
             &collateral_token_raw,
-            available_bids + amount,
+            premium_slot,
+            slot_available_bids + amount,
         )?;
     } else {
         bid.wait_end = Some(env.block.time + config.waiting_period);
@@ -90,7 +92,6 @@ pub fn activate_bids<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     let sender_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
     let collateral_token_raw: CanonicalAddr = deps.api.canonical_address(&collateral_token)?;
-    let available_bids: Uint256 = read_available_bids(&deps.storage, &collateral_token_raw)?;
 
     let bids: Vec<Bid> = if let Some(bids_idx) = bids_idx {
         bids_idx
@@ -118,6 +119,7 @@ pub fn activate_bids<S: Storage, A: Api, Q: Querier>(
                 bid.idx
             )));
         }
+        let available_bids: Uint256 = read_available_bids(&deps.storage, &collateral_token_raw, bid.premium_slot).unwrap_or_default();
         let mut bid_pool: BidPool =
             read_active_bid_pool(&deps.storage, &bid.collateral_token, bid.premium_slot)?;
 
@@ -137,13 +139,8 @@ pub fn activate_bids<S: Storage, A: Api, Q: Querier>(
             &mut deps.storage,
             &bid_pool_submited_to,
         )?;
+        store_available_bids(&mut deps.storage, &collateral_token_raw, bid.premium_slot, available_bids + amount_to_activate)?;
     }
-
-    store_available_bids(
-        &mut deps.storage,
-        &collateral_token_raw,
-        available_bids + total_activated_amount,
-    )?;
 
     Ok(HandleResponse {
         messages: vec![],
@@ -209,6 +206,8 @@ pub fn retract_bid<S: Storage, A: Api, Q: Querier>(
             &mut deps.storage,
             &bid_pool,
         )?;
+        let slot_available_bids: Uint256 = read_available_bids(&deps.storage, &bid.collateral_token, bid.premium_slot)?;
+        store_available_bids(&mut deps.storage, &bid.collateral_token, bid.premium_slot, slot_available_bids - active_withdraw_amount)?;
 
         active_withdraw_amount
     };
@@ -252,7 +251,7 @@ pub fn execute_liquidation<S: Storage, A: Api, Q: Querier>(
     let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
     let collateral_info: CollateralInfo =
         read_collateral_info(&deps.storage, &collateral_token_raw)?;
-    let available_bids: Uint256 = read_available_bids(&deps.storage, &collateral_token_raw)?;
+    let total_available_bids: Uint256 = read_total_available_bids(&deps.storage, &collateral_token_raw)?;
 
     let oracle_contract = deps.api.human_address(&config.oracle_contract)?;
     let price: PriceResponse = query_price(
@@ -266,7 +265,7 @@ pub fn execute_liquidation<S: Storage, A: Api, Q: Querier>(
         }),
     )?;
 
-    if amount * price.rate > available_bids {
+    if amount * price.rate > total_available_bids {
         return Err(StdError::generic_err(
             "Not enough bids to execute this liquidation",
         ));
@@ -298,6 +297,8 @@ pub fn execute_liquidation<S: Storage, A: Api, Q: Querier>(
                 price.rate,
                 &mut filled,
             );
+            let slot_available_bids: Uint256 = read_available_bids(&deps.storage, &collateral_token_raw, slot)?;
+            store_available_bids(&mut deps.storage, &collateral_token_raw, slot, slot_available_bids - pool_repay_amount)?;
             store_bid_pool(&mut deps.storage, &bid_pool)?;
     
             repay_amount += pool_repay_amount;
@@ -316,12 +317,6 @@ pub fn execute_liquidation<S: Storage, A: Api, Q: Querier>(
             }
         }
     }
-
-    store_available_bids(
-        &mut deps.storage,
-        &collateral_token_raw,
-        available_bids - repay_amount,
-    )?;
 
     let bid_fee = repay_amount * config.bid_fee;
     let repay_amount = repay_amount - bid_fee;
