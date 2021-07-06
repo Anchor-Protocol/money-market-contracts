@@ -1,20 +1,20 @@
-use crate::contract::{handle, init, query};
+use crate::contract::{execute, instantiate, query};
 use crate::querier::query_epoch_state;
 use crate::state::{read_epoch_state, store_epoch_state, EpochState};
 use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, log, to_binary, BankMsg, Coin, CosmosMsg, Decimal, HumanAddr, StdError, Uint128,
-    WasmMsg,
+    attr, from_binary, to_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Decimal,
+    StdError, SubMsg, Uint128, WasmMsg,
 };
 
-use moneymarket::custody::HandleMsg as CustodyHandleMsg;
-use moneymarket::market::HandleMsg as MarketHandleMsg;
+use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
+use moneymarket::market::ExecuteMsg as MarketExecuteMsg;
 use moneymarket::overseer::{
-    AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse, ConfigResponse, HandleMsg,
-    InitMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
+    AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse, ConfigResponse, ExecuteMsg,
+    InstantiateMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
 use moneymarket::querier::deduct_tax;
 
@@ -22,14 +22,14 @@ use std::str::FromStr;
 
 #[test]
 fn proper_initialization() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let msg = InitMsg {
-        owner_addr: HumanAddr::from("owner"),
-        oracle_contract: HumanAddr::from("oracle"),
-        market_contract: HumanAddr::from("market"),
-        liquidation_contract: HumanAddr::from("liquidation"),
-        collector_contract: HumanAddr::from("collector"),
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        oracle_contract: "oracle".to_string(),
+        market_contract: "market".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
@@ -39,21 +39,21 @@ fn proper_initialization() {
         price_timeframe: 60u64,
     };
 
-    let env = mock_env("addr0000", &[]);
+    let info = mock_info("addr0000", &[]);
 
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let query_res = query(&deps, QueryMsg::Config {}).unwrap();
+    let query_res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&query_res).unwrap();
     assert_eq!(
         config_res,
         ConfigResponse {
-            owner_addr: HumanAddr::from("owner"),
-            oracle_contract: HumanAddr::from("oracle"),
-            market_contract: HumanAddr::from("market"),
-            liquidation_contract: HumanAddr::from("liquidation"),
-            collector_contract: HumanAddr::from("collector"),
+            owner_addr: "owner".to_string(),
+            oracle_contract: "oracle".to_string(),
+            market_contract: "market".to_string(),
+            liquidation_contract: "liquidation".to_string(),
+            collector_contract: "collector".to_string(),
             stable_denom: "uusd".to_string(),
             epoch_period: 86400u64,
             threshold_deposit_rate: Decimal256::permille(3),
@@ -64,13 +64,13 @@ fn proper_initialization() {
         }
     );
 
-    let query_res = query(&deps, QueryMsg::EpochState {}).unwrap();
+    let query_res = query(deps.as_ref(), mock_env(), QueryMsg::EpochState {}).unwrap();
     let epoch_state: EpochState = from_binary(&query_res).unwrap();
     assert_eq!(
         epoch_state,
         EpochState {
             deposit_rate: Decimal256::zero(),
-            last_executed_height: env.block.height,
+            last_executed_height: mock_env().block.height,
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
             prev_interest_buffer: Uint256::zero(),
@@ -80,15 +80,15 @@ fn proper_initialization() {
 
 #[test]
 fn update_config() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let env = mock_env("addr0000", &[]);
-    let msg = InitMsg {
-        owner_addr: HumanAddr::from("owner"),
-        oracle_contract: HumanAddr::from("oracle"),
-        market_contract: HumanAddr::from("market"),
-        liquidation_contract: HumanAddr::from("liquidation"),
-        collector_contract: HumanAddr::from("collector"),
+    let info = mock_info("addr0000", &[]);
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        oracle_contract: "oracle".to_string(),
+        market_contract: "market".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
@@ -99,12 +99,12 @@ fn update_config() {
     };
 
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // update owner
-    let env = mock_env("owner", &[]);
-    let msg = HandleMsg::UpdateConfig {
-        owner_addr: Some(HumanAddr("owner1".to_string())),
+    let info = mock_info("owner", &[]);
+    let msg = ExecuteMsg::UpdateConfig {
+        owner_addr: Some("owner1".to_string()),
         oracle_contract: None,
         liquidation_contract: None,
         threshold_deposit_rate: None,
@@ -115,20 +115,20 @@ fn update_config() {
         price_timeframe: None,
     };
 
-    let res = handle(&mut deps, env, msg).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // it worked, let's query the state
-    let res = query(&deps, QueryMsg::Config {}).unwrap();
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&res).unwrap();
-    assert_eq!(HumanAddr::from("owner1"), config_res.owner_addr);
+    assert_eq!("owner1".to_string(), config_res.owner_addr);
 
     // update left items
-    let env = mock_env("owner1", &[]);
-    let msg = HandleMsg::UpdateConfig {
+    let info = mock_info("owner1", &[]);
+    let msg = ExecuteMsg::UpdateConfig {
         owner_addr: None,
-        oracle_contract: Some(HumanAddr("oracle1".to_string())),
-        liquidation_contract: Some(HumanAddr("liquidation1".to_string())),
+        oracle_contract: Some("oracle1".to_string()),
+        liquidation_contract: Some("liquidation1".to_string()),
         threshold_deposit_rate: Some(Decimal256::permille(1)),
         target_deposit_rate: Some(Decimal256::permille(2)),
         buffer_distribution_factor: Some(Decimal256::percent(10)),
@@ -137,18 +137,15 @@ fn update_config() {
         price_timeframe: Some(120u64),
     };
 
-    let res = handle(&mut deps, env, msg).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // it worked, let's query the state
-    let res = query(&deps, QueryMsg::Config {}).unwrap();
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&res).unwrap();
-    assert_eq!(HumanAddr::from("owner1"), config_res.owner_addr);
-    assert_eq!(HumanAddr::from("oracle1"), config_res.oracle_contract);
-    assert_eq!(
-        HumanAddr::from("liquidation1"),
-        config_res.liquidation_contract
-    );
+    assert_eq!("owner1".to_string(), config_res.owner_addr);
+    assert_eq!("oracle1".to_string(), config_res.oracle_contract);
+    assert_eq!("liquidation1".to_string(), config_res.liquidation_contract);
     assert_eq!(Decimal256::permille(1), config_res.threshold_deposit_rate);
     assert_eq!(Decimal256::permille(2), config_res.target_deposit_rate);
     assert_eq!(
@@ -160,8 +157,8 @@ fn update_config() {
     assert_eq!(120u64, config_res.price_timeframe);
 
     // Unauthorized err
-    let env = mock_env("owner", &[]);
-    let msg = HandleMsg::UpdateConfig {
+    let info = mock_info("owner", &[]);
+    let msg = ExecuteMsg::UpdateConfig {
         owner_addr: None,
         oracle_contract: None,
         liquidation_contract: None,
@@ -173,24 +170,24 @@ fn update_config() {
         price_timeframe: None,
     };
 
-    let res = handle(&mut deps, env, msg);
+    let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
-        Err(StdError::Unauthorized { .. }) => {}
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
         _ => panic!("Must return unauthorized error"),
     }
 }
 
 #[test]
 fn whitelist() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let env = mock_env("addr0000", &[]);
-    let msg = InitMsg {
-        owner_addr: HumanAddr::from("owner"),
-        oracle_contract: HumanAddr::from("oracle"),
-        market_contract: HumanAddr::from("market"),
-        liquidation_contract: HumanAddr::from("liquidation"),
-        collector_contract: HumanAddr::from("collector"),
+    let info = mock_info("addr0000", &[]);
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        oracle_contract: "oracle".to_string(),
+        market_contract: "market".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
@@ -201,41 +198,42 @@ fn whitelist() {
     };
 
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env, msg).unwrap();
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "bluna".to_string(),
         symbol: "bluna".to_string(),
-        collateral_token: HumanAddr::from("bluna"),
-        custody_contract: HumanAddr::from("custody"),
+        collateral_token: "bluna".to_string(),
+        custody_contract: "custody".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let res = handle(&mut deps, env, msg.clone());
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
-        Err(StdError::Unauthorized { .. }) => {}
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     };
 
-    let env = mock_env("owner", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "register_whitelist"),
-            log("name", "bluna"),
-            log("symbol", "bluna"),
-            log("collateral_token", "bluna"),
-            log("custody_contract", "custody"),
-            log("LTV", "0.6"),
+            attr("action", "register_whitelist"),
+            attr("name", "bluna"),
+            attr("symbol", "bluna"),
+            attr("collateral_token", "bluna"),
+            attr("custody_contract", "custody"),
+            attr("LTV", "0.6"),
         ]
     );
 
     let res = query(
-        &deps,
+        deps.as_ref(),
+        mock_env(),
         QueryMsg::Whitelist {
-            collateral_token: Some(HumanAddr::from("bluna")),
+            collateral_token: Some("bluna".to_string()),
             start_after: None,
             limit: None,
         },
@@ -248,24 +246,24 @@ fn whitelist() {
             elems: vec![WhitelistResponseElem {
                 name: "bluna".to_string(),
                 symbol: "bluna".to_string(),
-                collateral_token: HumanAddr::from("bluna"),
-                custody_contract: HumanAddr::from("custody"),
+                collateral_token: "bluna".to_string(),
+                custody_contract: "custody".to_string(),
                 max_ltv: Decimal256::percent(60),
             }]
         }
     );
 
     //Attempting to whitelist already whitelisted collaterals
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "bluna".to_string(),
         symbol: "bluna".to_string(),
-        collateral_token: HumanAddr::from("bluna"),
-        custody_contract: HumanAddr::from("custody"),
+        collateral_token: "bluna".to_string(),
+        custody_contract: "custody".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let env = mock_env("owner", &[]);
-    let res = handle(&mut deps, env, msg).unwrap_err();
+    let info = mock_info("owner", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
     match res {
         StdError::GenericErr { msg, .. } => {
             assert_eq!(msg, "Token is already registered as collateral")
@@ -273,35 +271,36 @@ fn whitelist() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let msg = HandleMsg::UpdateWhitelist {
-        collateral_token: HumanAddr::from("bluna"),
-        custody_contract: Some(HumanAddr::from("custody2")),
+    let msg = ExecuteMsg::UpdateWhitelist {
+        collateral_token: "bluna".to_string(),
+        custody_contract: Some("custody2".to_string()),
         max_ltv: Some(Decimal256::percent(30)),
     };
 
-    let env = mock_env("addr0000", &[]);
-    let res = handle(&mut deps, env, msg.clone());
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
-        Err(StdError::Unauthorized { .. }) => {}
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     };
 
-    let env = mock_env("owner", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("owner", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "update_whitelist"),
-            log("collateral_token", "bluna"),
-            log("custody_contract", "custody2"),
-            log("LTV", "0.3"),
+            attr("action", "update_whitelist"),
+            attr("collateral_token", "bluna"),
+            attr("custody_contract", "custody2"),
+            attr("LTV", "0.3"),
         ]
     );
 
     let res = query(
-        &deps,
+        deps.as_ref(),
+        mock_env(),
         QueryMsg::Whitelist {
-            collateral_token: Some(HumanAddr::from("bluna")),
+            collateral_token: Some("bluna".to_string()),
             start_after: None,
             limit: None,
         },
@@ -314,8 +313,8 @@ fn whitelist() {
             elems: vec![WhitelistResponseElem {
                 name: "bluna".to_string(),
                 symbol: "bluna".to_string(),
-                collateral_token: HumanAddr::from("bluna"),
-                custody_contract: HumanAddr::from("custody2"),
+                collateral_token: "bluna".to_string(),
+                custody_contract: "custody2".to_string(),
                 max_ltv: Decimal256::percent(30),
             }]
         }
@@ -324,21 +323,19 @@ fn whitelist() {
 
 #[test]
 fn execute_epoch_operations() {
-    let mut deps = mock_dependencies(
-        20,
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128::from(10000000000u128),
-        }],
-    );
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(10000000000u128),
+    }]);
 
-    let mut env = mock_env("owner", &[]);
-    let msg = InitMsg {
-        owner_addr: HumanAddr::from("owner"),
-        oracle_contract: HumanAddr::from("oracle"),
-        market_contract: HumanAddr::from("market"),
-        liquidation_contract: HumanAddr::from("liquidation"),
-        collector_contract: HumanAddr::from("collector"),
+    let mut env = mock_env();
+    let info = mock_info("owner", &[]);
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        oracle_contract: "oracle".to_string(),
+        market_contract: "market".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
@@ -349,31 +346,47 @@ fn execute_epoch_operations() {
     };
 
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let _res = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    let batom_collat_token = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+
+    let bluna_collat_token = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
 
     // store whitelist elems
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "bluna".to_string(),
         symbol: "bluna".to_string(),
-        collateral_token: HumanAddr::from("bluna"),
-        custody_contract: HumanAddr::from("custody_bluna"),
+        collateral_token: bluna_collat_token,
+        custody_contract: "custody_bluna".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let _res = handle(&mut deps, env.clone(), msg);
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
 
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "batom".to_string(),
         symbol: "batom".to_string(),
-        collateral_token: HumanAddr::from("batom"),
-        custody_contract: HumanAddr::from("custody_batom"),
+        collateral_token: batom_collat_token,
+        custody_contract: "custody_batom".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let _res = handle(&mut deps, env.clone(), msg);
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
 
-    let msg = HandleMsg::ExecuteEpochOperations {};
-    let res = handle(&mut deps, env.clone(), msg.clone());
+    let msg = ExecuteMsg::ExecuteEpochOperations {};
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     match res {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(
             msg,
@@ -386,7 +399,7 @@ fn execute_epoch_operations() {
 
     // If deposit_rate is bigger than threshold_deposit_rate
     deps.querier.with_epoch_state(&[(
-        &HumanAddr::from("market"),
+        &"market".to_string(),
         &(Uint256::from(1000000u64), Decimal256::percent(120)),
     )]);
 
@@ -394,59 +407,58 @@ fn execute_epoch_operations() {
     // deposit rate = 0.000002314814814814
     // accrued_buffer = 10,000,000,000
     // anc_purchase_amount = accrued_buffer * 0.2 = 2,000,000,000
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Bank(BankMsg::Send {
-                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                to_address: HumanAddr::from("collector"),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "collector".to_string(),
                 amount: vec![deduct_tax(
-                    &deps,
+                    deps.as_ref(),
                     Coin {
                         denom: "uusd".to_string(),
                         amount: Uint128::from(2_000_000_000u128),
                     }
                 )
                 .unwrap()],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("custody_batom"),
-                send: vec![],
-                msg: to_binary(&CustodyHandleMsg::DistributeRewards {}).unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("custody_bluna"),
-                send: vec![],
-                msg: to_binary(&CustodyHandleMsg::DistributeRewards {}).unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                send: vec![],
-                msg: to_binary(&HandleMsg::UpdateEpochState {
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "custody_batom".to_string(),
+                funds: vec![],
+                msg: to_binary(&CustodyExecuteMsg::DistributeRewards {}).unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "custody_bluna".to_string(),
+                funds: vec![],
+                msg: to_binary(&CustodyExecuteMsg::DistributeRewards {}).unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_CONTRACT_ADDR.to_string(),
+                funds: vec![],
+                msg: to_binary(&ExecuteMsg::UpdateEpochState {
                     interest_buffer: Uint256::from(8_000_000_000u128),
                     distributed_interest: Uint256::zero(),
                 })
                 .unwrap(),
-            })
+            }))
         ]
     );
 
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "epoch_operations"),
-            log("deposit_rate", "0.000002314814814814"),
-            log("exchange_rate", "1.2"),
-            log("aterra_supply", "1000000"),
-            log("distributed_interest", "0"),
-            log("anc_purchase_amount", "2000000000"),
+            attr("action", "epoch_operations"),
+            attr("deposit_rate", "0.000002314814814814"),
+            attr("exchange_rate", "1.2"),
+            attr("aterra_supply", "1000000"),
+            attr("distributed_interest", "0"),
+            attr("anc_purchase_amount", "2000000000"),
         ]
     );
 
     // store epoch state for test purpose
     store_epoch_state(
-        &mut deps.storage,
+        deps.as_mut().storage,
         &EpochState {
             last_executed_height: env.block.height,
             prev_exchange_rate: Decimal256::from_str("1.2").unwrap(),
@@ -459,7 +471,7 @@ fn execute_epoch_operations() {
 
     // If deposit rate is bigger than threshold
     deps.querier.with_epoch_state(&[(
-        &HumanAddr::from("market"),
+        &"market".to_string(),
         &(Uint256::from(1000000u64), Decimal256::percent(125)),
     )]);
 
@@ -474,86 +486,81 @@ fn execute_epoch_operations() {
     // interest_buffer = 9,999,000,000
     // (125 / 120 - 1) / 86400
     // deposit rate = 0.000000482253086419
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Bank(BankMsg::Send {
-                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                to_address: HumanAddr::from("collector"),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "collector".to_string(),
                 amount: vec![deduct_tax(
-                    &deps,
+                    deps.as_ref(),
                     Coin {
                         denom: "uusd".to_string(),
                         amount: Uint128::from(200_000u128),
                     }
                 )
                 .unwrap()]
-            }),
-            CosmosMsg::Bank(BankMsg::Send {
-                from_address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                to_address: HumanAddr::from("market"),
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "market".to_string(),
                 amount: vec![deduct_tax(
-                    &deps,
+                    deps.as_ref(),
                     Coin {
                         denom: "uusd".to_string(),
                         amount: Uint128::from(53680u128),
                     }
                 )
                 .unwrap()]
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("custody_batom"),
-                send: vec![],
-                msg: to_binary(&CustodyHandleMsg::DistributeRewards {}).unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("custody_bluna"),
-                send: vec![],
-                msg: to_binary(&CustodyHandleMsg::DistributeRewards {}).unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
-                send: vec![],
-                msg: to_binary(&HandleMsg::UpdateEpochState {
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "custody_batom".to_string(),
+                funds: vec![],
+                msg: to_binary(&CustodyExecuteMsg::DistributeRewards {}).unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "custody_bluna".to_string(),
+                funds: vec![],
+                msg: to_binary(&CustodyExecuteMsg::DistributeRewards {}).unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_CONTRACT_ADDR.to_string(),
+                funds: vec![],
+                msg: to_binary(&ExecuteMsg::UpdateEpochState {
                     interest_buffer: Uint256::from(9999746320u128),
                     distributed_interest: Uint256::from(53148u128),
                 })
                 .unwrap(),
-            })
+            }))
         ]
     );
 
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "epoch_operations"),
-            log("deposit_rate", "0.000000482253086419"),
-            log("exchange_rate", "1.25"),
-            log("aterra_supply", "1000000"),
-            log("distributed_interest", "53148"),
-            log("anc_purchase_amount", "200000")
+            attr("action", "epoch_operations"),
+            attr("deposit_rate", "0.000000482253086419"),
+            attr("exchange_rate", "1.25"),
+            attr("aterra_supply", "1000000"),
+            attr("distributed_interest", "53148"),
+            attr("anc_purchase_amount", "200000")
         ]
     );
 }
 
 #[test]
 fn update_epoch_state() {
-    let mut deps = mock_dependencies(
-        20,
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128::from(10000000000u128),
-        }],
-    );
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(10000000000u128),
+    }]);
 
-    let env = mock_env("owner", &[]);
-    let msg = InitMsg {
-        owner_addr: HumanAddr::from("owner"),
-        oracle_contract: HumanAddr::from("oracle"),
-        market_contract: HumanAddr::from("market"),
-        liquidation_contract: HumanAddr::from("liquidation"),
-        collector_contract: HumanAddr::from("collector"),
+    let info = mock_info("owner", &[]);
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        oracle_contract: "oracle".to_string(),
+        market_contract: "market".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
@@ -564,111 +571,117 @@ fn update_epoch_state() {
     };
 
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
     // store whitelist elems
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "bluna".to_string(),
         symbol: "bluna".to_string(),
-        collateral_token: HumanAddr::from("bluna"),
-        custody_contract: HumanAddr::from("custody_bluna"),
+        collateral_token: "bluna".to_string(),
+        custody_contract: "custody_bluna".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let _res = handle(&mut deps, env.clone(), msg);
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
 
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "batom".to_string(),
         symbol: "batom".to_string(),
-        collateral_token: HumanAddr::from("batom"),
-        custody_contract: HumanAddr::from("custody_batom"),
+        collateral_token: "batom".to_string(),
+        custody_contract: "custody_batom".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let _res = handle(&mut deps, env.clone(), msg);
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
 
     // only contract itself can execute update_epoch_state
-    let msg = HandleMsg::UpdateEpochState {
+    let msg = ExecuteMsg::UpdateEpochState {
         interest_buffer: Uint256::from(10000000000u128),
         distributed_interest: Uint256::from(1000000u128),
     };
-    let res = handle(&mut deps, env.clone(), msg.clone());
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
-        Err(StdError::Unauthorized { .. }) => {}
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
     // Assume execute epoch operation is executed
-    let mut env = mock_env(MOCK_CONTRACT_ADDR, &[]);
+    let mut env = mock_env();
+    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
     env.block.height += 86400u64;
 
     deps.querier.with_epoch_state(&[(
-        &HumanAddr::from("market"),
+        &"market".to_string(),
         &(Uint256::from(1000000u64), Decimal256::percent(120)),
     )]);
 
-    let res = handle(&mut deps, env.clone(), msg.clone()).unwrap();
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("market"),
-            send: vec![],
-            msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "market".to_string(),
+            funds: vec![],
+            msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
                 deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
                 target_deposit_rate: Decimal256::permille(5),
                 threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
                 distributed_interest: Uint256::from(1000000u128),
             })
             .unwrap(),
-        })]
+        }))]
     );
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "update_epoch_state"),
-            log("deposit_rate", "0.000002314814814814"),
-            log("aterra_supply", "1000000"),
-            log("exchange_rate", "1.2"),
-            log("interest_buffer", "10000000000"),
+            attr("action", "update_epoch_state"),
+            attr("deposit_rate", "0.000002314814814814"),
+            attr("aterra_supply", "1000000"),
+            attr("exchange_rate", "1.2"),
+            attr("interest_buffer", "10000000000"),
         ]
     );
 
     // Deposit rate increased
     deps.querier.with_epoch_state(&[(
-        &HumanAddr::from("market"),
+        &"market".to_string(),
         &(Uint256::from(1000000u64), Decimal256::percent(125)),
     )]);
 
     env.block.height += 86400u64;
-    let res = handle(&mut deps, env.clone(), msg).unwrap();
+    let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("market"),
-            send: vec![],
-            msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "market".to_string(),
+            funds: vec![],
+            msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
                 deposit_rate: Decimal256::from_str("0.000000482253086419").unwrap(),
                 target_deposit_rate: Decimal256::permille(5),
                 threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
                 distributed_interest: Uint256::from(1000000u128),
             })
             .unwrap(),
-        })]
+        }))]
     );
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "update_epoch_state"),
-            log("deposit_rate", "0.000000482253086419"),
-            log("aterra_supply", "1000000"),
-            log("exchange_rate", "1.25"),
-            log("interest_buffer", "10000000000"),
+            attr("action", "update_epoch_state"),
+            attr("deposit_rate", "0.000000482253086419"),
+            attr("aterra_supply", "1000000"),
+            attr("exchange_rate", "1.25"),
+            attr("interest_buffer", "10000000000"),
         ]
     );
 
-    let epoch_state_response =
-        query_epoch_state(&deps, &HumanAddr::from("market"), env.block.height, None).unwrap();
-    let epoch_state = read_epoch_state(&deps.storage).unwrap();
+    let epoch_state_response = query_epoch_state(
+        deps.as_ref(),
+        Addr::unchecked("market"),
+        env.block.height,
+        None,
+    )
+    .unwrap();
+    let epoch_state = read_epoch_state(deps.as_ref().storage).unwrap();
 
     // deposit rate = 0.000000482253078703
     assert_eq!(
@@ -685,15 +698,15 @@ fn update_epoch_state() {
 
 #[test]
 fn lock_collateral() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let env = mock_env("owner", &[]);
-    let msg = InitMsg {
-        owner_addr: HumanAddr::from("owner"),
-        oracle_contract: HumanAddr::from("oracle"),
-        market_contract: HumanAddr::from("market"),
-        liquidation_contract: HumanAddr::from("liquidation"),
-        collector_contract: HumanAddr::from("collector"),
+    let info = mock_info("owner", &[]);
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        oracle_contract: "oracle".to_string(),
+        market_contract: "market".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
@@ -704,74 +717,97 @@ fn lock_collateral() {
     };
 
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+    let batom_collat_token = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+
+    let bluna_collat_token = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
 
     // store whitelist elems
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "bluna".to_string(),
         symbol: "bluna".to_string(),
-        collateral_token: HumanAddr::from("bluna"),
-        custody_contract: HumanAddr::from("custody_bluna"),
+        collateral_token: bluna_collat_token.clone(),
+        custody_contract: "custody_bluna".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let _res = handle(&mut deps, env.clone(), msg);
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
 
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "batom".to_string(),
         symbol: "batom".to_string(),
-        collateral_token: HumanAddr::from("batom"),
-        custody_contract: HumanAddr::from("custody_batom"),
+        collateral_token: batom_collat_token.clone(),
+        custody_contract: "custody_batom".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let _res = handle(&mut deps, env.clone(), msg);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg);
 
-    let msg = HandleMsg::LockCollateral {
+    let msg = ExecuteMsg::LockCollateral {
         collaterals: vec![
-            (HumanAddr::from("bluna"), Uint256::from(1000000u64)),
-            (HumanAddr::from("batom"), Uint256::from(10000000u64)),
+            (bluna_collat_token.clone(), Uint256::from(1000000u64)),
+            (batom_collat_token.clone(), Uint256::from(10000000u64)),
         ],
     };
-    let env = mock_env("addr0000", &[]);
-    let res = handle(&mut deps, env, msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("custody_bluna"),
-                send: vec![],
-                msg: to_binary(&CustodyHandleMsg::LockCollateral {
-                    borrower: HumanAddr::from("addr0000"),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "custody_bluna".to_string(),
+                funds: vec![],
+                msg: to_binary(&CustodyExecuteMsg::LockCollateral {
+                    borrower: "addr0000".to_string(),
                     amount: Uint256::from(1000000u64),
                 })
                 .unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("custody_batom"),
-                send: vec![],
-                msg: to_binary(&CustodyHandleMsg::LockCollateral {
-                    borrower: HumanAddr::from("addr0000"),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "custody_batom".to_string(),
+                funds: vec![],
+                msg: to_binary(&CustodyExecuteMsg::LockCollateral {
+                    borrower: "addr0000".to_string(),
                     amount: Uint256::from(10000000u64),
                 })
                 .unwrap(),
-            })
+            }))
         ]
     );
 
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "lock_collateral"),
-            log("borrower", "addr0000"),
-            log("collaterals", "1000000bluna,10000000batom"),
+            attr("action", "lock_collateral"),
+            attr("borrower", "addr0000"),
+            attr(
+                "collaterals",
+                format!(
+                    "1000000{},10000000{}",
+                    bluna_collat_token, batom_collat_token
+                )
+            ),
         ]
     );
 
     let res = query(
-        &deps,
+        deps.as_ref(),
+        mock_env(),
         QueryMsg::Collaterals {
-            borrower: HumanAddr::from("addr0000"),
+            borrower: "addr0000".to_string(),
         },
     )
     .unwrap();
@@ -779,16 +815,17 @@ fn lock_collateral() {
     assert_eq!(
         collaterals_res,
         CollateralsResponse {
-            borrower: HumanAddr::from("addr0000"),
+            borrower: "addr0000".to_string(),
             collaterals: vec![
-                (HumanAddr::from("batom"), Uint256::from(10000000u64)),
-                (HumanAddr::from("bluna"), Uint256::from(1000000u64)),
+                (batom_collat_token.clone(), Uint256::from(10000000u64)),
+                (bluna_collat_token.clone(), Uint256::from(1000000u64)),
             ]
         }
     );
 
     let res = query(
-        &deps,
+        deps.as_ref(),
+        mock_env(),
         QueryMsg::AllCollaterals {
             start_after: None,
             limit: None,
@@ -800,10 +837,10 @@ fn lock_collateral() {
         all_collaterals_res,
         AllCollateralsResponse {
             all_collaterals: vec![CollateralsResponse {
-                borrower: HumanAddr::from("addr0000"),
+                borrower: "addr0000".to_string(),
                 collaterals: vec![
-                    (HumanAddr::from("batom"), Uint256::from(10000000u64)),
-                    (HumanAddr::from("bluna"), Uint256::from(1000000u64)),
+                    (batom_collat_token, Uint256::from(10000000u64)),
+                    (bluna_collat_token, Uint256::from(1000000u64)),
                 ]
             }]
         }
@@ -812,15 +849,16 @@ fn lock_collateral() {
 
 #[test]
 fn unlock_collateral() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
 
-    let env = mock_env("owner", &[]);
-    let msg = InitMsg {
-        owner_addr: HumanAddr::from("owner"),
-        oracle_contract: HumanAddr::from("oracle"),
-        market_contract: HumanAddr::from("market"),
-        liquidation_contract: HumanAddr::from("liquidation"),
-        collector_contract: HumanAddr::from("collector"),
+    let info = mock_info("owner", &[]);
+    let env = mock_env();
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        oracle_contract: "oracle".to_string(),
+        market_contract: "market".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
@@ -831,46 +869,46 @@ fn unlock_collateral() {
     };
 
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let _res = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     // store whitelist elems
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "bluna".to_string(),
         symbol: "bluna".to_string(),
-        collateral_token: HumanAddr::from("bluna"),
-        custody_contract: HumanAddr::from("custody_bluna"),
+        collateral_token: "bluna".to_string(),
+        custody_contract: "custody_bluna".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let _res = handle(&mut deps, env.clone(), msg);
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
 
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "batom".to_string(),
         symbol: "batom".to_string(),
-        collateral_token: HumanAddr::from("batom"),
-        custody_contract: HumanAddr::from("custody_batom"),
+        collateral_token: "batom".to_string(),
+        custody_contract: "custody_batom".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let _res = handle(&mut deps, env.clone(), msg);
+    let _res = execute(deps.as_mut(), env.clone(), info, msg);
 
-    let msg = HandleMsg::LockCollateral {
+    let msg = ExecuteMsg::LockCollateral {
         collaterals: vec![
-            (HumanAddr::from("bluna"), Uint256::from(1000000u64)),
-            (HumanAddr::from("batom"), Uint256::from(10000000u64)),
+            ("bluna".to_string(), Uint256::from(1000000u64)),
+            ("batom".to_string(), Uint256::from(10000000u64)),
         ],
     };
-    let env = mock_env("addr0000", &[]);
-    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     // Failed to unlock more than locked amount
-    let msg = HandleMsg::UnlockCollateral {
+    let msg = ExecuteMsg::UnlockCollateral {
         collaterals: vec![
-            (HumanAddr::from("bluna"), Uint256::from(1000001u64)),
-            (HumanAddr::from("batom"), Uint256::from(10000001u64)),
+            ("bluna".to_string(), Uint256::from(1000001u64)),
+            ("batom".to_string(), Uint256::from(10000001u64)),
         ],
     };
-    let res = handle(&mut deps, env.clone(), msg);
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
             assert_eq!(msg, "Unlock amount cannot exceed locked amount")
@@ -883,16 +921,16 @@ fn unlock_collateral() {
             &("bluna".to_string(), "uusd".to_string()),
             &(
                 Decimal256::from_ratio(1000u64, 1u64),
-                env.block.time,
-                env.block.time,
+                env.block.time.seconds(),
+                env.block.time.seconds(),
             ),
         ),
         (
             &("batom".to_string(), "uusd".to_string()),
             &(
                 Decimal256::from_ratio(2000u64, 1u64),
-                env.block.time,
-                env.block.time,
+                env.block.time.seconds(),
+                env.block.time.seconds(),
             ),
         ),
     ]);
@@ -900,14 +938,14 @@ fn unlock_collateral() {
     // borrow_limit = 1000 * 1000000 * 0.6 + 2000 * 10000000 * 0.6
     // = 12,600,000,000 uusd
     deps.querier
-        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(12600000000u64))]);
+        .with_loan_amount(&[(&"addr0000".to_string(), &Uint256::from(12600000000u64))]);
 
     // cannot unlock any tokens
     // Failed to unlock more than locked amount
-    let msg = HandleMsg::UnlockCollateral {
-        collaterals: vec![(HumanAddr::from("bluna"), Uint256::one())],
+    let msg = ExecuteMsg::UnlockCollateral {
+        collaterals: vec![("bluna".to_string(), Uint256::one())],
     };
-    let res = handle(&mut deps, env.clone(), msg);
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
             assert_eq!(
@@ -918,10 +956,10 @@ fn unlock_collateral() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let msg = HandleMsg::UnlockCollateral {
-        collaterals: vec![(HumanAddr::from("batom"), Uint256::one())],
+    let msg = ExecuteMsg::UnlockCollateral {
+        collaterals: vec![("batom".to_string(), Uint256::one())],
     };
-    let res = handle(&mut deps, env.clone(), msg);
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
             assert_eq!(
@@ -935,11 +973,12 @@ fn unlock_collateral() {
     // borrow_limit = 1000 * 1000000 * 0.6 + 2000 * 10000000 * 0.6
     // = 12,600,000,000 uusd
     deps.querier
-        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(12599999400u64))]);
+        .with_loan_amount(&[(&"addr0000".to_string(), &Uint256::from(12599999400u64))]);
     let res = query(
-        &deps,
+        deps.as_ref(),
+        env.clone(),
         QueryMsg::BorrowLimit {
-            borrower: HumanAddr::from("addr0000"),
+            borrower: "addr0000".to_string(),
             block_time: None,
         },
     )
@@ -948,10 +987,10 @@ fn unlock_collateral() {
     assert_eq!(borrow_limit_res.borrow_limit, Uint256::from(12600000000u64),);
 
     // Cannot unlock 2bluna
-    let msg = HandleMsg::UnlockCollateral {
-        collaterals: vec![(HumanAddr::from("bluna"), Uint256::from(2u64))],
+    let msg = ExecuteMsg::UnlockCollateral {
+        collaterals: vec![("bluna".to_string(), Uint256::from(2u64))],
     };
-    let res = handle(&mut deps, env.clone(), msg);
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
             assert_eq!(msg, "Unlock amount too high; Loan liability becomes greater than borrow limit: 12599998800")
@@ -960,89 +999,90 @@ fn unlock_collateral() {
     }
 
     // Can unlock 1bluna
-    let msg = HandleMsg::UnlockCollateral {
-        collaterals: vec![(HumanAddr::from("bluna"), Uint256::one())],
+    let msg = ExecuteMsg::UnlockCollateral {
+        collaterals: vec![("bluna".to_string(), Uint256::one())],
     };
-    let res = handle(&mut deps, env.clone(), msg).unwrap();
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: HumanAddr::from("custody_bluna"),
-            send: vec![],
-            msg: to_binary(&CustodyHandleMsg::UnlockCollateral {
-                borrower: HumanAddr::from("addr0000"),
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "custody_bluna".to_string(),
+            funds: vec![],
+            msg: to_binary(&CustodyExecuteMsg::UnlockCollateral {
+                borrower: "addr0000".to_string(),
                 amount: Uint256::one(),
             })
             .unwrap(),
-        }),]
+        }))]
     );
 
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "unlock_collateral"),
-            log("borrower", "addr0000"),
-            log("collaterals", "1bluna"),
+            attr("action", "unlock_collateral"),
+            attr("borrower", "addr0000"),
+            attr("collaterals", "1bluna"),
         ]
     );
 
     //testing for unlocking more collaterals
     deps.querier
-        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(125999900u128))]);
+        .with_loan_amount(&[(&"addr0000".to_string(), &Uint256::from(125999900u128))]);
 
-    let msg = HandleMsg::UnlockCollateral {
+    let msg = ExecuteMsg::UnlockCollateral {
         collaterals: vec![
-            (HumanAddr::from("bluna"), Uint256::from(1u128)),
-            (HumanAddr::from("batom"), Uint256::from(1u128)),
+            ("bluna".to_string(), Uint256::from(1u128)),
+            ("batom".to_string(), Uint256::from(1u128)),
         ],
     };
-    let res = handle(&mut deps, env.clone(), msg).unwrap();
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("custody_bluna"),
-                send: vec![],
-                msg: to_binary(&CustodyHandleMsg::UnlockCollateral {
-                    borrower: HumanAddr::from("addr0000"),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "custody_bluna".to_string(),
+                funds: vec![],
+                msg: to_binary(&CustodyExecuteMsg::UnlockCollateral {
+                    borrower: "addr0000".to_string(),
                     amount: Uint256::from(1u128),
                 })
                 .unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("custody_batom"),
-                send: vec![],
-                msg: to_binary(&CustodyHandleMsg::UnlockCollateral {
-                    borrower: HumanAddr::from("addr0000"),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "custody_batom".to_string(),
+                funds: vec![],
+                msg: to_binary(&CustodyExecuteMsg::UnlockCollateral {
+                    borrower: "addr0000".to_string(),
                     amount: Uint256::from(1u128),
                 })
                 .unwrap(),
-            })
+            }))
         ]
     );
     assert_eq!(
-        res.log,
+        res.attributes,
         vec![
-            log("action", "unlock_collateral"),
-            log("borrower", "addr0000"),
-            log("collaterals", "1bluna,1batom"),
+            attr("action", "unlock_collateral"),
+            attr("borrower", "addr0000"),
+            attr("collaterals", "1bluna,1batom"),
         ]
     );
 }
 
 #[test]
 fn liquidate_collateral() {
-    let mut deps = mock_dependencies(20, &[]);
+    let mut deps = mock_dependencies(&[]);
     deps.querier
-        .with_liquidation_percent(&[(&HumanAddr::from("liquidation"), &Decimal256::percent(1))]);
+        .with_liquidation_percent(&[(&"liquidation".to_string(), &Decimal256::percent(1))]);
 
-    let env = mock_env("owner", &[]);
-    let msg = InitMsg {
-        owner_addr: HumanAddr::from("owner"),
-        oracle_contract: HumanAddr::from("oracle"),
-        market_contract: HumanAddr::from("market"),
-        liquidation_contract: HumanAddr::from("liquidation"),
-        collector_contract: HumanAddr::from("collector"),
+    let info = mock_info("owner", &[]);
+    let env = mock_env();
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        oracle_contract: "oracle".to_string(),
+        market_contract: "market".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
         threshold_deposit_rate: Decimal256::permille(3),
@@ -1053,53 +1093,69 @@ fn liquidate_collateral() {
     };
 
     // we can just call .unwrap() to assert this was a success
-    let _res = init(&mut deps, env.clone(), msg).unwrap();
+    let _res = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    let batom_collat_token = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
+
+    let bluna_collat_token = deps
+        .api
+        .addr_humanize(&CanonicalAddr::from(vec![
+            1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]))
+        .unwrap()
+        .to_string();
 
     // store whitelist elems
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "bluna".to_string(),
         symbol: "bluna".to_string(),
-        collateral_token: HumanAddr::from("bluna"),
-        custody_contract: HumanAddr::from("custody_bluna"),
+        collateral_token: bluna_collat_token.clone(),
+        custody_contract: "custody_bluna".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let _res = handle(&mut deps, env.clone(), msg);
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
 
-    let msg = HandleMsg::Whitelist {
+    let msg = ExecuteMsg::Whitelist {
         name: "batom".to_string(),
         symbol: "batom".to_string(),
-        collateral_token: HumanAddr::from("batom"),
-        custody_contract: HumanAddr::from("custody_batom"),
+        collateral_token: batom_collat_token.clone(),
+        custody_contract: "custody_batom".to_string(),
         max_ltv: Decimal256::percent(60),
     };
 
-    let _res = handle(&mut deps, env.clone(), msg);
+    let _res = execute(deps.as_mut(), env.clone(), info, msg);
 
-    let msg = HandleMsg::LockCollateral {
+    let msg = ExecuteMsg::LockCollateral {
         collaterals: vec![
-            (HumanAddr::from("bluna"), Uint256::from(1000000u64)),
-            (HumanAddr::from("batom"), Uint256::from(10000000u64)),
+            (bluna_collat_token.clone(), Uint256::from(1000000u64)),
+            (batom_collat_token.clone(), Uint256::from(10000000u64)),
         ],
     };
-    let env = mock_env("addr0000", &[]);
-    let _res = handle(&mut deps, env.clone(), msg).unwrap();
+    let info = mock_info("addr0000", &[]);
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     deps.querier.with_oracle_price(&[
         (
-            &("bluna".to_string(), "uusd".to_string()),
+            &(bluna_collat_token.clone(), "uusd".to_string()),
             &(
                 Decimal256::from_ratio(1000u64, 1u64),
-                env.block.time,
-                env.block.time,
+                env.block.time.seconds(),
+                env.block.time.seconds(),
             ),
         ),
         (
-            &("batom".to_string(), "uusd".to_string()),
+            &(batom_collat_token.clone(), "uusd".to_string()),
             &(
                 Decimal256::from_ratio(2000u64, 1u64),
-                env.block.time,
-                env.block.time,
+                env.block.time.seconds(),
+                env.block.time.seconds(),
             ),
         ),
     ]);
@@ -1107,13 +1163,13 @@ fn liquidate_collateral() {
     // borrow_limit = 1000 * 1000000 * 0.6 + 2000 * 10000000 * 0.6
     // = 12,600,000,000 uusd
     deps.querier
-        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(12600000000u64))]);
+        .with_loan_amount(&[(&"addr0000".to_string(), &Uint256::from(12600000000u64))]);
 
-    let msg = HandleMsg::LiquidateCollateral {
-        borrower: HumanAddr::from("addr0000"),
+    let msg = ExecuteMsg::LiquidateCollateral {
+        borrower: "addr0000".to_string(),
     };
-    let env = mock_env("addr0001", &[]);
-    let res = handle(&mut deps, env.clone(), msg.clone());
+    let info = mock_info("addr0001", &[]);
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
             assert_eq!(msg, "Cannot liquidate safely collateralized loan")
@@ -1122,47 +1178,48 @@ fn liquidate_collateral() {
     }
 
     deps.querier
-        .with_loan_amount(&[(&HumanAddr::from("addr0000"), &Uint256::from(12600000001u64))]);
-    let res = handle(&mut deps, env, msg).unwrap();
+        .with_loan_amount(&[(&"addr0000".to_string(), &Uint256::from(12600000001u64))]);
+    let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("custody_batom"),
-                send: vec![],
-                msg: to_binary(&CustodyHandleMsg::LiquidateCollateral {
-                    liquidator: HumanAddr::from("addr0001"),
-                    borrower: HumanAddr::from("addr0000"),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "custody_batom".to_string(),
+                funds: vec![],
+                msg: to_binary(&CustodyExecuteMsg::LiquidateCollateral {
+                    liquidator: "addr0001".to_string(),
+                    borrower: "addr0000".to_string(),
                     amount: Uint256::from(100000u64),
                 })
                 .unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("custody_bluna"),
-                send: vec![],
-                msg: to_binary(&CustodyHandleMsg::LiquidateCollateral {
-                    liquidator: HumanAddr::from("addr0001"),
-                    borrower: HumanAddr::from("addr0000"),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "custody_bluna".to_string(),
+                funds: vec![],
+                msg: to_binary(&CustodyExecuteMsg::LiquidateCollateral {
+                    liquidator: "addr0001".to_string(),
+                    borrower: "addr0000".to_string(),
                     amount: Uint256::from(10000u64),
                 })
                 .unwrap(),
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: HumanAddr::from("market"),
-                send: vec![],
-                msg: to_binary(&MarketHandleMsg::RepayStableFromLiquidation {
-                    borrower: HumanAddr::from("addr0000"),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "market".to_string(),
+                funds: vec![],
+                msg: to_binary(&MarketExecuteMsg::RepayStableFromLiquidation {
+                    borrower: "addr0000".to_string(),
                     prev_balance: Uint256::zero(),
                 })
                 .unwrap(),
-            })
+            }))
         ]
     );
 
     let res = query(
-        &deps,
+        deps.as_ref(),
+        env,
         QueryMsg::Collaterals {
-            borrower: HumanAddr::from("addr0000"),
+            borrower: "addr0000".to_string(),
         },
     )
     .unwrap();
@@ -1170,10 +1227,10 @@ fn liquidate_collateral() {
     assert_eq!(
         collaterals_res,
         CollateralsResponse {
-            borrower: HumanAddr::from("addr0000"),
+            borrower: "addr0000".to_string(),
             collaterals: vec![
-                (HumanAddr::from("batom"), Uint256::from(9900000u64)),
-                (HumanAddr::from("bluna"), Uint256::from(990000u64)),
+                (batom_collat_token, Uint256::from(9900000u64)),
+                (bluna_collat_token, Uint256::from(990000u64)),
             ]
         }
     );

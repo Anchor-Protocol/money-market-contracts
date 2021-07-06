@@ -1,8 +1,8 @@
 use cosmwasm_bignumber::Uint256;
-use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdError, StdResult, Storage};
+use cosmwasm_std::{CanonicalAddr, Deps, StdError, StdResult};
 
 pub type Token = (CanonicalAddr, Uint256);
-pub type TokenHuman = (HumanAddr, Uint256);
+pub type TokenHuman = (String, Uint256);
 
 pub type Tokens = Vec<Token>;
 pub type TokensHuman = Vec<TokenHuman>;
@@ -14,14 +14,11 @@ pub trait TokensMath {
 }
 
 pub trait TokensToHuman {
-    fn to_human<S: Storage, A: Api, Q: Querier>(
-        &self,
-        deps: &Extern<S, A, Q>,
-    ) -> StdResult<TokensHuman>;
+    fn to_human(&self, deps: Deps) -> StdResult<TokensHuman>;
 }
 
 pub trait TokensToRaw {
-    fn to_raw<S: Storage, A: Api, Q: Querier>(&self, deps: &Extern<S, A, Q>) -> StdResult<Tokens>;
+    fn to_raw(&self, deps: Deps) -> StdResult<Tokens>;
 }
 
 impl TokensMath for Tokens {
@@ -130,23 +127,20 @@ impl TokensMath for Tokens {
 }
 
 impl TokensToHuman for Tokens {
-    fn to_human<S: Storage, A: Api, Q: Querier>(
-        &self,
-        deps: &Extern<S, A, Q>,
-    ) -> StdResult<TokensHuman> {
+    fn to_human(&self, deps: Deps) -> StdResult<TokensHuman> {
         let collaterals: TokensHuman = self
             .iter()
-            .map(|c| Ok((deps.api.human_address(&c.0)?, c.1)))
+            .map(|c| Ok((deps.api.addr_humanize(&c.0)?.to_string(), c.1)))
             .collect::<StdResult<TokensHuman>>()?;
         Ok(collaterals)
     }
 }
 
 impl TokensToRaw for TokensHuman {
-    fn to_raw<S: Storage, A: Api, Q: Querier>(&self, deps: &Extern<S, A, Q>) -> StdResult<Tokens> {
+    fn to_raw(&self, deps: Deps) -> StdResult<Tokens> {
         let collaterals: Tokens = self
             .iter()
-            .map(|c| Ok((deps.api.canonical_address(&c.0)?, c.1)))
+            .map(|c| Ok((deps.api.addr_canonicalize(c.0.as_str())?, c.1)))
             .collect::<StdResult<Tokens>>()?;
         Ok(collaterals)
     }

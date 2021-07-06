@@ -17,16 +17,16 @@ documentation = "https://docs.terra.money"
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cw20 = "0.2" 
-cosmwasm-bignumber = "1.0.0"
-cosmwasm-storage = "0.10.1"
-terra-cosmwasm = "1.2.2" 
-cosmwasm-std = "0.10.1"
-schemars = "0.7"
+cw20 = { version = "0.7.0" }
+cosmwasm-bignumber = "2.1.0"
+cosmwasm-storage = "0.15.0"
+terra-cosmwasm = "2.1.0" 
+cosmwasm-std = "0.15.0"
+schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-cosmwasm-schema = "0.10.1"
+cosmwasm-schema = "0.15.0"
 
 [profile.dev]
 overflow-checks = true

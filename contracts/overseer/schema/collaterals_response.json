@@ -8,7 +8,7 @@
   ],
   "properties": {
     "borrower": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "collaterals": {
       "type": "array",
@@ -16,7 +16,7 @@
         "type": "array",
         "items": [
           {
-            "$ref": "#/definitions/HumanAddr"
+            "type": "string"
           },
           {
             "$ref": "#/definitions/Uint256"
@@ -28,9 +28,6 @@
     }
   },
   "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    },
     "Uint256": {
       "type": "string"
     }

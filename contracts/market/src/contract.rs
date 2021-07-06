@@ -1,3 +1,6 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+
 use crate::borrow::{
     borrow_stable, claim_rewards, compute_interest, compute_interest_raw, compute_reward,
     query_borrower_info, query_borrower_infos, repay_stable, repay_stable_from_liquidation,
@@ -5,65 +8,67 @@ use crate::borrow::{
 use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
 use crate::migration::{migrate_config, migrate_state};
 use crate::querier::{query_anc_emission_rate, query_borrow_rate, query_target_deposit_rate};
+use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse,
-    MigrateResult, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    attr, from_binary, to_binary, Addr, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Deps,
+    DepsMut, Env, MessageInfo, Reply, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
-use cw20::{Cw20CoinHuman, Cw20ReceiveMsg, MinterResponse};
+use cw20::{Cw20Coin, Cw20ReceiveMsg, MinterResponse};
 
+use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{
-    ConfigResponse, Cw20HookMsg, EpochStateResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg,
-    StateResponse,
+    ConfigResponse, Cw20HookMsg, EpochStateResponse, ExecuteMsg, InstantiateMsg, MigrateMsg,
+    QueryMsg, StateResponse,
 };
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
-use terraswap::hook::InitHook;
-use terraswap::token::InitMsg as TokenInitMsg;
+use protobuf::Message;
+use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 
 pub const INITIAL_DEPOSIT_AMOUNT: u128 = 1000000;
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     env: Env,
-    msg: InitMsg,
-) -> InitResult {
-    let initial_deposit = env
-        .message
-        .sent_funds
+    info: MessageInfo,
+    msg: InstantiateMsg,
+) -> StdResult<Response> {
+    let initial_deposit = info
+        .funds
         .iter()
         .find(|c| c.denom == msg.stable_denom)
         .map(|c| c.amount)
-        .unwrap_or_else(|| Uint128::zero());
+        .unwrap_or_else(Uint128::zero);
 
-    if initial_deposit != Uint128(INITIAL_DEPOSIT_AMOUNT) {
+    if initial_deposit != Uint128::from(INITIAL_DEPOSIT_AMOUNT) {
         return Err(StdError::generic_err(format!(
             "Must deposit initial funds {:?}{:?}",
-            INITIAL_DEPOSIT_AMOUNT,
-            msg.stable_denom.clone()
+            INITIAL_DEPOSIT_AMOUNT, msg.stable_denom
         )));
     }
 
     store_config(
-        &mut deps.storage,
+        deps.storage,
         &Config {
-            contract_addr: deps.api.canonical_address(&env.contract.address)?,
-            owner_addr: deps.api.canonical_address(&msg.owner_addr)?,
-            aterra_contract: CanonicalAddr::default(),
-            overseer_contract: CanonicalAddr::default(),
-            interest_model: CanonicalAddr::default(),
-            distribution_model: CanonicalAddr::default(),
-            collector_contract: CanonicalAddr::default(),
-            distributor_contract: CanonicalAddr::default(),
+            contract_addr: deps.api.addr_canonicalize(env.contract.address.as_str())?,
+            owner_addr: deps.api.addr_canonicalize(&msg.owner_addr)?,
+            aterra_contract: CanonicalAddr::from(vec![]),
+            overseer_contract: CanonicalAddr::from(vec![]),
+            interest_model: CanonicalAddr::from(vec![]),
+            distribution_model: CanonicalAddr::from(vec![]),
+            collector_contract: CanonicalAddr::from(vec![]),
+            distributor_contract: CanonicalAddr::from(vec![]),
             stable_denom: msg.stable_denom.clone(),
             max_borrow_factor: msg.max_borrow_factor,
         },
     )?;
 
     store_state(
-        &mut deps.storage,
+        deps.storage,
         &State {
             total_liabilities: Decimal256::zero(),
             total_reserves: Decimal256::zero(),
@@ -77,72 +82,75 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
-    Ok(InitResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Instantiate {
-            code_id: msg.aterra_code_id,
-            send: vec![],
-            label: None,
-            msg: to_binary(&TokenInitMsg {
-                name: format!("Anchor Terra {}", msg.stable_denom[1..].to_uppercase()),
-                symbol: format!(
-                    "a{}T",
-                    msg.stable_denom[1..(msg.stable_denom.len() - 1)].to_uppercase()
-                ),
-                decimals: 6u8,
-                initial_balances: vec![Cw20CoinHuman {
-                    address: env.contract.address.clone(),
-                    amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
-                }],
-                mint: Some(MinterResponse {
-                    minter: env.contract.address.clone(),
-                    cap: None,
-                }),
-                init_hook: Some(InitHook {
-                    contract_addr: env.contract.address,
-                    msg: to_binary(&HandleMsg::RegisterATerra {})?,
-                }),
-            })?,
-        })],
-        log: vec![],
+    Ok(Response {
+        messages: vec![SubMsg::reply_on_success(
+            CosmosMsg::Wasm(WasmMsg::Instantiate {
+                admin: None,
+                code_id: msg.aterra_code_id,
+                funds: vec![],
+                label: "".to_string(),
+                msg: to_binary(&TokenInstantiateMsg {
+                    name: format!("Anchor Terra {}", msg.stable_denom[1..].to_uppercase()),
+                    symbol: format!(
+                        "a{}T",
+                        msg.stable_denom[1..(msg.stable_denom.len() - 1)].to_uppercase()
+                    ),
+                    decimals: 6u8,
+                    initial_balances: vec![Cw20Coin {
+                        address: env.contract.address.to_string(),
+                        amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+                    }],
+                    mint: Some(MinterResponse {
+                        minter: env.contract.address.to_string(),
+                        cap: None,
+                    }),
+                })?,
+            }),
+            1,
+        )],
+        ..Response::default()
     })
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    msg: HandleMsg,
-) -> HandleResult {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
-        HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
-        HandleMsg::RegisterATerra {} => register_aterra(deps, env),
-        HandleMsg::RegisterContracts {
+        ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
+        ExecuteMsg::RegisterContracts {
             overseer_contract,
             interest_model,
             distribution_model,
             collector_contract,
             distributor_contract,
-        } => register_contracts(
-            deps,
-            overseer_contract,
-            interest_model,
-            distribution_model,
-            collector_contract,
-            distributor_contract,
-        ),
-        HandleMsg::UpdateConfig {
+        } => {
+            let api = deps.api;
+            register_contracts(
+                deps,
+                api.addr_validate(&overseer_contract)?,
+                api.addr_validate(&interest_model)?,
+                api.addr_validate(&distribution_model)?,
+                api.addr_validate(&collector_contract)?,
+                api.addr_validate(&distributor_contract)?,
+            )
+        }
+        ExecuteMsg::UpdateConfig {
             owner_addr,
             interest_model,
             distribution_model,
             max_borrow_factor,
-        } => update_config(
-            deps,
-            env,
-            owner_addr,
-            interest_model,
-            distribution_model,
-            max_borrow_factor,
-        ),
-        HandleMsg::ExecuteEpochOperations {
+        } => {
+            let api = deps.api;
+            update_config(
+                deps,
+                env,
+                info,
+                optional_addr_validate(api, owner_addr)?,
+                optional_addr_validate(api, interest_model)?,
+                optional_addr_validate(api, distribution_model)?,
+                max_borrow_factor,
+            )
+        }
+        ExecuteMsg::ExecuteEpochOperations {
             deposit_rate,
             target_deposit_rate,
             threshold_deposit_rate,
@@ -150,167 +158,205 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         } => execute_epoch_operations(
             deps,
             env,
+            info,
             deposit_rate,
             target_deposit_rate,
             threshold_deposit_rate,
             distributed_interest,
         ),
-        HandleMsg::DepositStable {} => deposit_stable(deps, env),
-        HandleMsg::BorrowStable { borrow_amount, to } => {
-            borrow_stable(deps, env, borrow_amount, to)
+        ExecuteMsg::DepositStable {} => deposit_stable(deps, env, info),
+        ExecuteMsg::BorrowStable { borrow_amount, to } => {
+            let api = deps.api;
+            borrow_stable(
+                deps,
+                env,
+                info,
+                borrow_amount,
+                optional_addr_validate(api, to)?,
+            )
         }
-        HandleMsg::RepayStable {} => repay_stable(deps, env),
-        HandleMsg::RepayStableFromLiquidation {
+        ExecuteMsg::RepayStable {} => repay_stable(deps, env, info),
+        ExecuteMsg::RepayStableFromLiquidation {
             borrower,
             prev_balance,
-        } => repay_stable_from_liquidation(deps, env, borrower, prev_balance),
-        HandleMsg::ClaimRewards { to } => claim_rewards(deps, env, to),
-    }
-}
-
-pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    cw20_msg: Cw20ReceiveMsg,
-) -> HandleResult {
-    let contract_addr = env.message.sender.clone();
-    if let Some(msg) = cw20_msg.msg {
-        match from_binary(&msg)? {
-            Cw20HookMsg::RedeemStable {} => {
-                // only asset contract can execute this message
-                let config: Config = read_config(&deps.storage)?;
-                if deps.api.canonical_address(&contract_addr)? != config.aterra_contract {
-                    return Err(StdError::unauthorized());
-                }
-
-                redeem_stable(deps, env, cw20_msg.sender, cw20_msg.amount)
-            }
+        } => {
+            let api = deps.api;
+            repay_stable_from_liquidation(
+                deps,
+                env,
+                info,
+                api.addr_validate(&borrower)?,
+                prev_balance,
+            )
         }
-    } else {
-        Err(StdError::generic_err(
-            "Invalid request: \"redeem stable\" message not included in request",
-        ))
+        ExecuteMsg::ClaimRewards { to } => {
+            let api = deps.api;
+            claim_rewards(deps, env, info, optional_addr_validate(api, to)?)
+        }
     }
 }
 
-pub fn register_aterra<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
+    match msg.id {
+        1 => {
+            // get new token's contract address
+            let res: MsgInstantiateContractResponse = Message::parse_from_bytes(
+                msg.result.unwrap().data.unwrap().as_slice(),
+            )
+            .map_err(|_| {
+                StdError::parse_err("MsgInstantiateContractResponse", "failed to parse data")
+            })?;
+            let token_addr = Addr::unchecked(res.get_contract_address());
+
+            register_aterra(deps, token_addr)
+        }
+        _ => Err(StdError::generic_err("reply id is invalid")),
+    }
+}
+
+pub fn receive_cw20(
+    deps: DepsMut,
     env: Env,
-) -> HandleResult {
-    let mut config: Config = read_config(&deps.storage)?;
-    if config.aterra_contract != CanonicalAddr::default() {
-        return Err(StdError::unauthorized());
+    info: MessageInfo,
+    cw20_msg: Cw20ReceiveMsg,
+) -> StdResult<Response> {
+    let contract_addr = info.sender;
+    match from_binary(&cw20_msg.msg) {
+        Ok(Cw20HookMsg::RedeemStable {}) => {
+            // only asset contract can execute this message
+            let config: Config = read_config(deps.storage)?;
+            if deps.api.addr_canonicalize(contract_addr.as_str())? != config.aterra_contract {
+                return Err(StdError::generic_err("unauthorized"));
+            }
+
+            let cw20_sender_addr = deps.api.addr_validate(&cw20_msg.sender)?;
+            redeem_stable(deps, env, cw20_sender_addr, cw20_msg.amount)
+        }
+        _ => Err(StdError::generic_err(
+            "Invalid request: \"redeem stable\" message not included in request",
+        )),
+    }
+}
+
+pub fn register_aterra(deps: DepsMut, token_addr: Addr) -> StdResult<Response> {
+    let mut config: Config = read_config(deps.storage)?;
+    if config.aterra_contract != CanonicalAddr::from(vec![]) {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    config.aterra_contract = deps.api.canonical_address(&env.message.sender)?;
-    store_config(&mut deps.storage, &config)?;
+    config.aterra_contract = deps.api.addr_canonicalize(token_addr.as_str())?;
+    store_config(deps.storage, &config)?;
 
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![log("aterra", env.message.sender)],
-        data: None,
+    Ok(Response {
+        attributes: vec![attr("aterra", token_addr)],
+        ..Response::default()
     })
 }
 
-pub fn register_contracts<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    overseer_contract: HumanAddr,
-    interest_model: HumanAddr,
-    distribution_model: HumanAddr,
-    collector_contract: HumanAddr,
-    distributor_contract: HumanAddr,
-) -> HandleResult {
-    let mut config: Config = read_config(&deps.storage)?;
-    if config.overseer_contract != CanonicalAddr::default()
-        || config.interest_model != CanonicalAddr::default()
-        || config.distribution_model != CanonicalAddr::default()
-        || config.collector_contract != CanonicalAddr::default()
-        || config.distributor_contract != CanonicalAddr::default()
+pub fn register_contracts(
+    deps: DepsMut,
+    overseer_contract: Addr,
+    interest_model: Addr,
+    distribution_model: Addr,
+    collector_contract: Addr,
+    distributor_contract: Addr,
+) -> StdResult<Response> {
+    let mut config: Config = read_config(deps.storage)?;
+    if config.overseer_contract != CanonicalAddr::from(vec![])
+        || config.interest_model != CanonicalAddr::from(vec![])
+        || config.distribution_model != CanonicalAddr::from(vec![])
+        || config.collector_contract != CanonicalAddr::from(vec![])
+        || config.distributor_contract != CanonicalAddr::from(vec![])
     {
-        return Err(StdError::unauthorized());
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    config.overseer_contract = deps.api.canonical_address(&overseer_contract)?;
-    config.interest_model = deps.api.canonical_address(&interest_model)?;
-    config.distribution_model = deps.api.canonical_address(&distribution_model)?;
-    config.collector_contract = deps.api.canonical_address(&collector_contract)?;
-    config.distributor_contract = deps.api.canonical_address(&distributor_contract)?;
-    store_config(&mut deps.storage, &config)?;
+    config.overseer_contract = deps.api.addr_canonicalize(overseer_contract.as_str())?;
+    config.interest_model = deps.api.addr_canonicalize(interest_model.as_str())?;
+    config.distribution_model = deps.api.addr_canonicalize(distribution_model.as_str())?;
+    config.collector_contract = deps.api.addr_canonicalize(collector_contract.as_str())?;
+    config.distributor_contract = deps.api.addr_canonicalize(distributor_contract.as_str())?;
+    store_config(deps.storage, &config)?;
 
-    Ok(HandleResponse::default())
+    Ok(Response::default())
 }
 
-pub fn update_config<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn update_config(
+    deps: DepsMut,
     env: Env,
-    owner_addr: Option<HumanAddr>,
-    interest_model: Option<HumanAddr>,
-    distribution_model: Option<HumanAddr>,
+    info: MessageInfo,
+    owner_addr: Option<Addr>,
+    interest_model: Option<Addr>,
+    distribution_model: Option<Addr>,
     max_borrow_factor: Option<Decimal256>,
-) -> HandleResult {
-    let mut config: Config = read_config(&deps.storage)?;
+) -> StdResult<Response> {
+    let mut config: Config = read_config(deps.storage)?;
 
     // permission check
-    if deps.api.canonical_address(&env.message.sender)? != config.owner_addr {
-        return Err(StdError::unauthorized());
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     if let Some(owner_addr) = owner_addr {
-        config.owner_addr = deps.api.canonical_address(&owner_addr)?;
+        config.owner_addr = deps.api.addr_canonicalize(owner_addr.as_str())?;
     }
 
     if interest_model.is_some() {
-        let mut state: State = read_state(&deps.storage)?;
-        compute_interest(&deps, &config, &mut state, env.block.height, None)?;
-        store_state(&mut deps.storage, &state)?;
+        let mut state: State = read_state(deps.storage)?;
+        compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
+        store_state(deps.storage, &state)?;
 
         if let Some(interest_model) = interest_model {
-            config.interest_model = deps.api.canonical_address(&interest_model)?;
+            config.interest_model = deps.api.addr_canonicalize(interest_model.as_str())?;
         }
     }
 
     if let Some(distribution_model) = distribution_model {
-        config.distribution_model = deps.api.canonical_address(&distribution_model)?;
+        config.distribution_model = deps.api.addr_canonicalize(distribution_model.as_str())?;
     }
 
     if let Some(max_borrow_factor) = max_borrow_factor {
         config.max_borrow_factor = max_borrow_factor;
     }
 
-    store_config(&mut deps.storage, &config)?;
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![log("action", "update_config")],
-        data: None,
+    store_config(deps.storage, &config)?;
+    Ok(Response {
+        attributes: vec![attr("action", "update_config")],
+        ..Response::default()
     })
 }
 
-pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn execute_epoch_operations(
+    deps: DepsMut,
     env: Env,
+    info: MessageInfo,
     deposit_rate: Decimal256,
     target_deposit_rate: Decimal256,
     threshold_deposit_rate: Decimal256,
     distributed_interest: Uint256,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    if config.overseer_contract != deps.api.canonical_address(&env.message.sender)? {
-        return Err(StdError::unauthorized());
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    if config.overseer_contract != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    let mut state: State = read_state(&deps.storage)?;
+    let mut state: State = read_state(deps.storage)?;
 
     // Compute interest and reward before updating anc_emission_rate
-    let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
+    let aterra_supply = query_supply(
+        deps.as_ref(),
+        deps.api.addr_humanize(&config.aterra_contract)?,
+    )?;
     let balance: Uint256 = query_balance(
-        &deps,
-        &deps.api.human_address(&config.contract_addr)?,
+        deps.as_ref(),
+        deps.api.addr_humanize(&config.contract_addr)?,
         config.stable_denom.to_string(),
     )? - distributed_interest;
 
     let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
-        &deps,
-        &deps.api.human_address(&config.interest_model)?,
+        deps.as_ref(),
+        deps.api.addr_humanize(&config.interest_model)?,
         balance,
         state.total_liabilities,
         state.total_reserves,
@@ -335,28 +381,30 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     // Update total_reserves and send it to collector contract
     // only when there is enough balance
     let total_reserves = state.total_reserves * Uint256::one();
-    let messages: Vec<CosmosMsg> = if !total_reserves.is_zero() && balance > total_reserves {
+    let messages: Vec<SubMsg> = if !total_reserves.is_zero() && balance > total_reserves {
         state.total_reserves = state.total_reserves - Decimal256::from_uint256(total_reserves);
 
-        vec![CosmosMsg::Bank(BankMsg::Send {
-            from_address: env.contract.address,
-            to_address: deps.api.human_address(&config.collector_contract)?,
+        vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: deps
+                .api
+                .addr_humanize(&config.collector_contract)?
+                .to_string(),
             amount: vec![deduct_tax(
-                &deps,
+                deps.as_ref(),
                 Coin {
                     denom: config.stable_denom,
                     amount: total_reserves.into(),
                 },
             )?],
-        })]
+        }))]
     } else {
         vec![]
     };
 
     // Query updated anc_emission_rate
     state.anc_emission_rate = query_anc_emission_rate(
-        &deps,
-        &deps.api.human_address(&config.distribution_model)?,
+        deps.as_ref(),
+        deps.api.addr_humanize(&config.distribution_model)?,
         deposit_rate,
         target_deposit_rate,
         threshold_deposit_rate,
@@ -364,23 +412,21 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     )?
     .emission_rate;
 
-    store_state(&mut deps.storage, &state)?;
+    store_state(deps.storage, &state)?;
 
-    return Ok(HandleResponse {
+    Ok(Response {
         messages,
-        log: vec![
-            log("action", "execute_epoch_operations"),
-            log("total_reserves", total_reserves),
-            log("anc_emission_rate", state.anc_emission_rate),
+        attributes: vec![
+            attr("action", "execute_epoch_operations"),
+            attr("total_reserves", total_reserves),
+            attr("anc_emission_rate", state.anc_emission_rate),
         ],
-        data: None,
-    });
+        ..Response::default()
+    })
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State { block_height } => to_binary(&query_state(deps, block_height)?),
@@ -395,35 +441,48 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::BorrowerInfo {
             borrower,
             block_height,
-        } => to_binary(&query_borrower_info(deps, borrower, block_height)?),
-        QueryMsg::BorrowerInfos { start_after, limit } => {
-            to_binary(&query_borrower_infos(deps, start_after, limit)?)
-        }
+        } => to_binary(&query_borrower_info(
+            deps,
+            deps.api.addr_validate(&borrower)?,
+            block_height,
+        )?),
+        QueryMsg::BorrowerInfos { start_after, limit } => to_binary(&query_borrower_infos(
+            deps,
+            optional_addr_validate(deps.api, start_after)?,
+            limit,
+        )?),
     }
 }
 
-pub fn query_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let config: Config = read_config(&deps.storage)?;
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let config: Config = read_config(deps.storage)?;
     Ok(ConfigResponse {
-        owner_addr: deps.api.human_address(&config.owner_addr)?,
-        aterra_contract: deps.api.human_address(&config.aterra_contract)?,
-        interest_model: deps.api.human_address(&config.interest_model)?,
-        distribution_model: deps.api.human_address(&config.distribution_model)?,
-        overseer_contract: deps.api.human_address(&config.overseer_contract)?,
-        collector_contract: deps.api.human_address(&config.collector_contract)?,
-        distributor_contract: deps.api.human_address(&config.distributor_contract)?,
+        owner_addr: deps.api.addr_humanize(&config.owner_addr)?.to_string(),
+        aterra_contract: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
+        interest_model: deps.api.addr_humanize(&config.interest_model)?.to_string(),
+        distribution_model: deps
+            .api
+            .addr_humanize(&config.distribution_model)?
+            .to_string(),
+        overseer_contract: deps
+            .api
+            .addr_humanize(&config.overseer_contract)?
+            .to_string(),
+        collector_contract: deps
+            .api
+            .addr_humanize(&config.collector_contract)?
+            .to_string(),
+        distributor_contract: deps
+            .api
+            .addr_humanize(&config.distributor_contract)?
+            .to_string(),
         stable_denom: config.stable_denom,
         max_borrow_factor: config.max_borrow_factor,
     })
 }
 
-pub fn query_state<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    block_height: Option<u64>,
-) -> StdResult<StateResponse> {
-    let mut state: State = read_state(&deps.storage)?;
+pub fn query_state(deps: Deps, block_height: Option<u64>) -> StdResult<StateResponse> {
+    let mut state: State = read_state(deps.storage)?;
 
     if let Some(block_height) = block_height {
         if block_height < state.last_interest_updated {
@@ -438,10 +497,10 @@ pub fn query_state<S: Storage, A: Api, Q: Querier>(
             ));
         }
 
-        let config: Config = read_config(&deps.storage)?;
+        let config: Config = read_config(deps.storage)?;
 
         // Compute interest rate with given block height
-        compute_interest(&deps, &config, &mut state, block_height, None)?;
+        compute_interest(deps, &config, &mut state, block_height, None)?;
 
         // Compute reward rate with given block height
         compute_reward(&mut state, block_height);
@@ -460,19 +519,19 @@ pub fn query_state<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn query_epoch_state(
+    deps: Deps,
     block_height: Option<u64>,
     distributed_interest: Option<Uint256>,
 ) -> StdResult<EpochStateResponse> {
-    let config: Config = read_config(&deps.storage)?;
-    let mut state: State = read_state(&deps.storage)?;
+    let config: Config = read_config(deps.storage)?;
+    let mut state: State = read_state(deps.storage)?;
 
-    let distributed_interest = distributed_interest.unwrap_or(Uint256::zero());
-    let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
+    let distributed_interest = distributed_interest.unwrap_or_else(Uint256::zero);
+    let aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.aterra_contract)?)?;
     let balance = query_balance(
-        &deps,
-        &deps.api.human_address(&config.contract_addr)?,
+        deps,
+        deps.api.addr_humanize(&config.contract_addr)?,
         config.stable_denom.to_string(),
     )? - distributed_interest;
 
@@ -484,15 +543,15 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
         }
 
         let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
-            &deps,
-            &deps.api.human_address(&config.interest_model)?,
+            deps,
+            deps.api.addr_humanize(&config.interest_model)?,
             balance,
             state.total_liabilities,
             state.total_reserves,
         )?;
 
         let target_deposit_rate: Decimal256 =
-            query_target_deposit_rate(&deps, &deps.api.human_address(&config.overseer_contract)?)?;
+            query_target_deposit_rate(deps, deps.api.addr_humanize(&config.overseer_contract)?)?;
 
         // Compute interest rate to return latest epoch state
         compute_interest_raw(
@@ -517,24 +576,24 @@ pub fn query_epoch_state<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    msg: MigrateMsg,
-) -> MigrateResult {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> {
     // migrate config to use new Config
     // also update collector_contract to the given address
     migrate_config(
-        &mut deps.storage,
-        deps.api.canonical_address(&msg.collector_contract)?,
+        deps.storage,
+        deps.api.addr_canonicalize(&msg.collector_contract)?,
     )?;
 
-    let config: Config = read_config(&deps.storage)?;
-    let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
-    let balance = query_balance(&deps, &env.contract.address, config.stable_denom)?;
+    let config: Config = read_config(deps.storage)?;
+    let aterra_supply = query_supply(
+        deps.as_ref(),
+        deps.api.addr_humanize(&config.aterra_contract)?,
+    )?;
+    let balance = query_balance(deps.as_ref(), env.contract.address, config.stable_denom)?;
 
     // migrate state to use new State
-    migrate_state(&mut deps.storage, aterra_supply, balance)?;
+    migrate_state(deps.storage, aterra_supply, balance)?;
 
-    Ok(MigrateResponse::default())
+    Ok(Response::default())
 }

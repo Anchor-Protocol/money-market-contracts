@@ -2,133 +2,124 @@ use crate::state::{
     read_config, read_feeder, read_price, read_prices, store_config, store_feeder, store_price,
     Config, PriceInfo,
 };
-
 use cosmwasm_bignumber::Decimal256;
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    log, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, MigrateResponse, MigrateResult, Querier, StdError, StdResult, Storage,
+    attr, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
-
 use moneymarket::oracle::{
-    ConfigResponse, FeederResponse, HandleMsg, InitMsg, MigrateMsg, PriceResponse, PricesResponse,
-    PricesResponseElem, QueryMsg,
+    ConfigResponse, ExecuteMsg, FeederResponse, InstantiateMsg, MigrateMsg, PriceResponse,
+    PricesResponse, PricesResponseElem, QueryMsg,
 };
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     _env: Env,
-    msg: InitMsg,
-) -> StdResult<InitResponse> {
+    _info: MessageInfo,
+    msg: InstantiateMsg,
+) -> StdResult<Response> {
     store_config(
-        &mut deps.storage,
+        deps.storage,
         &Config {
-            owner: deps.api.canonical_address(&msg.owner)?,
+            owner: deps.api.addr_canonicalize(&msg.owner)?,
             base_asset: msg.base_asset,
         },
     )?;
 
-    Ok(InitResponse::default())
+    Ok(Response::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    msg: HandleMsg,
-) -> HandleResult {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
-        HandleMsg::UpdateConfig { owner } => update_config(deps, env, owner),
-        HandleMsg::RegisterFeeder { asset, feeder } => register_feeder(deps, env, asset, feeder),
-        HandleMsg::FeedPrice { prices } => feed_prices(deps, env, prices),
+        ExecuteMsg::UpdateConfig { owner } => update_config(deps, info, owner),
+        ExecuteMsg::RegisterFeeder { asset, feeder } => register_feeder(deps, info, asset, feeder),
+        ExecuteMsg::FeedPrice { prices } => feed_prices(deps, env, info, prices),
     }
 }
 
-pub fn update_config<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    owner: Option<HumanAddr>,
-) -> HandleResult {
-    let mut config: Config = read_config(&deps.storage)?;
-    if deps.api.canonical_address(&env.message.sender)? != config.owner {
-        return Err(StdError::unauthorized());
+pub fn update_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    owner: Option<String>,
+) -> StdResult<Response> {
+    let mut config: Config = read_config(deps.storage)?;
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     if let Some(owner) = owner {
-        config.owner = deps.api.canonical_address(&owner)?;
+        config.owner = deps.api.addr_canonicalize(&owner)?;
     }
 
-    store_config(&mut deps.storage, &config)?;
-    Ok(HandleResponse::default())
+    store_config(deps.storage, &config)?;
+    Ok(Response::default())
 }
 
-pub fn register_feeder<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
+pub fn register_feeder(
+    deps: DepsMut,
+    info: MessageInfo,
     asset: String,
-    feeder: HumanAddr,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    if deps.api.canonical_address(&env.message.sender)? != config.owner {
-        return Err(StdError::unauthorized());
+    feeder: String,
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    store_feeder(
-        &mut deps.storage,
-        &asset,
-        &deps.api.canonical_address(&feeder)?,
-    )?;
+    store_feeder(deps.storage, &asset, &deps.api.addr_canonicalize(&feeder)?)?;
 
-    return Ok(HandleResponse {
-        messages: vec![],
-        log: vec![
-            log("action", "register_feeder"),
-            log("asset", asset),
-            log("feeder", feeder),
+    Ok(Response {
+        attributes: vec![
+            attr("action", "register_feeder"),
+            attr("asset", asset),
+            attr("feeder", feeder),
         ],
-        data: None,
-    });
+        ..Response::default()
+    })
 }
 
-pub fn feed_prices<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn feed_prices(
+    deps: DepsMut,
     env: Env,
+    info: MessageInfo,
     prices: Vec<(String, Decimal256)>,
-) -> HandleResult {
-    let mut logs = vec![log("action", "feed_prices")];
-    let sender_raw = deps.api.canonical_address(&env.message.sender)?;
+) -> StdResult<Response> {
+    let mut attributes = vec![attr("action", "feed_prices")];
+    let sender_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
     for price in prices {
         let asset: String = price.0;
         let price: Decimal256 = price.1;
 
         // Check feeder permission
-        let feeder = read_feeder(&deps.storage, &asset)?;
+        let feeder = read_feeder(deps.storage, &asset)?;
         if feeder != sender_raw {
-            return Err(StdError::unauthorized());
+            return Err(StdError::generic_err("unauthorized"));
         }
 
-        logs.push(log("asset", asset.to_string()));
-        logs.push(log("price", price));
+        attributes.push(attr("asset", asset.to_string()));
+        attributes.push(attr("price", price));
 
         store_price(
-            &mut deps.storage,
+            deps.storage,
             &asset,
             &PriceInfo {
-                last_updated_time: env.block.time,
+                last_updated_time: env.block.time.seconds(),
                 price,
             },
         )?;
     }
 
-    Ok(HandleResponse {
-        messages: vec![],
-        log: logs,
-        data: None,
+    Ok(Response {
+        attributes,
+        ..Response::default()
     })
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::Feeder { asset } => to_binary(&query_feeder(deps, asset)?),
@@ -139,44 +130,35 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-fn query_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let state = read_config(&deps.storage)?;
+fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let state = read_config(deps.storage)?;
     let resp = ConfigResponse {
-        owner: deps.api.human_address(&state.owner)?,
+        owner: deps.api.addr_humanize(&state.owner)?.to_string(),
         base_asset: state.base_asset,
     };
 
     Ok(resp)
 }
 
-fn query_feeder<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    asset: String,
-) -> StdResult<FeederResponse> {
-    let feeder = read_feeder(&deps.storage, &asset)?;
+fn query_feeder(deps: Deps, asset: String) -> StdResult<FeederResponse> {
+    let feeder = read_feeder(deps.storage, &asset)?;
     let resp = FeederResponse {
         asset,
-        feeder: deps.api.human_address(&feeder)?,
+        feeder: deps.api.addr_humanize(&feeder)?.to_string(),
     };
 
     Ok(resp)
 }
 
-fn query_price<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    base: String,
-    quote: String,
-) -> StdResult<PriceResponse> {
-    let config: Config = read_config(&deps.storage)?;
+fn query_price(deps: Deps, base: String, quote: String) -> StdResult<PriceResponse> {
+    let config: Config = read_config(deps.storage)?;
     let quote_price = if config.base_asset == quote {
         PriceInfo {
             price: Decimal256::one(),
             last_updated_time: 9999999999,
         }
     } else {
-        read_price(&deps.storage, &quote)?
+        read_price(deps.storage, &quote)?
     };
 
     let base_price = if config.base_asset == base {
@@ -185,7 +167,7 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
             last_updated_time: 9999999999,
         }
     } else {
-        read_price(&deps.storage, &base)?
+        read_price(deps.storage, &base)?
     };
 
     Ok(PriceResponse {
@@ -195,220 +177,16 @@ fn query_price<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-fn query_prices<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+fn query_prices(
+    deps: Deps,
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<PricesResponse> {
-    let prices: Vec<PricesResponseElem> = read_prices(&deps.storage, start_after, limit)?;
+    let prices: Vec<PricesResponseElem> = read_prices(deps.storage, start_after, limit)?;
     Ok(PricesResponse { prices })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::{from_binary, StdError};
-    use std::str::FromStr;
-
-    #[test]
-    fn proper_initialization() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg {
-            owner: HumanAddr("owner0000".to_string()),
-            base_asset: "base0000".to_string(),
-        };
-
-        let env = mock_env("addr0000", &[]);
-
-        // we can just call .unwrap() to assert this was a success
-        let res = init(&mut deps, env, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // it worked, let's query the state
-        let value = query_config(&deps).unwrap();
-        assert_eq!("owner0000", value.owner.as_str());
-        assert_eq!("base0000", &value.base_asset.to_string());
-    }
-
-    #[test]
-    fn update_config() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg {
-            owner: HumanAddr("owner0000".to_string()),
-            base_asset: "base0000".to_string(),
-        };
-
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // update owner
-        let env = mock_env("owner0000", &[]);
-        let msg = HandleMsg::UpdateConfig {
-            owner: Some(HumanAddr("owner0001".to_string())),
-        };
-
-        let res = handle(&mut deps, env, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // it worked, let's query the state
-        let value = query_config(&deps).unwrap();
-        assert_eq!("owner0001", value.owner.as_str());
-        assert_eq!("base0000", &value.base_asset.to_string());
-
-        // Unauthorized err
-        let env = mock_env("owner0000", &[]);
-        let msg = HandleMsg::UpdateConfig { owner: None };
-
-        let res = handle(&mut deps, env, msg);
-        match res {
-            Err(StdError::Unauthorized { .. }) => {}
-            _ => panic!("Must return unauthorized error"),
-        }
-    }
-
-    #[test]
-    fn register_feeder() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg {
-            owner: HumanAddr("owner0000".to_string()),
-            base_asset: "base0000".to_string(),
-        };
-
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        let env = mock_env("addr0000", &[]);
-        let msg = HandleMsg::RegisterFeeder {
-            asset: "mAAPL".to_string(),
-            feeder: HumanAddr::from("feeder0000"),
-        };
-
-        let res = handle(&mut deps, env, msg.clone());
-        match res {
-            Err(StdError::Unauthorized { .. }) => {}
-            _ => panic!("DO NOT ENTER HERE"),
-        }
-
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env, msg).unwrap();
-        let feeder_res: FeederResponse = from_binary(
-            &query(
-                &deps,
-                QueryMsg::Feeder {
-                    asset: "mAAPL".to_string(),
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(
-            feeder_res,
-            FeederResponse {
-                asset: "mAAPL".to_string(),
-                feeder: HumanAddr::from("feeder0000"),
-            }
-        );
-    }
-
-    #[test]
-    fn feed_price() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg {
-            owner: HumanAddr("owner0000".to_string()),
-            base_asset: "base0000".to_string(),
-        };
-
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // Register feeder for mAAPL
-        let msg = HandleMsg::RegisterFeeder {
-            asset: "mAAPL".to_string(),
-            feeder: HumanAddr::from("feeder0000"),
-        };
-        let env = mock_env("owner0000", &[]);
-        let _res = handle(&mut deps, env.clone(), msg).unwrap();
-
-        // Register feeder for mGOGL
-        let msg = HandleMsg::RegisterFeeder {
-            asset: "mGOGL".to_string(),
-            feeder: HumanAddr::from("feeder0000"),
-        };
-        let _res = handle(&mut deps, env.clone(), msg).unwrap();
-
-        // Feed prices
-        let env = mock_env("feeder0000", &[]);
-        let msg = HandleMsg::FeedPrice {
-            prices: vec![
-                ("mAAPL".to_string(), Decimal256::from_str("1.2").unwrap()),
-                ("mGOGL".to_string(), Decimal256::from_str("2.2").unwrap()),
-            ],
-        };
-        let _res = handle(&mut deps, env.clone(), msg).unwrap();
-        let value: PriceResponse =
-            query_price(&deps, "mAAPL".to_string(), "base0000".to_string()).unwrap();
-        assert_eq!(
-            value,
-            PriceResponse {
-                rate: Decimal256::from_str("1.2").unwrap(),
-                last_updated_base: env.block.time,
-                last_updated_quote: 9999999999,
-            }
-        );
-
-        let value: PriceResponse =
-            query_price(&deps, "mGOGL".to_string(), "mAAPL".to_string()).unwrap();
-        assert_eq!(
-            value,
-            PriceResponse {
-                rate: Decimal256::from_str("1.833333333333333333").unwrap(),
-                last_updated_base: env.block.time,
-                last_updated_quote: env.block.time,
-            }
-        );
-
-        let value: PricesResponse = query_prices(&deps, None, None).unwrap();
-        assert_eq!(
-            value,
-            PricesResponse {
-                prices: vec![
-                    PricesResponseElem {
-                        asset: "mAAPL".to_string(),
-                        price: Decimal256::from_str("1.2").unwrap(),
-                        last_updated_time: env.block.time,
-                    },
-                    PricesResponseElem {
-                        asset: "mGOGL".to_string(),
-                        price: Decimal256::from_str("2.2").unwrap(),
-                        last_updated_time: env.block.time,
-                    }
-                ],
-            }
-        );
-
-        // Unauthorized try
-        let env = mock_env("addr0001", &[]);
-        let msg = HandleMsg::FeedPrice {
-            prices: vec![("mAAPL".to_string(), Decimal256::from_str("1.2").unwrap())],
-        };
-
-        let res = handle(&mut deps, env, msg);
-        match res {
-            Err(StdError::Unauthorized { .. }) => {}
-            _ => panic!("Must return unauthorized error"),
-        }
-    }
-}
-
-pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    _deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    _msg: MigrateMsg,
-) -> MigrateResult {
-    Ok(MigrateResponse::default())
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    Ok(Response::default())
 }
