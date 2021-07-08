@@ -18,26 +18,31 @@
       "type": "object",
       "required": [
         "amount",
+        "bidder",
         "collateral_token",
+        "epoch_snapshot",
         "idx",
-        "owner",
         "pending_liquidated_collateral",
         "premium_slot",
-        "share",
-        "spent"
+        "product_snapshot",
+        "scale_snapshot",
+        "sum_snapshot"
       ],
       "properties": {
         "amount": {
           "$ref": "#/definitions/Uint256"
         },
+        "bidder": {
+          "$ref": "#/definitions/HumanAddr"
+        },
         "collateral_token": {
           "$ref": "#/definitions/HumanAddr"
         },
-        "idx": {
+        "epoch_snapshot": {
           "$ref": "#/definitions/Uint128"
         },
-        "owner": {
-          "$ref": "#/definitions/HumanAddr"
+        "idx": {
+          "$ref": "#/definitions/Uint128"
         },
         "pending_liquidated_collateral": {
           "$ref": "#/definitions/Uint256"
@@ -47,11 +52,14 @@
           "format": "uint8",
           "minimum": 0.0
         },
-        "share": {
-          "$ref": "#/definitions/Uint256"
+        "product_snapshot": {
+          "$ref": "#/definitions/Decimal256"
         },
-        "spent": {
-          "$ref": "#/definitions/Uint256"
+        "scale_snapshot": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "sum_snapshot": {
+          "$ref": "#/definitions/Decimal256"
         },
         "wait_end": {
           "type": [
@@ -62,6 +70,10 @@
           "minimum": 0.0
         }
       }
+    },
+    "Decimal256": {
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal256(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 115792089237316195423570985008687907853269984665640564039457.584007913129639935 (which is (2^128 - 1) / 10^18)",
+      "type": "string"
     },
     "HumanAddr": {
       "type": "string"

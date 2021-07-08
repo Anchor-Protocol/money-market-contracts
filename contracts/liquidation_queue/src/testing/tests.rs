@@ -209,15 +209,16 @@ fn submit_bid() {
         bid_response,
         BidResponse {
             idx: Uint128::from(1u128),
-            bid_pool_idx: Uint128::from(0u128),
             collateral_token: HumanAddr::from("asset0000"),
-            owner: HumanAddr::from("addr0000"),
+            bidder: HumanAddr::from("addr0000"),
             amount: Uint256::from(1000000u128),
             premium_slot: 1u8,
-            spent: Uint256::zero(),
+            product_snapshot: Decimal256::one(),
+            sum_snapshot: Decimal256::zero(),
             pending_liquidated_collateral: Uint256::zero(),
-            share: Uint256::zero(),
             wait_end: Some(wait_end),
+            epoch_snapshot: Uint128::zero(),
+            scale_snapshot: Uint128::zero(),
         }
     );
 }
@@ -294,15 +295,16 @@ fn activate_bid() {
         bid_response,
         BidResponse {
             idx: Uint128::from(1u128),
-            bid_pool_idx: Uint128::from(1u128),
             collateral_token: HumanAddr::from("asset0000"),
-            owner: HumanAddr::from("addr0000"),
+            bidder: HumanAddr::from("addr0000"),
             amount: Uint256::from(1000000u128),
             premium_slot: 1u8,
-            spent: Uint256::zero(),
+            product_snapshot: Decimal256::one(),
+            sum_snapshot: Decimal256::zero(),
             pending_liquidated_collateral: Uint256::zero(),
-            share: Uint256::from(1u128),
             wait_end: None,
+            epoch_snapshot: Uint128::zero(),
+            scale_snapshot: Uint128::zero(),
         }
     );
 }
@@ -346,14 +348,6 @@ fn retract_bid() {
     );
     let wait_end = env.block.time + 60u64;
     handle(&mut deps, env, msg.clone()).unwrap();
-
-    // let msg = HandleMsg::RetractBid {
-    //     bid_idx: Uint128::from(1u128),
-    //     amount: None,
-    // };
-    // let env = mock_env("addr0000", &[]);
-    // let err = handle(&mut deps, env, msg).unwrap_err();
-    // assert_eq!(err, StdError::generic_err("Bid is not active"));
 
     let msg = HandleMsg::ActivateBids {
         collateral_token: HumanAddr::from("asset0000"),

@@ -3,6 +3,7 @@
   "title": "Cw20HookMsg",
   "anyOf": [
     {
+      "description": "Custody interface to liquidate the sent collateral",
       "type": "object",
       "required": [
         "execute_bid"
@@ -10,6 +11,9 @@
       "properties": {
         "execute_bid": {
           "type": "object",
+          "required": [
+            "liquidator"
+          ],
           "properties": {
             "fee_address": {
               "anyOf": [
@@ -20,6 +24,9 @@
                   "type": "null"
                 }
               ]
+            },
+            "liquidator": {
+              "$ref": "#/definitions/HumanAddr"
             },
             "repay_address": {
               "anyOf": [

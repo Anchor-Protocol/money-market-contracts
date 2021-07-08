@@ -101,13 +101,10 @@ pub enum QueryMsg {
         limit: Option<u8>,
     },
     BidPool {
-        bid_pool_idx: Uint128,
-    },
-    ActiveBidPool {
         collateral_token: HumanAddr,
         bid_slot: u8,
     },
-    ActiveBidPoolsByCollateral {
+    BidPoolsByCollateral {
         collateral_token: HumanAddr,
         start_after: Option<u8>,
         limit: Option<u8>
@@ -134,15 +131,16 @@ pub struct LiquidationAmountResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BidResponse {
     pub idx: Uint128,
-    pub bid_pool_idx: Uint128,
-    pub owner: HumanAddr,
-    pub amount: Uint256,
-    pub share: Uint256,
     pub collateral_token: HumanAddr,
     pub premium_slot: u8,
+    pub bidder: HumanAddr,
+    pub amount: Uint256,
+    pub product_snapshot: Decimal256,
+    pub sum_snapshot: Decimal256,
     pub pending_liquidated_collateral: Uint256,
-    pub spent: Uint256,
     pub wait_end: Option<u64>,
+    pub epoch_snapshot: Uint128,
+    pub scale_snapshot: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -152,12 +150,12 @@ pub struct BidsResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BidPoolResponse {
-    pub liquidation_index: Decimal256,
-    pub expense_index: Decimal256,
-    pub total_share: Uint256,
+    pub sum_snapshot: Decimal256,
+    pub product_snapshot: Decimal256,
     pub total_bid_amount: Uint256,
     pub premium_rate: Decimal256,
-    pub inheritor_pool_idx: Option<Uint128>,
+    pub current_epoch: Uint128,
+    pub current_scale: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

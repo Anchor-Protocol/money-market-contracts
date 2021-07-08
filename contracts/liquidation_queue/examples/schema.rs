@@ -4,8 +4,8 @@ use std::fs::create_dir_all;
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
 use moneymarket::liquidation_queue::{
-    BidResponse, BidsResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg,
-    LiquidationAmountResponse, QueryMsg, BidPoolResponse, BidPoolsResponse,
+    BidPoolResponse, BidPoolsResponse, BidResponse, BidsResponse, ConfigResponse, Cw20HookMsg,
+    HandleMsg, InitMsg, LiquidationAmountResponse, QueryMsg,
 };
 
 fn main() {

@@ -99,6 +99,7 @@
       }
     },
     {
+      "description": "Owner operation to whitelist a new collateral",
       "type": "object",
       "required": [
         "whitelist_collateral"
@@ -128,6 +129,7 @@
       }
     },
     {
+      "description": "Submit a new bid to a bid pool",
       "type": "object",
       "required": [
         "submit_bid"
@@ -153,6 +155,7 @@
       }
     },
     {
+      "description": "Withdraw a bid",
       "type": "object",
       "required": [
         "retract_bid"
@@ -182,6 +185,7 @@
       }
     },
     {
+      "description": "After waiting_period expires, user can activate the bid",
       "type": "object",
       "required": [
         "activate_bids"
@@ -210,6 +214,7 @@
       }
     },
     {
+      "description": "Claim the corresponding amount of liquidated collateral",
       "type": "object",
       "required": [
         "claim_liquidations"

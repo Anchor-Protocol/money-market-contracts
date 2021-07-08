@@ -53,6 +53,7 @@
       "type": "string"
     },
     "waiting_period": {
+      "description": "Time period that needs to pass for a bid to be activated (seconds)",
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
