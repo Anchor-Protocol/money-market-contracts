@@ -190,7 +190,7 @@ pub fn read_or_create_bid_pool<S: Storage>(
     match bid_pool_bucket.load(&premium_slot.to_be_bytes()) {
         Ok(bid_pool) => Ok(bid_pool),
         Err(_) => {
-            if (0..collateral_info.max_slot).contains(&premium_slot) {
+            if (0..collateral_info.max_slot + 1).contains(&premium_slot) {
                 let bid_pool = BidPool {
                     product_snapshot: Decimal256::one(),
                     sum_snapshot: Decimal256::zero(),
