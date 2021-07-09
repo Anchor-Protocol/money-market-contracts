@@ -59,7 +59,7 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
         let collateral_info = read_collateral_info(&deps.storage, &collateral_token_raw)?;
 
         let mut collateral_to_liquidate = collateral.1;
-        for slot in 0..collateral_info.max_slot {
+        for slot in 0..collateral_info.max_slot+1 {
             let (slot_available_bids, premium_rate) =
                 match read_bid_pool(&deps.storage, &collateral_token_raw, slot) {
                     Ok(bid_pool) => (bid_pool.total_bid_amount, bid_pool.premium_rate),

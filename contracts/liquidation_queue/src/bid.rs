@@ -305,7 +305,7 @@ pub fn execute_liquidation<S: Storage, A: Api, Q: Querier>(
     let mut remaining_collateral_to_liquidate = amount;
     let mut repay_amount = Uint256::zero();
     let mut filled: bool = false;
-    for slot in 0..collateral_info.max_slot {
+    for slot in 0..collateral_info.max_slot+1 {
         let mut bid_pool: BidPool = match read_bid_pool(&deps.storage, &collateral_token_raw, slot)
         {
             Ok(bid_pool) => bid_pool,
