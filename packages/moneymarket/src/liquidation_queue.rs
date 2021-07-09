@@ -47,6 +47,7 @@ pub enum HandleMsg {
         collateral_token: HumanAddr,
         bid_threshold: Uint256,
         max_slot: u8,
+        premium_rate_per_slot: Decimal256,
     },
     /// Submit a new bid to a bid pool
     SubmitBid {

@@ -1,6 +1,5 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{CanonicalAddr, Order, ReadonlyStorage, StdError, StdResult, Storage, Uint128};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
@@ -111,6 +110,7 @@ pub struct CollateralInfo {
     pub collateral_token: CanonicalAddr,
     pub bid_threshold: Uint256,
     pub max_slot: u8,
+    pub premium_rate_per_slot: Decimal256,
 }
 
 pub fn store_collateral_info<S: Storage>(
@@ -144,6 +144,8 @@ pub struct BidPool {
     pub premium_rate: Decimal256,
     pub current_epoch: Uint128,
     pub current_scale: Uint128,
+    pub residue_collateral: Decimal256,
+    pub residue_bid: Decimal256,
 }
 
 pub fn store_bid_pool<S: Storage>(
@@ -185,7 +187,6 @@ pub fn read_or_create_bid_pool<S: Storage>(
         ],
         storage,
     );
-
     match bid_pool_bucket.load(&premium_slot.to_be_bytes()) {
         Ok(bid_pool) => Ok(bid_pool),
         Err(_) => {
@@ -194,9 +195,11 @@ pub fn read_or_create_bid_pool<S: Storage>(
                     product_snapshot: Decimal256::one(),
                     sum_snapshot: Decimal256::zero(),
                     total_bid_amount: Uint256::zero(),
-                    premium_rate: Decimal256::percent(premium_slot as u64),
+                    premium_rate: collateral_info.premium_rate_per_slot * Decimal256::from_uint256(Uint256::from(premium_slot as u128)),
                     current_epoch: Uint128::zero(),
                     current_scale: Uint128::zero(),
+                    residue_collateral: Decimal256::zero(),
+                    residue_bid: Decimal256::zero(),
                 };
                 store_bid_pool(
                     storage,

@@ -198,11 +198,16 @@ pub fn retract_bid<S: Storage, A: Api, Q: Querier>(
             read_bid_pool(&deps.storage, &collatera_token_raw, bid.premium_slot)?;
 
         // calculate sepnt and reward until this moment
-        let withdrawable_amount = calculate_remaining_bid(&bid, &bid_pool)?;
-        let liquidated_collateral = calculate_liquidated_collateral(&deps.storage, &bid)?;
+        let (withdrawable_amount, residue_bid) = calculate_remaining_bid(&bid, &bid_pool)?;
+        let (liquidated_collateral, residue_collateral) =
+            calculate_liquidated_collateral(&deps.storage, &bid)?;
 
         // accumulate pending reward to be claimed later
         bid.pending_liquidated_collateral += liquidated_collateral;
+
+        // stack residues, will give it to next claimer if it becomes bigger than 1.0
+        bid_pool.residue_collateral += residue_collateral;
+        bid_pool.residue_bid += residue_bid;
 
         // check requested amount
         let withdraw_amount: Uint256 = assert_withdraw_amount(amount, withdrawable_amount)?;
@@ -226,6 +231,10 @@ pub fn retract_bid<S: Storage, A: Api, Q: Querier>(
 
         // update available bid amount
         bid_pool.total_bid_amount = bid_pool.total_bid_amount - withdraw_amount;
+
+        // claim residue bids if it is bigger than 1.0
+        let refund_amount = withdraw_amount + claim_bid_residue(&mut bid_pool);
+
         store_bid_pool(
             &mut deps.storage,
             &collatera_token_raw,
@@ -238,7 +247,7 @@ pub fn retract_bid<S: Storage, A: Api, Q: Querier>(
             available_bids - withdraw_amount,
         )?;
 
-        withdraw_amount
+        refund_amount
     };
 
     let mut messages: Vec<CosmosMsg> = vec![];
@@ -270,7 +279,6 @@ pub fn retract_bid<S: Storage, A: Api, Q: Querier>(
 pub fn execute_liquidation<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    _liquidator: HumanAddr,
     repay_address: HumanAddr,
     fee_address: HumanAddr,
     collateral_token: HumanAddr,
@@ -418,17 +426,32 @@ pub fn claim_liquidations<S: Storage, A: Api, Q: Querier>(
             return Err(StdError::generic_err("Bid collateral token doesn't match"));
         }
 
-        let bid_pool: BidPool =
+        let mut bid_pool: BidPool =
             read_bid_pool(&deps.storage, &bid.collateral_token, bid.premium_slot)?;
 
         // calculate remaingin bid amount
-        let remaining_bid = calculate_remaining_bid(&bid, &bid_pool)?;
+        let (remaining_bid, residue_bid) = calculate_remaining_bid(&bid, &bid_pool)?;
 
         // calculate liquidated collateral
-        let liquidated_collateral = calculate_liquidated_collateral(&deps.storage, &bid)?;
+        let (liquidated_collateral, residue_collateral) =
+            calculate_liquidated_collateral(&deps.storage, &bid)?;
+
+        // keep residues
+        bid_pool.residue_collateral += residue_collateral;
+        bid_pool.residue_bid += residue_bid;
 
         // get claimable amount
-        claim_amount += bid.pending_liquidated_collateral + liquidated_collateral;
+        claim_amount += bid.pending_liquidated_collateral
+            + liquidated_collateral
+            + claim_col_residue(&mut bid_pool);
+
+        // store bid_pool to pudate residue
+        store_bid_pool(
+            &mut deps.storage,
+            &collateral_token_raw,
+            bid.premium_slot,
+            &bid_pool,
+        )?;
 
         // check if bid has been consumed, include 1 for rounding
         if remaining_bid <= Uint256::one() {
@@ -509,6 +532,7 @@ fn execute_pool_liquidation<S: Storage>(
     bid_pool.total_bid_amount = bid_pool.total_bid_amount - pool_required_stable;
     bid_pool.sum_snapshot += sum;
 
+    // save reward sum for current epoch and scale
     store_epoch_scale_sum(
         storage,
         &collateral_token,
@@ -540,28 +564,34 @@ fn execute_pool_liquidation<S: Storage>(
     Ok((pool_required_stable, pool_collateral_to_liquidate))
 }
 
-fn calculate_remaining_bid(bid: &Bid, bid_pool: &BidPool) -> StdResult<Uint256> {
+fn calculate_remaining_bid(bid: &Bid, bid_pool: &BidPool) -> StdResult<(Uint256, Decimal256)> {
     let scale_diff: Uint128 = (bid_pool.current_scale - bid.scale_snapshot)?;
     let epoch_diff: Uint128 = (bid_pool.current_epoch - bid.epoch_snapshot)?;
 
-    let remaining_bid = if !epoch_diff.is_zero() {
+    let remaining_bid_dec: Decimal256 = if !epoch_diff.is_zero() {
         // pool was emptied, return 0
-        Uint256::zero()
+        Decimal256::zero()
     } else if scale_diff.is_zero() {
-        bid.amount * (bid_pool.product_snapshot / bid.product_snapshot)
+        Decimal256::from_uint256(bid.amount) * (bid_pool.product_snapshot / bid.product_snapshot)
     } else if scale_diff == Uint128(1) {
         // product has been scaled
         let unscaled_product =
             Decimal256(bid_pool.product_snapshot.0 / Decimal256::DECIMAL_FRACTIONAL);
-        bid.amount * (unscaled_product / bid.product_snapshot)
+        Decimal256::from_uint256(bid.amount) * (unscaled_product / bid.product_snapshot)
     } else {
-        Uint256::zero()
+        Decimal256::zero()
     };
 
-    Ok(remaining_bid)
+    let remaining_bid = remaining_bid_dec * Uint256::one();
+    let bid_residue = remaining_bid_dec - Decimal256::from_uint256(remaining_bid);
+
+    Ok((remaining_bid, bid_residue))
 }
 
-fn calculate_liquidated_collateral<S: Storage>(storage: &S, bid: &Bid) -> StdResult<Uint256> {
+fn calculate_liquidated_collateral<S: Storage>(
+    storage: &S,
+    bid: &Bid,
+) -> StdResult<(Uint256, Decimal256)> {
     let reference_sum_snapshot = read_epoch_scale_sum(
         storage,
         &bid.collateral_token,
@@ -585,8 +615,28 @@ fn calculate_liquidated_collateral<S: Storage>(storage: &S, bid: &Bid) -> StdRes
         Decimal256::zero()
     };
 
-    let liquidated_collateral =
-        bid.amount * ((first_portion + second_portion) / bid.product_snapshot);
+    let liquidated_collateral_dec = Decimal256::from_uint256(bid.amount)
+        * ((first_portion + second_portion) / bid.product_snapshot);
+    let liquidated_collateral = liquidated_collateral_dec * Uint256::one();
+    let residue_collateral =
+        liquidated_collateral_dec - Decimal256::from_uint256(liquidated_collateral);
 
-    Ok(liquidated_collateral)
+    Ok((liquidated_collateral, residue_collateral))
+}
+
+fn claim_col_residue(bid_pool: &mut BidPool) -> Uint256 {
+    let claimable = bid_pool.residue_collateral * Uint256::one();
+    if !claimable.is_zero() {
+        bid_pool.residue_collateral =
+            bid_pool.residue_collateral - Decimal256::from_uint256(claimable);
+    }
+    claimable
+}
+
+fn claim_bid_residue(bid_pool: &mut BidPool) -> Uint256 {
+    let claimable = bid_pool.residue_bid * Uint256::one();
+    if !claimable.is_zero() {
+        bid_pool.residue_bid = bid_pool.residue_bid - Decimal256::from_uint256(claimable);
+    }
+    claimable
 }

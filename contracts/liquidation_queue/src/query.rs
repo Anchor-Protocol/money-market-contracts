@@ -60,12 +60,14 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
 
         let mut collateral_to_liquidate = collateral.1;
         for slot in 0..collateral_info.max_slot {
-            let slot_available_bids: Uint256 =
-                read_bid_pool(&deps.storage, &collateral_token_raw, slot)?.total_bid_amount;
+            let (slot_available_bids, premium_rate) =
+                match read_bid_pool(&deps.storage, &collateral_token_raw, slot) {
+                    Ok(bid_pool) => (bid_pool.total_bid_amount, bid_pool.premium_rate),
+                    Err(_) => continue,
+                };
             if slot_available_bids.is_zero() {
                 continue;
-            }
-            let premium_rate = Decimal256::percent(slot as u64);
+            };
 
             let mut pool_repay_amount =
                 collateral_to_liquidate * *price * (Decimal256::one() - premium_rate);

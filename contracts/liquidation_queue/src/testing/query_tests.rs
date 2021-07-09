@@ -1,6 +1,5 @@
 use crate::contract::{handle, init, query};
 use crate::testing::mock_querier::mock_dependencies;
-
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::mock_env;
 use cosmwasm_std::{from_binary, Coin, Decimal, HumanAddr, Uint128};
@@ -35,6 +34,7 @@ fn query_liquidation_amount() {
         collateral_token: HumanAddr::from("token0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::from(10000u128), // to get instant activation
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env.clone(), msg).unwrap();
@@ -42,12 +42,14 @@ fn query_liquidation_amount() {
         collateral_token: HumanAddr::from("token0001"),
         max_slot: 30u8,
         bid_threshold: Uint256::from(10000u128), // to get instant activation
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     handle(&mut deps, env.clone(), msg).unwrap();
     let msg = HandleMsg::WhitelistCollateral {
         collateral_token: HumanAddr::from("token0002"),
         max_slot: 30u8,
         bid_threshold: Uint256::from(10000u128), // to get instant activation
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     handle(&mut deps, env, msg).unwrap();
 
@@ -165,6 +167,7 @@ fn query_bids() {
         collateral_token: HumanAddr::from("token0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::from(10000u128), // to get instant activation
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env.clone(), msg).unwrap();
@@ -206,15 +209,16 @@ fn query_bids() {
         bid_response,
         BidResponse {
             idx: Uint128::from(1u128),
-            bid_pool_idx: Uint128::from(1u128),
             collateral_token: HumanAddr::from("token0000"),
-            owner: HumanAddr::from("addr0000"),
+            bidder: HumanAddr::from("addr0000"),
             amount: Uint256::from(1000u128),
             premium_slot: 5u8,
-            spent: Uint256::zero(),
             pending_liquidated_collateral: Uint256::zero(),
-            share: Uint256::from(1u128),
             wait_end: None,
+            product_snapshot: Decimal256::one(),
+            sum_snapshot: Decimal256::zero(),
+            epoch_snapshot: Uint128::zero(),
+            scale_snapshot: Uint128::zero(),
         }
     );
 
@@ -237,39 +241,42 @@ fn query_bids() {
             bids: vec![
                 BidResponse {
                     idx: Uint128::from(1u128),
-                    bid_pool_idx: Uint128::from(1u128),
                     collateral_token: HumanAddr::from("token0000"),
-                    owner: HumanAddr::from("addr0000"),
+                    bidder: HumanAddr::from("addr0000"),
                     amount: Uint256::from(1000u128),
                     premium_slot: 5u8,
-                    spent: Uint256::zero(),
                     pending_liquidated_collateral: Uint256::zero(),
-                    share: Uint256::from(1u128),
                     wait_end: None,
+                    product_snapshot: Decimal256::one(),
+                    sum_snapshot: Decimal256::zero(),
+                    epoch_snapshot: Uint128::zero(),
+                    scale_snapshot: Uint128::zero(),
                 },
                 BidResponse {
                     idx: Uint128::from(2u128),
-                    bid_pool_idx: Uint128::from(1u128),
                     collateral_token: HumanAddr::from("token0000"),
-                    owner: HumanAddr::from("addr0000"),
+                    bidder: HumanAddr::from("addr0000"),
                     amount: Uint256::from(1000u128),
                     premium_slot: 5u8,
-                    spent: Uint256::zero(),
                     pending_liquidated_collateral: Uint256::zero(),
-                    share: Uint256::from(1u128),
                     wait_end: None,
+                    product_snapshot: Decimal256::one(),
+                    sum_snapshot: Decimal256::zero(),
+                    epoch_snapshot: Uint128::zero(),
+                    scale_snapshot: Uint128::zero(),
                 },
                 BidResponse {
                     idx: Uint128::from(3u128),
-                    bid_pool_idx: Uint128::from(2u128),
                     collateral_token: HumanAddr::from("token0000"),
-                    owner: HumanAddr::from("addr0000"),
+                    bidder: HumanAddr::from("addr0000"),
                     amount: Uint256::from(1000u128),
                     premium_slot: 10u8,
-                    spent: Uint256::zero(),
                     pending_liquidated_collateral: Uint256::zero(),
-                    share: Uint256::from(1u128),
                     wait_end: None,
+                    product_snapshot: Decimal256::one(),
+                    sum_snapshot: Decimal256::zero(),
+                    epoch_snapshot: Uint128::zero(),
+                    scale_snapshot: Uint128::zero(),
                 }
             ]
         }
@@ -293,15 +300,16 @@ fn query_bids() {
         BidsResponse {
             bids: vec![BidResponse {
                 idx: Uint128::from(2u128),
-                bid_pool_idx: Uint128::from(1u128),
                 collateral_token: HumanAddr::from("token0000"),
-                owner: HumanAddr::from("addr0000"),
+                bidder: HumanAddr::from("addr0000"),
                 amount: Uint256::from(1000u128),
                 premium_slot: 5u8,
-                spent: Uint256::zero(),
                 pending_liquidated_collateral: Uint256::zero(),
-                share: Uint256::from(1u128),
                 wait_end: None,
+                product_snapshot: Decimal256::one(),
+                sum_snapshot: Decimal256::zero(),
+                epoch_snapshot: Uint128::zero(),
+                scale_snapshot: Uint128::zero(),
             }]
         }
     );
@@ -333,6 +341,7 @@ fn query_bid_pools() {
         collateral_token: HumanAddr::from("token0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::from(10000u128), // to get instant activation
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env.clone(), msg).unwrap();
@@ -363,7 +372,7 @@ fn query_bid_pools() {
     let bid_pool_response: BidPoolResponse = from_binary(
         &query(
             &deps,
-            QueryMsg::ActiveBidPool {
+            QueryMsg::BidPool {
                 collateral_token: HumanAddr::from("token0000"),
                 bid_slot: 5u8,
             },
@@ -374,19 +383,19 @@ fn query_bid_pools() {
     assert_eq!(
         bid_pool_response,
         BidPoolResponse {
-            liquidation_index: Decimal256::zero(),
-            expense_index: Decimal256::zero(),
             total_bid_amount: Uint256::from(1000u128),
-            total_share: Uint256::from(1u128),
             premium_rate: Decimal256::percent(5),
-            inheritor_pool_idx: None,
+            sum_snapshot: Decimal256::zero(),
+            product_snapshot: Decimal256::one(),
+            current_epoch: Uint128::zero(),
+            current_scale: Uint128::zero(),
         }
     );
 
     let bid_pools_response: BidPoolsResponse = from_binary(
         &query(
             &deps,
-            QueryMsg::ActiveBidPoolsByCollateral {
+            QueryMsg::BidPoolsByCollateral {
                 collateral_token: HumanAddr::from("token0000"),
                 start_after: None,
                 limit: None,
@@ -400,28 +409,28 @@ fn query_bid_pools() {
         BidPoolsResponse {
             bid_pools: vec![
                 BidPoolResponse {
-                    liquidation_index: Decimal256::zero(),
-                    expense_index: Decimal256::zero(),
                     total_bid_amount: Uint256::from(1000u128),
-                    total_share: Uint256::from(1u128),
                     premium_rate: Decimal256::percent(5),
-                    inheritor_pool_idx: None,
+                    sum_snapshot: Decimal256::zero(),
+                    product_snapshot: Decimal256::one(),
+                    current_epoch: Uint128::zero(),
+                    current_scale: Uint128::zero(),
                 },
                 BidPoolResponse {
-                    liquidation_index: Decimal256::zero(),
-                    expense_index: Decimal256::zero(),
                     total_bid_amount: Uint256::from(1000u128),
-                    total_share: Uint256::from(1u128),
                     premium_rate: Decimal256::percent(6),
-                    inheritor_pool_idx: None,
+                    sum_snapshot: Decimal256::zero(),
+                    product_snapshot: Decimal256::one(),
+                    current_epoch: Uint128::zero(),
+                    current_scale: Uint128::zero(),
                 },
                 BidPoolResponse {
-                    liquidation_index: Decimal256::zero(),
-                    expense_index: Decimal256::zero(),
                     total_bid_amount: Uint256::from(1000u128),
-                    total_share: Uint256::from(1u128),
                     premium_rate: Decimal256::percent(10),
-                    inheritor_pool_idx: None,
+                    sum_snapshot: Decimal256::zero(),
+                    product_snapshot: Decimal256::one(),
+                    current_epoch: Uint128::zero(),
+                    current_scale: Uint128::zero(),
                 }
             ]
         }
@@ -430,7 +439,7 @@ fn query_bid_pools() {
     let bid_pools_response: BidPoolsResponse = from_binary(
         &query(
             &deps,
-            QueryMsg::ActiveBidPoolsByCollateral {
+            QueryMsg::BidPoolsByCollateral {
                 collateral_token: HumanAddr::from("token0000"),
                 start_after: Some(1u8),
                 limit: Some(1u8),
@@ -443,12 +452,12 @@ fn query_bid_pools() {
         bid_pools_response,
         BidPoolsResponse {
             bid_pools: vec![BidPoolResponse {
-                liquidation_index: Decimal256::zero(),
-                expense_index: Decimal256::zero(),
                 total_bid_amount: Uint256::from(1000u128),
-                total_share: Uint256::from(1u128),
                 premium_rate: Decimal256::percent(5),
-                inheritor_pool_idx: None,
+                sum_snapshot: Decimal256::zero(),
+                product_snapshot: Decimal256::one(),
+                current_epoch: Uint128::zero(),
+                current_scale: Uint128::zero(),
             },]
         }
     );

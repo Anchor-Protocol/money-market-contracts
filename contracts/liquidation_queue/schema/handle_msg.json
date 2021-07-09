@@ -110,7 +110,8 @@
           "required": [
             "bid_threshold",
             "collateral_token",
-            "max_slot"
+            "max_slot",
+            "premium_rate_per_slot"
           ],
           "properties": {
             "bid_threshold": {
@@ -123,6 +124,9 @@
               "type": "integer",
               "format": "uint8",
               "minimum": 0.0
+            },
+            "premium_rate_per_slot": {
+              "$ref": "#/definitions/Decimal256"
             }
           }
         }

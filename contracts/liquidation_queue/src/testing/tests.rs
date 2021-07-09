@@ -170,6 +170,7 @@ fn submit_bid() {
         collateral_token: HumanAddr::from("asset0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::zero(),
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
@@ -245,6 +246,7 @@ fn activate_bid() {
         collateral_token: HumanAddr::from("asset0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::zero(),
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
@@ -331,6 +333,7 @@ fn retract_bid() {
         collateral_token: HumanAddr::from("asset0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::zero(),
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
@@ -397,6 +400,7 @@ fn retract_unactive_bid() {
         collateral_token: HumanAddr::from("asset0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::zero(),
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
@@ -472,6 +476,7 @@ fn execute_bid() {
         collateral_token: HumanAddr::from("asset0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::zero(),
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
@@ -620,6 +625,7 @@ fn claim_liquidations() {
         collateral_token: HumanAddr::from("asset0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::zero(),
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();

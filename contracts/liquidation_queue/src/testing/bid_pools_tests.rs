@@ -39,6 +39,7 @@ fn one_bidder_distribution() {
         collateral_token: HumanAddr::from("col0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::zero(),
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
@@ -144,6 +145,7 @@ fn two_bidder_distribution() {
         collateral_token: HumanAddr::from("col0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::zero(),
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
@@ -319,6 +321,7 @@ fn two_bidder_distribution_big_numbers() {
         collateral_token: HumanAddr::from("col0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::zero(),
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
@@ -494,6 +497,7 @@ fn one_user_two_bid_slots() {
         collateral_token: HumanAddr::from("col0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::zero(),
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
@@ -651,6 +655,7 @@ fn partial_withdraw_after_execution() {
         collateral_token: HumanAddr::from("col0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::zero(),
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
@@ -841,6 +846,7 @@ fn completely_empty_pool() {
         collateral_token: HumanAddr::from("col0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::from(10000u128), // to get instant activation
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
@@ -1011,12 +1017,14 @@ fn product_truncated_to_zero() {
         collateral_token: HumanAddr::from("col0000"),
         max_slot: 30u8,
         bid_threshold: Uint256::from(10000u128), // to get instant activation
+        premium_rate_per_slot: Decimal256::percent(1),
     };
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env, msg).unwrap();
 
     // force product to become zero
     let mut total_liquidated = Uint256::zero();
+    let mut remaining_bid = Uint256::zero();
     for _ in 0..8 {
         // ALICE BIDS 1000000000 uUST
         let msg = HandleMsg::SubmitBid {
@@ -1048,6 +1056,7 @@ fn product_truncated_to_zero() {
         });
         handle(&mut deps, env, msg).unwrap();
         total_liquidated += Uint256::from(999999999u128);
+        remaining_bid += Uint256::one(); // 1000000000 - 999999999
     }
 
     // alice can claim everything
@@ -1062,9 +1071,34 @@ fn product_truncated_to_zero() {
         vec![
             log("action", "calim_liquidations"),
             log("collateral_token", "col0000"),
-            log("collateral_amount", "7999999987"), // real expected 7999999992 TODO: accumulate missing collateral
+            log("collateral_amount", "7999999990"), // real expected 7999999992, missing 2uCol because as product gets smaller might loose some precision, but favor the system anyways
         ]
     );
 
-    // TODO: check withdrawable amount
+    let bid_pool: BidPoolResponse = from_binary(
+        &query(
+            &deps,
+            QueryMsg::BidPool {
+                collateral_token: HumanAddr::from("col0000"),
+                bid_slot: 0u8,
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(bid_pool.total_bid_amount, remaining_bid);
+
+    let msg = HandleMsg::RetractBid {
+        bid_idx: Uint128::from(8u128), // only last bid is active, others are consumed
+        amount: None,
+    };
+    let res = handle(&mut deps, env, msg).unwrap();
+    assert_eq!(
+        res.log,
+        vec![
+            log("action", "retract_bid"),
+            log("bid_idx", "8"),
+            log("amount", "7"), // system favors later bids, but never bigger than actual bid amount
+        ]
+    );
 }

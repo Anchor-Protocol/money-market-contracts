@@ -70,7 +70,8 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             collateral_token,
             bid_threshold,
             max_slot,
-        } => whitelist_collateral(deps, env, collateral_token, bid_threshold, max_slot),
+            premium_rate_per_slot,
+        } => whitelist_collateral(deps, env, collateral_token, bid_threshold, max_slot, premium_rate_per_slot),
         HandleMsg::SubmitBid {
             collateral_token,
             premium_slot,
@@ -96,7 +97,7 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
     if let Some(msg) = cw20_msg.msg.clone() {
         match from_binary(&msg)? {
             Cw20HookMsg::ExecuteBid {
-                liquidator,
+                liquidator: _, // ignored to not change legacy interface
                 repay_address,
                 fee_address,
             } => {
@@ -107,7 +108,6 @@ pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
                 execute_liquidation(
                     deps,
                     env,
-                    liquidator,
                     repay_address,
                     fee_address,
                     collateral_token,
@@ -182,6 +182,7 @@ pub fn whitelist_collateral<S: Storage, A: Api, Q: Querier>(
     collateral_token: HumanAddr,
     bid_threshold: Uint256,
     max_slot: u8,
+    premium_rate_per_slot: Decimal256,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
@@ -205,6 +206,7 @@ pub fn whitelist_collateral<S: Storage, A: Api, Q: Querier>(
             collateral_token: collateral_token_raw.clone(),
             max_slot,
             bid_threshold,
+            premium_rate_per_slot,
         },
     )?;
 
