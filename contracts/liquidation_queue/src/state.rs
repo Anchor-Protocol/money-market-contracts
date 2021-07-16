@@ -15,7 +15,7 @@ static PREFIX_TOTAL_BIDS_BY_COLLATERAL: &[u8] = b"total_bids_by_col";
 static PREFIX_COLLATERAL_INFO: &[u8] = b"col_info";
 static PREFIX_EPOCH_SCALE_SUM: &[u8] = b"epoch_scale_sum";
 
-const MAX_LIMIT: u8 = 30;
+const MAX_LIMIT: u8 = 31;
 const DEFAULT_LIMIT: u8 = 10;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

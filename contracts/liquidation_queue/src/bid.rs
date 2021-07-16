@@ -491,7 +491,6 @@ pub fn claim_liquidations<S: Storage, A: Api, Q: Querier>(
 }
 
 fn process_bid_activation(bid: &mut Bid, bid_pool: &mut BidPool, amount: Uint256) {
-    bid.amount = amount;
     bid.product_snapshot = bid_pool.product_snapshot;
     bid.sum_snapshot = bid_pool.sum_snapshot;
     bid.wait_end = None;

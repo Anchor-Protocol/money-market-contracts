@@ -2,7 +2,7 @@ use crate::state::Bid;
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{Env, StdError, StdResult};
 
-const MAX_SLOT_CAP: u8 = 50u8;
+const MAX_SLOT_CAP: u8 = 30u8;
 
 pub fn assert_activate_status(bid: &Bid, env: &Env) -> StdResult<()> {
     match bid.wait_end {
