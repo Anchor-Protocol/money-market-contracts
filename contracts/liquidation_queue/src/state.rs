@@ -1,8 +1,8 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{CanonicalAddr, Order, ReadonlyStorage, StdError, StdResult, Storage, Uint128};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 static KEY_CONFIG: &[u8] = b"config";
@@ -195,7 +195,8 @@ pub fn read_or_create_bid_pool<S: Storage>(
                     product_snapshot: Decimal256::one(),
                     sum_snapshot: Decimal256::zero(),
                     total_bid_amount: Uint256::zero(),
-                    premium_rate: collateral_info.premium_rate_per_slot * Decimal256::from_uint256(Uint256::from(premium_slot as u128)),
+                    premium_rate: collateral_info.premium_rate_per_slot
+                        * Decimal256::from_uint256(Uint256::from(premium_slot as u128)),
                     current_epoch: Uint128::zero(),
                     current_scale: Uint128::zero(),
                     residue_collateral: Decimal256::zero(),

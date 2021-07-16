@@ -133,6 +133,29 @@
       }
     },
     {
+      "type": "object",
+      "required": [
+        "update_bid_threshold"
+      ],
+      "properties": {
+        "update_bid_threshold": {
+          "type": "object",
+          "required": [
+            "bid_threshold",
+            "collateral_token"
+          ],
+          "properties": {
+            "bid_threshold": {
+              "$ref": "#/definitions/Uint256"
+            },
+            "collateral_token": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
       "description": "Submit a new bid to a bid pool",
       "type": "object",
       "required": [

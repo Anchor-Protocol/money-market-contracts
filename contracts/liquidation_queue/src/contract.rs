@@ -1,8 +1,8 @@
 use crate::asserts::assert_max_slot;
 use crate::bid::{activate_bids, claim_liquidations, execute_liquidation, retract_bid, submit_bid};
 use crate::query::{
-    query_bid, query_bid_pool, query_bid_pools, query_bids_by_user, query_config,
-    query_liquidation_amount,
+    query_bid, query_bid_pool, query_bid_pools, query_bids_by_user, query_collateral_info,
+    query_config, query_liquidation_amount,
 };
 use crate::state::{
     read_collateral_info, read_config, store_collateral_info, store_config, CollateralInfo, Config,
@@ -71,7 +71,18 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             bid_threshold,
             max_slot,
             premium_rate_per_slot,
-        } => whitelist_collateral(deps, env, collateral_token, bid_threshold, max_slot, premium_rate_per_slot),
+        } => whitelist_collateral(
+            deps,
+            env,
+            collateral_token,
+            bid_threshold,
+            max_slot,
+            premium_rate_per_slot,
+        ),
+        HandleMsg::UpdateBidThreshold {
+            collateral_token,
+            bid_threshold,
+        } => update_bid_threshold(deps, env, collateral_token, bid_threshold),
         HandleMsg::SubmitBid {
             collateral_token,
             premium_slot,
@@ -217,6 +228,33 @@ pub fn whitelist_collateral<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+pub fn update_bid_threshold<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    collateral_token: HumanAddr,
+    bid_threshold: Uint256,
+) -> HandleResult {
+    let config: Config = read_config(&deps.storage)?;
+    let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
+    if deps.api.canonical_address(&env.message.sender)? != config.owner {
+        return Err(StdError::unauthorized());
+    }
+
+    // update collateral info
+    let mut collateral_info: CollateralInfo =
+        read_collateral_info(&deps.storage, &collateral_token_raw)?;
+    collateral_info.bid_threshold = bid_threshold;
+
+    // save collateral info
+    store_collateral_info(&mut deps.storage, &collateral_token_raw, &collateral_info)?;
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![log("action", "update_bid_threshold")],
+        data: None,
+    })
+}
+
 pub fn query<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     msg: QueryMsg,
@@ -235,6 +273,9 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             collaterals,
             collateral_prices,
         )?),
+        QueryMsg::CollateralInfo { collateral_token } => {
+            to_binary(&query_collateral_info(deps, collateral_token)?)
+        }
         QueryMsg::Bid { bid_idx } => to_binary(&query_bid(deps, bid_idx)?),
         QueryMsg::BidsByUser {
             collateral_token,

@@ -1,12 +1,12 @@
 use crate::state::{
     read_bid, read_bid_pool, read_bid_pools, read_bids_by_user, read_collateral_info, read_config,
-    Bid, BidPool, Config,
+    Bid, BidPool, CollateralInfo, Config,
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdResult, Storage, Uint128};
 use moneymarket::liquidation_queue::{
-    BidPoolResponse, BidPoolsResponse, BidResponse, BidsResponse, ConfigResponse,
-    LiquidationAmountResponse,
+    BidPoolResponse, BidPoolsResponse, BidResponse, BidsResponse, CollateralInfoResponse,
+    ConfigResponse, LiquidationAmountResponse,
 };
 use moneymarket::querier::query_tax_rate;
 use moneymarket::tokens::TokensHuman;
@@ -59,7 +59,7 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
         let collateral_info = read_collateral_info(&deps.storage, &collateral_token_raw)?;
 
         let mut collateral_to_liquidate = collateral.1;
-        for slot in 0..collateral_info.max_slot+1 {
+        for slot in 0..collateral_info.max_slot + 1 {
             let (slot_available_bids, premium_rate) =
                 match read_bid_pool(&deps.storage, &collateral_token_raw, slot) {
                     Ok(bid_pool) => (bid_pool.total_bid_amount, bid_pool.premium_rate),
@@ -221,4 +221,20 @@ pub fn query_bid_pools<S: Storage, A: Api, Q: Querier>(
             .collect();
 
     Ok(BidPoolsResponse { bid_pools })
+}
+
+pub fn query_collateral_info<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    collateral_token: HumanAddr,
+) -> StdResult<CollateralInfoResponse> {
+    let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
+    let collateral_info: CollateralInfo =
+        read_collateral_info(&deps.storage, &collateral_token_raw)?;
+
+    Ok(CollateralInfoResponse {
+        collateral_token: deps.api.human_address(&collateral_token_raw)?,
+        bid_threshold: collateral_info.bid_threshold,
+        max_slot: collateral_info.max_slot,
+        premium_rate_per_slot: collateral_info.premium_rate_per_slot,
+    })
 }
