@@ -93,13 +93,13 @@ fn one_bidder_distribution() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "2"),
         ]
     );
 
-    // ALICE CAN ONLY WITHDARW 40 UST (SPENT 59 UST 1% discount)
+    // ALICE CAN ONLY WITHDRAW 40 UST (SPENT 59 UST 1% discount)
     let msg = HandleMsg::RetractBid {
         bid_idx: Uint128::from(1u128),
         amount: None,
@@ -244,7 +244,7 @@ fn two_bidder_distribution() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "7"),
         ]
@@ -271,7 +271,7 @@ fn two_bidder_distribution() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "3"),
         ]
@@ -424,7 +424,7 @@ fn two_bidder_distribution_big_numbers() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "700"),
         ]
@@ -451,7 +451,7 @@ fn two_bidder_distribution_big_numbers() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "300"),
         ]
@@ -564,7 +564,7 @@ fn one_user_two_bid_slots() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "5000000"),
         ]
@@ -596,7 +596,7 @@ fn one_user_two_bid_slots() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "9999999"), // rounding, favors the system
         ]
@@ -755,7 +755,7 @@ fn partial_withdraw_after_execution() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "12"),
         ]
@@ -791,7 +791,7 @@ fn partial_withdraw_after_execution() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "2"),
         ]
@@ -923,8 +923,8 @@ fn completely_empty_pool() {
     assert_eq!(
         bid_pool,
         BidPoolResponse {
-            sum_snapshot: Decimal256::zero(),    // reseted
-            product_snapshot: Decimal256::one(), // reseted
+            sum_snapshot: Decimal256::zero(),    // reset
+            product_snapshot: Decimal256::one(), // reset
             premium_rate: Decimal256::zero(),
             total_bid_amount: Uint256::from(2000u128), // only bob's bid
             current_epoch: Uint128(1),                 // increased epoch
@@ -958,12 +958,12 @@ fn completely_empty_pool() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "20"),
         ]
     );
-    // alice can't withraw, bid is consumed
+    // alice can't withdrawn, bid is consumed
     let msg = HandleMsg::RetractBid {
         bid_idx: Uint128::from(1u128),
         amount: None,
@@ -980,7 +980,7 @@ fn completely_empty_pool() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "20"),
         ]
@@ -1069,7 +1069,7 @@ fn product_truncated_to_zero() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "col0000"),
             log("collateral_amount", "7999999990"), // real expected 7999999992, missing 2uCol because as product gets smaller might loose some precision, but favor the system anyways
         ]

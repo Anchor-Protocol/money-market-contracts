@@ -69,13 +69,12 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
                 continue;
             };
 
-            let mut pool_repay_amount =
-                collateral_to_liquidate * *price * (Decimal256::one() - premium_rate);
+            let premium_excluded_price = *price * (Decimal256::one() - premium_rate);
+            let mut pool_repay_amount = collateral_to_liquidate * premium_excluded_price;
 
             if pool_repay_amount > slot_available_bids {
                 pool_repay_amount = slot_available_bids;
-                let pool_collateral_to_liquidate =
-                    pool_repay_amount / ((Decimal256::one() - premium_rate) * *price);
+                let pool_collateral_to_liquidate = pool_repay_amount / premium_excluded_price;
 
                 expected_repay_amount += pool_repay_amount;
                 collateral_to_liquidate = collateral_to_liquidate - pool_collateral_to_liquidate;
@@ -94,7 +93,7 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     }
 
     // When collaterals_value is smaller than liquidation_threshold,
-    // liquidate all collaterals
+    // liquidate collaterals as much as the value of borrow_amount
     let safe_borrow_amount = borrow_limit * config.safe_ratio;
     let liquidation_ratio = if collaterals_value < config.liquidation_threshold {
         Decimal256::from_uint256(borrow_amount) / Decimal256::from_uint256(expected_repay_amount)

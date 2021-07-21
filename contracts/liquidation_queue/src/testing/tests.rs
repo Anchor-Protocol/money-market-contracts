@@ -678,7 +678,7 @@ fn claim_liquidations() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "asset0000"),
             log("collateral_amount", "1000000"),
         ]
