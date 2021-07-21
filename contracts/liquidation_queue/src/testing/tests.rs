@@ -686,7 +686,7 @@ fn claim_liquidations() {
 }
 
 #[test]
-fn update_bid_threshold() {
+fn update_collateral_info() {
     let mut deps = mock_dependencies(20, &[]);
 
     let msg = InitMsg {
@@ -712,9 +712,10 @@ fn update_bid_threshold() {
     let env = mock_env("owner0000", &[]);
     handle(&mut deps, env.clone(), msg).unwrap();
 
-    let msg = HandleMsg::UpdateBidThreshold {
+    let msg = HandleMsg::UpdateCollateralInfo {
         collateral_token: HumanAddr::from("token0000"),
-        bid_threshold: Uint256::from(20000u128),
+        bid_threshold: Some(Uint256::from(20000u128)),
+        max_slot: Some(20u8),
     };
 
     // unauthorized attempt
@@ -741,7 +742,7 @@ fn update_bid_threshold() {
         collateral_info_response,
         CollateralInfoResponse {
             collateral_token: HumanAddr::from("token0000"),
-            max_slot: 30u8,
+            max_slot: 20u8, // updated max_slot
             bid_threshold: Uint256::from(20000u128), // updated bid threshold
             premium_rate_per_slot: Decimal256::percent(1),
         }

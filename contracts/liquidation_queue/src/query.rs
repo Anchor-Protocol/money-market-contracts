@@ -1,9 +1,10 @@
+use crate::bid::{calculate_liquidated_collateral, calculate_remaining_bid};
 use crate::state::{
     read_bid, read_bid_pool, read_bid_pools, read_bids_by_user, read_collateral_info, read_config,
     Bid, BidPool, CollateralInfo, Config,
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdResult, Storage, Uint128};
+use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdError, StdResult, Storage, Uint128};
 use moneymarket::liquidation_queue::{
     BidPoolResponse, BidPoolsResponse, BidResponse, BidsResponse, CollateralInfoResponse,
     ConfigResponse, LiquidationAmountResponse,
@@ -79,9 +80,16 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
                 expected_repay_amount += pool_repay_amount;
                 collateral_to_liquidate = collateral_to_liquidate - pool_collateral_to_liquidate;
             } else {
+                collateral_to_liquidate = Uint256::zero();
                 expected_repay_amount += pool_repay_amount;
                 break;
             }
+        }
+
+        if !collateral_to_liquidate.is_zero() {
+            return Err(StdError::generic_err(
+                "Not enough bids to execute this liquidation",
+            ));
         }
     }
 
@@ -125,14 +133,29 @@ pub fn query_bid<S: Storage, A: Api, Q: Querier>(
     bid_idx: Uint128,
 ) -> StdResult<BidResponse> {
     let bid: Bid = read_bid(&deps.storage, bid_idx)?;
+    let bid_pool: BidPool =
+            read_bid_pool(&deps.storage, &bid.collateral_token, bid.premium_slot)?;
+
+    let (bid_amount, bid_pending_liquidated_collateral) = if bid.wait_end.is_some() {
+        (bid.amount, bid.pending_liquidated_collateral)
+    } else {
+        // calculate remaining bid amount
+        let (remaining_bid, _) = calculate_remaining_bid(&bid, &bid_pool)?;
+
+        // calculate liquidated collateral
+        let (liquidated_collateral, _) =
+            calculate_liquidated_collateral(&deps.storage, &bid)?;
+        
+        (remaining_bid, bid.pending_liquidated_collateral + liquidated_collateral)
+    };
 
     Ok(BidResponse {
         idx: bid.idx,
         collateral_token: deps.api.human_address(&bid.collateral_token)?,
         bidder: deps.api.human_address(&bid.bidder)?,
-        amount: bid.amount,
+        amount: bid_amount,
         premium_slot: bid.premium_slot,
-        pending_liquidated_collateral: bid.pending_liquidated_collateral,
+        pending_liquidated_collateral: bid_pending_liquidated_collateral,
         product_snapshot: bid.product_snapshot,
         sum_snapshot: bid.sum_snapshot,
         wait_end: bid.wait_end,
@@ -160,13 +183,27 @@ pub fn query_bids_by_user<S: Storage, A: Api, Q: Querier>(
     )?
     .iter()
     .map(|bid| {
+        let bid_pool: BidPool =
+            read_bid_pool(&deps.storage, &bid.collateral_token, bid.premium_slot)?;
+        let (bid_amount, bid_pending_liquidated_collateral) = if bid.wait_end.is_some() {
+            (bid.amount, bid.pending_liquidated_collateral)
+        } else {
+            // calculate remaining bid amount
+            let (remaining_bid, _) = calculate_remaining_bid(&bid, &bid_pool)?;
+
+            // calculate liquidated collateral
+            let (liquidated_collateral, _) =
+                calculate_liquidated_collateral(&deps.storage, &bid)?;
+            
+            (remaining_bid, bid.pending_liquidated_collateral + liquidated_collateral)
+        };
         let res = BidResponse {
             idx: bid.idx,
             collateral_token: deps.api.human_address(&bid.collateral_token)?,
             bidder: deps.api.human_address(&bid.bidder)?,
-            amount: bid.amount,
+            amount: bid_amount,
             premium_slot: bid.premium_slot,
-            pending_liquidated_collateral: bid.pending_liquidated_collateral,
+            pending_liquidated_collateral: bid_pending_liquidated_collateral,
             product_snapshot: bid.product_snapshot,
             sum_snapshot: bid.sum_snapshot,
             wait_end: bid.wait_end,

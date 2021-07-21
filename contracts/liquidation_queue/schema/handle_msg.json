@@ -135,21 +135,35 @@
     {
       "type": "object",
       "required": [
-        "update_bid_threshold"
+        "update_collateral_info"
       ],
       "properties": {
-        "update_bid_threshold": {
+        "update_collateral_info": {
           "type": "object",
           "required": [
-            "bid_threshold",
             "collateral_token"
           ],
           "properties": {
             "bid_threshold": {
-              "$ref": "#/definitions/Uint256"
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "collateral_token": {
               "$ref": "#/definitions/HumanAddr"
+            },
+            "max_slot": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint8",
+              "minimum": 0.0
             }
           }
         }

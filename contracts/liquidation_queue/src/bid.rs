@@ -292,9 +292,9 @@ pub fn execute_liquidation<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
-    let available_bids: Uint256 = read_total_bids(&deps.storage, &collateral_token_raw)?;
     let collateral_info: CollateralInfo =
         read_collateral_info(&deps.storage, &collateral_token_raw)?;
+    let available_bids: Uint256 = read_total_bids(&deps.storage, &collateral_token_raw)?;
 
     let oracle_contract = deps.api.human_address(&config.oracle_contract)?;
     let price: PriceResponse = query_price(
@@ -578,7 +578,7 @@ fn execute_pool_liquidation<S: Storage>(
     Ok((pool_required_stable, pool_collateral_to_liquidate))
 }
 
-fn calculate_remaining_bid(bid: &Bid, bid_pool: &BidPool) -> StdResult<(Uint256, Decimal256)> {
+pub(crate) fn calculate_remaining_bid(bid: &Bid, bid_pool: &BidPool) -> StdResult<(Uint256, Decimal256)> {
     let scale_diff: Uint128 = (bid_pool.current_scale - bid.scale_snapshot)?;
     let epoch_diff: Uint128 = (bid_pool.current_epoch - bid.epoch_snapshot)?;
 
@@ -602,7 +602,7 @@ fn calculate_remaining_bid(bid: &Bid, bid_pool: &BidPool) -> StdResult<(Uint256,
     Ok((remaining_bid, bid_residue))
 }
 
-fn calculate_liquidated_collateral<S: Storage>(
+pub(crate) fn calculate_liquidated_collateral<S: Storage>(
     storage: &S,
     bid: &Bid,
 ) -> StdResult<(Uint256, Decimal256)> {

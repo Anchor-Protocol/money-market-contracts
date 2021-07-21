@@ -49,9 +49,10 @@ pub enum HandleMsg {
         max_slot: u8,
         premium_rate_per_slot: Decimal256,
     },
-    UpdateBidThreshold {
+    UpdateCollateralInfo {
         collateral_token: HumanAddr,
-        bid_threshold: Uint256,
+        bid_threshold: Option<Uint256>,
+        max_slot: Option<u8>,
     },
     /// Submit a new bid to a bid pool
     SubmitBid {

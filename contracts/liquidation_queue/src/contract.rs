@@ -79,10 +79,11 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             max_slot,
             premium_rate_per_slot,
         ),
-        HandleMsg::UpdateBidThreshold {
+        HandleMsg::UpdateCollateralInfo {
             collateral_token,
             bid_threshold,
-        } => update_bid_threshold(deps, env, collateral_token, bid_threshold),
+            max_slot,
+        } => update_collateral_info(deps, env, collateral_token, bid_threshold, max_slot),
         HandleMsg::SubmitBid {
             collateral_token,
             premium_slot,
@@ -228,11 +229,12 @@ pub fn whitelist_collateral<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn update_bid_threshold<S: Storage, A: Api, Q: Querier>(
+pub fn update_collateral_info<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     collateral_token: HumanAddr,
-    bid_threshold: Uint256,
+    bid_threshold: Option<Uint256>,
+    max_slot: Option<u8>,
 ) -> HandleResult {
     let config: Config = read_config(&deps.storage)?;
     let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
@@ -243,14 +245,23 @@ pub fn update_bid_threshold<S: Storage, A: Api, Q: Querier>(
     // update collateral info
     let mut collateral_info: CollateralInfo =
         read_collateral_info(&deps.storage, &collateral_token_raw)?;
-    collateral_info.bid_threshold = bid_threshold;
+
+    if let Some(bid_threshold) = bid_threshold {
+        collateral_info.bid_threshold = bid_threshold;
+    }
+
+    if let Some(max_slot) = max_slot {
+        // assert max slot does note exceed cap
+        assert_max_slot(max_slot)?;
+        collateral_info.max_slot = max_slot;
+    }
 
     // save collateral info
     store_collateral_info(&mut deps.storage, &collateral_token_raw, &collateral_info)?;
 
     Ok(HandleResponse {
         messages: vec![],
-        log: vec![log("action", "update_bid_threshold")],
+        log: vec![log("action", "update_collateral_info")],
         data: None,
     })
 }
