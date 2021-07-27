@@ -4,10 +4,18 @@ use cosmwasm_std::{Env, StdError, StdResult};
 
 const MAX_SLOT_CAP: u8 = 30u8;
 
-pub fn assert_activate_status(bid: &Bid, env: &Env) -> StdResult<()> {
+pub fn assert_activate_status(
+    bid: &Bid,
+    env: &Env,
+    available_bids: Uint256,
+    bid_threshold: Uint256,
+) -> StdResult<()> {
     match bid.wait_end {
         Some(wait_end) => {
-            if wait_end > env.block.time {
+            if available_bids < bid_threshold {
+                // skip waiting period
+                return Ok(());
+            } else if wait_end > env.block.time {
                 return Err(StdError::generic_err(format!(
                     "Wait period expires at {}",
                     wait_end

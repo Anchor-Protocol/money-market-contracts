@@ -742,7 +742,7 @@ fn update_collateral_info() {
         collateral_info_response,
         CollateralInfoResponse {
             collateral_token: HumanAddr::from("token0000"),
-            max_slot: 20u8, // updated max_slot
+            max_slot: 20u8,                          // updated max_slot
             bid_threshold: Uint256::from(20000u128), // updated bid threshold
             premium_rate_per_slot: Decimal256::percent(1),
         }

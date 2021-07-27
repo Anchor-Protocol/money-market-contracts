@@ -103,6 +103,8 @@ pub fn activate_bids<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     let sender_raw: CanonicalAddr = deps.api.canonical_address(&env.message.sender)?;
     let collateral_token_raw: CanonicalAddr = deps.api.canonical_address(&collateral_token)?;
+    let collateral_info: CollateralInfo =
+        read_collateral_info(&deps.storage, &collateral_token_raw)?;
     let available_bids: Uint256 =
         read_total_bids(&deps.storage, &collateral_token_raw).unwrap_or_default();
 
@@ -138,7 +140,7 @@ pub fn activate_bids<S: Storage, A: Api, Q: Querier>(
         let amount_to_activate = bid.amount;
 
         // assert that the bid is inactive and wait period has expired
-        assert_activate_status(&bid, &env)?;
+        assert_activate_status(&bid, &env, available_bids, collateral_info.bid_threshold)?;
 
         // update bid and bid pool, add new share and pool indexes to bid
         process_bid_activation(&mut bid, &mut bid_pool, amount_to_activate);
@@ -578,7 +580,10 @@ fn execute_pool_liquidation<S: Storage>(
     Ok((pool_required_stable, pool_collateral_to_liquidate))
 }
 
-pub(crate) fn calculate_remaining_bid(bid: &Bid, bid_pool: &BidPool) -> StdResult<(Uint256, Decimal256)> {
+pub(crate) fn calculate_remaining_bid(
+    bid: &Bid,
+    bid_pool: &BidPool,
+) -> StdResult<(Uint256, Decimal256)> {
     let scale_diff: Uint128 = (bid_pool.current_scale - bid.scale_snapshot)?;
     let epoch_diff: Uint128 = (bid_pool.current_epoch - bid.epoch_snapshot)?;
 
