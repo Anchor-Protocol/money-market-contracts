@@ -63,6 +63,25 @@
     {
       "type": "object",
       "required": [
+        "collateral_info"
+      ],
+      "properties": {
+        "collateral_info": {
+          "type": "object",
+          "required": [
+            "collateral_token"
+          ],
+          "properties": {
+            "collateral_token": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "bid"
       ],
       "properties": {

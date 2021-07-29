@@ -8,7 +8,7 @@ use cosmwasm_std::{
 };
 use cw20::Cw20ReceiveMsg;
 use moneymarket::liquidation_queue::{
-    BidResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg,
+    BidResponse, CollateralInfoResponse, ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg,
 };
 
 #[test]
@@ -678,9 +678,73 @@ fn claim_liquidations() {
     assert_eq!(
         res.log,
         vec![
-            log("action", "calim_liquidations"),
+            log("action", "claim_liquidations"),
             log("collateral_token", "asset0000"),
             log("collateral_amount", "1000000"),
         ]
+    );
+}
+
+#[test]
+fn update_collateral_info() {
+    let mut deps = mock_dependencies(20, &[]);
+
+    let msg = InitMsg {
+        owner: HumanAddr::from("owner0000"),
+        oracle_contract: HumanAddr::from("oracle0000"),
+        stable_denom: "uusd".to_string(),
+        safe_ratio: Decimal256::percent(10),
+        bid_fee: Decimal256::percent(1),
+        liquidation_threshold: Uint256::from(100000000u64),
+        price_timeframe: 60u64,
+        waiting_period: 60u64,
+    };
+
+    let env = mock_env("addr0000", &[]);
+    let _res = init(&mut deps, env, msg).unwrap();
+
+    let msg = HandleMsg::WhitelistCollateral {
+        collateral_token: HumanAddr::from("token0000"),
+        max_slot: 30u8,
+        bid_threshold: Uint256::from(10000u128),
+        premium_rate_per_slot: Decimal256::percent(1),
+    };
+    let env = mock_env("owner0000", &[]);
+    handle(&mut deps, env.clone(), msg).unwrap();
+
+    let msg = HandleMsg::UpdateCollateralInfo {
+        collateral_token: HumanAddr::from("token0000"),
+        bid_threshold: Some(Uint256::from(20000u128)),
+        max_slot: Some(20u8),
+    };
+
+    // unauthorized attempt
+    let env = mock_env("addr0000", &[]);
+    let err = handle(&mut deps, env, msg.clone()).unwrap_err();
+    assert_eq!(err, StdError::unauthorized());
+
+    // successfull attempt
+    let env = mock_env("owner0000", &[]);
+    handle(&mut deps, env, msg).unwrap();
+
+    // query col info
+    let collateral_info_response: CollateralInfoResponse = from_binary(
+        &query(
+            &deps,
+            QueryMsg::CollateralInfo {
+                collateral_token: HumanAddr::from("token0000"),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        collateral_info_response,
+        CollateralInfoResponse {
+            collateral_token: HumanAddr::from("token0000"),
+            max_slot: 20u8,                          // updated max_slot
+            bid_threshold: Uint256::from(20000u128), // updated bid threshold
+            premium_rate_per_slot: Decimal256::percent(1),
+        }
     );
 }

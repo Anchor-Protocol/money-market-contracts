@@ -49,6 +49,11 @@ pub enum HandleMsg {
         max_slot: u8,
         premium_rate_per_slot: Decimal256,
     },
+    UpdateCollateralInfo {
+        collateral_token: HumanAddr,
+        bid_threshold: Option<Uint256>,
+        max_slot: Option<u8>,
+    },
     /// Submit a new bid to a bid pool
     SubmitBid {
         collateral_token: HumanAddr,
@@ -91,6 +96,9 @@ pub enum QueryMsg {
         borrow_limit: Uint256,
         collaterals: TokensHuman,
         collateral_prices: Vec<Decimal256>,
+    },
+    CollateralInfo {
+        collateral_token: HumanAddr,
     },
     Bid {
         bid_idx: Uint128,
@@ -157,6 +165,14 @@ pub struct BidPoolResponse {
     pub premium_rate: Decimal256,
     pub current_epoch: Uint128,
     pub current_scale: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct CollateralInfoResponse {
+    pub collateral_token: HumanAddr,
+    pub bid_threshold: Uint256,
+    pub max_slot: u8,
+    pub premium_rate_per_slot: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

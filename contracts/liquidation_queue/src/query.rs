@@ -1,12 +1,13 @@
+use crate::bid::{calculate_liquidated_collateral, calculate_remaining_bid};
 use crate::state::{
     read_bid, read_bid_pool, read_bid_pools, read_bids_by_user, read_collateral_info, read_config,
-    Bid, BidPool, Config,
+    Bid, BidPool, CollateralInfo, Config,
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdResult, Storage, Uint128};
+use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdError, StdResult, Storage, Uint128};
 use moneymarket::liquidation_queue::{
-    BidPoolResponse, BidPoolsResponse, BidResponse, BidsResponse, ConfigResponse,
-    LiquidationAmountResponse,
+    BidPoolResponse, BidPoolsResponse, BidResponse, BidsResponse, CollateralInfoResponse,
+    ConfigResponse, LiquidationAmountResponse,
 };
 use moneymarket::querier::query_tax_rate;
 use moneymarket::tokens::TokensHuman;
@@ -59,7 +60,7 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
         let collateral_info = read_collateral_info(&deps.storage, &collateral_token_raw)?;
 
         let mut collateral_to_liquidate = collateral.1;
-        for slot in 0..collateral_info.max_slot+1 {
+        for slot in 0..collateral_info.max_slot + 1 {
             let (slot_available_bids, premium_rate) =
                 match read_bid_pool(&deps.storage, &collateral_token_raw, slot) {
                     Ok(bid_pool) => (bid_pool.total_bid_amount, bid_pool.premium_rate),
@@ -69,20 +70,26 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
                 continue;
             };
 
-            let mut pool_repay_amount =
-                collateral_to_liquidate * *price * (Decimal256::one() - premium_rate);
+            let premium_excluded_price = *price * (Decimal256::one() - premium_rate);
+            let mut pool_repay_amount = collateral_to_liquidate * premium_excluded_price;
 
             if pool_repay_amount > slot_available_bids {
                 pool_repay_amount = slot_available_bids;
-                let pool_collateral_to_liquidate =
-                    pool_repay_amount / ((Decimal256::one() - premium_rate) * *price);
+                let pool_collateral_to_liquidate = pool_repay_amount / premium_excluded_price;
 
                 expected_repay_amount += pool_repay_amount;
                 collateral_to_liquidate = collateral_to_liquidate - pool_collateral_to_liquidate;
             } else {
+                collateral_to_liquidate = Uint256::zero();
                 expected_repay_amount += pool_repay_amount;
                 break;
             }
+        }
+
+        if !collateral_to_liquidate.is_zero() {
+            return Err(StdError::generic_err(
+                "Not enough bids to execute this liquidation",
+            ));
         }
     }
 
@@ -94,7 +101,7 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     }
 
     // When collaterals_value is smaller than liquidation_threshold,
-    // liquidate all collaterals
+    // liquidate collaterals as much as the value of borrow_amount
     let safe_borrow_amount = borrow_limit * config.safe_ratio;
     let liquidation_ratio = if collaterals_value < config.liquidation_threshold {
         Decimal256::from_uint256(borrow_amount) / Decimal256::from_uint256(expected_repay_amount)
@@ -126,14 +133,29 @@ pub fn query_bid<S: Storage, A: Api, Q: Querier>(
     bid_idx: Uint128,
 ) -> StdResult<BidResponse> {
     let bid: Bid = read_bid(&deps.storage, bid_idx)?;
+    let bid_pool: BidPool =
+            read_bid_pool(&deps.storage, &bid.collateral_token, bid.premium_slot)?;
+
+    let (bid_amount, bid_pending_liquidated_collateral) = if bid.wait_end.is_some() {
+        (bid.amount, bid.pending_liquidated_collateral)
+    } else {
+        // calculate remaining bid amount
+        let (remaining_bid, _) = calculate_remaining_bid(&bid, &bid_pool)?;
+
+        // calculate liquidated collateral
+        let (liquidated_collateral, _) =
+            calculate_liquidated_collateral(&deps.storage, &bid)?;
+        
+        (remaining_bid, bid.pending_liquidated_collateral + liquidated_collateral)
+    };
 
     Ok(BidResponse {
         idx: bid.idx,
         collateral_token: deps.api.human_address(&bid.collateral_token)?,
         bidder: deps.api.human_address(&bid.bidder)?,
-        amount: bid.amount,
+        amount: bid_amount,
         premium_slot: bid.premium_slot,
-        pending_liquidated_collateral: bid.pending_liquidated_collateral,
+        pending_liquidated_collateral: bid_pending_liquidated_collateral,
         product_snapshot: bid.product_snapshot,
         sum_snapshot: bid.sum_snapshot,
         wait_end: bid.wait_end,
@@ -161,13 +183,27 @@ pub fn query_bids_by_user<S: Storage, A: Api, Q: Querier>(
     )?
     .iter()
     .map(|bid| {
+        let bid_pool: BidPool =
+            read_bid_pool(&deps.storage, &bid.collateral_token, bid.premium_slot)?;
+        let (bid_amount, bid_pending_liquidated_collateral) = if bid.wait_end.is_some() {
+            (bid.amount, bid.pending_liquidated_collateral)
+        } else {
+            // calculate remaining bid amount
+            let (remaining_bid, _) = calculate_remaining_bid(&bid, &bid_pool)?;
+
+            // calculate liquidated collateral
+            let (liquidated_collateral, _) =
+                calculate_liquidated_collateral(&deps.storage, &bid)?;
+            
+            (remaining_bid, bid.pending_liquidated_collateral + liquidated_collateral)
+        };
         let res = BidResponse {
             idx: bid.idx,
             collateral_token: deps.api.human_address(&bid.collateral_token)?,
             bidder: deps.api.human_address(&bid.bidder)?,
-            amount: bid.amount,
+            amount: bid_amount,
             premium_slot: bid.premium_slot,
-            pending_liquidated_collateral: bid.pending_liquidated_collateral,
+            pending_liquidated_collateral: bid_pending_liquidated_collateral,
             product_snapshot: bid.product_snapshot,
             sum_snapshot: bid.sum_snapshot,
             wait_end: bid.wait_end,
@@ -221,4 +257,20 @@ pub fn query_bid_pools<S: Storage, A: Api, Q: Querier>(
             .collect();
 
     Ok(BidPoolsResponse { bid_pools })
+}
+
+pub fn query_collateral_info<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    collateral_token: HumanAddr,
+) -> StdResult<CollateralInfoResponse> {
+    let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
+    let collateral_info: CollateralInfo =
+        read_collateral_info(&deps.storage, &collateral_token_raw)?;
+
+    Ok(CollateralInfoResponse {
+        collateral_token: deps.api.human_address(&collateral_token_raw)?,
+        bid_threshold: collateral_info.bid_threshold,
+        max_slot: collateral_info.max_slot,
+        premium_rate_per_slot: collateral_info.premium_rate_per_slot,
+    })
 }
