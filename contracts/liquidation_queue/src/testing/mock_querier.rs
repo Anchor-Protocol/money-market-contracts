@@ -1,3 +1,4 @@
+use moneymarket::overseer::{WhitelistResponse, WhitelistResponseElem};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +31,11 @@ pub fn mock_env_with_block_time<U: Into<HumanAddr>>(sender: U, sent: &[Coin], ti
 pub enum QueryMsg {
     /// Query oracle price to oracle contract
     Price { base: String, quote: String },
+    Whitelist {
+        collateral_token: Option<HumanAddr>,
+        start_after: Option<HumanAddr>,
+        limit: Option<u32>,
+    },
 }
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -53,6 +59,30 @@ pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     tax_querier: TaxQuerier,
     oracle_price_querier: OraclePriceQuerier,
+    collateral_querier: CollateralQuerier,
+}
+
+#[derive(Clone, Default)]
+pub struct CollateralQuerier {
+    collaterals: HashMap<HumanAddr, Decimal256>,
+}
+
+impl CollateralQuerier {
+    pub fn new(collaterals: &[(&HumanAddr, &Decimal256)]) -> Self {
+        CollateralQuerier {
+            collaterals: collaterals_to_map(collaterals),
+        }
+    }
+}
+
+pub(crate) fn collaterals_to_map(
+    collaterals: &[(&HumanAddr, &Decimal256)],
+) -> HashMap<HumanAddr, Decimal256> {
+    let mut collateral_map: HashMap<HumanAddr, Decimal256> = HashMap::new();
+    for (col, max_ltv) in collaterals.iter() {
+        collateral_map.insert((*col).clone(), **max_ltv);
+    }
+    collateral_map
 }
 
 #[derive(Clone, Default)]
@@ -165,6 +195,31 @@ impl WasmMockQuerier {
                         }),
                     }
                 }
+                QueryMsg::Whitelist {
+                    collateral_token,
+                    start_after: _,
+                    limit: _,
+                } => {
+                    match self
+                        .collateral_querier
+                        .collaterals
+                        .get(&collateral_token.unwrap())
+                    {
+                        Some(v) => Ok(to_binary(&WhitelistResponse {
+                            elems: vec![WhitelistResponseElem {
+                                name: "name".to_string(),
+                                symbol: "symbol".to_string(),
+                                max_ltv: *v,
+                                custody_contract: HumanAddr::from("custody0000"),
+                                collateral_token: HumanAddr::from("token0000"),
+                            }],
+                        })),
+                        None => Err(SystemError::InvalidRequest {
+                            error: "".to_string(),
+                            request: msg.as_slice().into(),
+                        }),
+                    }
+                }
             },
             _ => self.base.handle_query(request),
         }
@@ -177,6 +232,7 @@ impl WasmMockQuerier {
             base,
             tax_querier: TaxQuerier::default(),
             oracle_price_querier: OraclePriceQuerier::default(),
+            collateral_querier: CollateralQuerier::default(),
         }
     }
 
@@ -190,5 +246,9 @@ impl WasmMockQuerier {
         oracle_price: &[(&(String, String), &(Decimal256, u64, u64))],
     ) {
         self.oracle_price_querier = OraclePriceQuerier::new(oracle_price);
+    }
+
+    pub fn with_collateral_max_ltv(&mut self, collaterals: &[(&HumanAddr, &Decimal256)]) {
+        self.collateral_querier = CollateralQuerier::new(collaterals);
     }
 }

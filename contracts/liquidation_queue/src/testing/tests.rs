@@ -24,6 +24,7 @@ fn proper_initialization() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -45,6 +46,7 @@ fn proper_initialization() {
             liquidation_threshold: Uint256::from(100000000u64),
             price_timeframe: 60u64,
             waiting_period: 60u64,
+            overseer: HumanAddr::from("overseer0000"),
         }
     );
 }
@@ -62,6 +64,7 @@ fn update_config() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -78,6 +81,7 @@ fn update_config() {
         liquidation_threshold: None,
         price_timeframe: None,
         waiting_period: None,
+        overseer: None,
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -96,6 +100,7 @@ fn update_config() {
             liquidation_threshold: Uint256::from(100000000u64),
             price_timeframe: 60u64,
             waiting_period: 60u64,
+            overseer: HumanAddr::from("overseer0000"),
         }
     );
 
@@ -110,6 +115,7 @@ fn update_config() {
         liquidation_threshold: Some(Uint256::from(150000000u64)),
         price_timeframe: Some(120u64),
         waiting_period: Some(100u64),
+        overseer: Some(HumanAddr::from("overseer0001")),
     };
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -128,6 +134,7 @@ fn update_config() {
             liquidation_threshold: Uint256::from(150000000u64),
             price_timeframe: 120u64,
             waiting_period: 100u64,
+            overseer: HumanAddr::from("overseer0001"),
         }
     );
 
@@ -142,6 +149,7 @@ fn update_config() {
         liquidation_threshold: Some(Uint256::from(150000000u64)),
         price_timeframe: Some(100u64),
         waiting_period: Some(100u64),
+        overseer: Some(HumanAddr::from("overseer0001")),
     };
 
     let err = handle(&mut deps, env, msg).unwrap_err();
@@ -161,6 +169,7 @@ fn submit_bid() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -237,6 +246,7 @@ fn activate_bid() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -324,6 +334,7 @@ fn retract_bid() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -391,6 +402,7 @@ fn retract_unactive_bid() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -462,6 +474,7 @@ fn execute_bid() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 100000u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -611,6 +624,7 @@ fn claim_liquidations() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 1000000u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -698,6 +712,7 @@ fn update_collateral_info() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -742,7 +757,7 @@ fn update_collateral_info() {
         collateral_info_response,
         CollateralInfoResponse {
             collateral_token: HumanAddr::from("token0000"),
-            max_slot: 20u8, // updated max_slot
+            max_slot: 20u8,                          // updated max_slot
             bid_threshold: Uint256::from(20000u128), // updated bid threshold
             premium_rate_per_slot: Decimal256::percent(1),
         }

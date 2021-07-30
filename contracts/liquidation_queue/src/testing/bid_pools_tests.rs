@@ -25,6 +25,7 @@ fn one_bidder_distribution() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -131,6 +132,7 @@ fn two_bidder_distribution() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -303,6 +305,7 @@ fn two_bidder_distribution_big_numbers() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -483,6 +486,7 @@ fn one_user_two_bid_slots() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 10u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -641,6 +645,7 @@ fn partial_withdraw_after_execution() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -832,6 +837,7 @@ fn completely_empty_pool() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -1003,6 +1009,7 @@ fn product_truncated_to_zero() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);

@@ -26,6 +26,7 @@ pub struct InitMsg {
     pub price_timeframe: u64,
     /// Time period that needs to pass for a bid to be activated (seconds)
     pub waiting_period: u64,
+    pub overseer: HumanAddr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -41,6 +42,7 @@ pub enum HandleMsg {
         liquidation_threshold: Option<Uint256>,
         price_timeframe: Option<u64>,
         waiting_period: Option<u64>,
+        overseer: Option<HumanAddr>,
     },
     /// Owner operation to whitelist a new collateral
     WhitelistCollateral {
@@ -130,6 +132,7 @@ pub struct ConfigResponse {
     pub liquidation_threshold: Uint256,
     pub price_timeframe: u64,
     pub waiting_period: u64,
+    pub overseer: HumanAddr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

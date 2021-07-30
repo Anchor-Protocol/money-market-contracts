@@ -578,7 +578,10 @@ fn execute_pool_liquidation<S: Storage>(
     Ok((pool_required_stable, pool_collateral_to_liquidate))
 }
 
-pub(crate) fn calculate_remaining_bid(bid: &Bid, bid_pool: &BidPool) -> StdResult<(Uint256, Decimal256)> {
+pub(crate) fn calculate_remaining_bid(
+    bid: &Bid,
+    bid_pool: &BidPool,
+) -> StdResult<(Uint256, Decimal256)> {
     let scale_diff: Uint128 = (bid_pool.current_scale - bid.scale_snapshot)?;
     let epoch_diff: Uint128 = (bid_pool.current_epoch - bid.epoch_snapshot)?;
 

@@ -15,6 +15,11 @@ fn query_liquidation_amount() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier.with_collateral_max_ltv(&[
+        (&HumanAddr::from("token0000"), &Decimal256::percent(50)),
+        (&HumanAddr::from("token0001"), &Decimal256::percent(50)),
+        (&HumanAddr::from("token0002"), &Decimal256::percent(50)),
+    ]);
 
     let msg = InitMsg {
         owner: HumanAddr::from("owner0000"),
@@ -25,6 +30,7 @@ fn query_liquidation_amount() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -133,9 +139,9 @@ fn query_liquidation_amount() {
         res,
         LiquidationAmountResponse {
             collaterals: vec![
-                (HumanAddr::from("token0000"), Uint256::from(358001u64)),
-                (HumanAddr::from("token0001"), Uint256::from(716002u64)),
-                (HumanAddr::from("token0002"), Uint256::from(1074004u64)),
+                (HumanAddr::from("token0000"), Uint256::from(358003u64)),
+                (HumanAddr::from("token0001"), Uint256::from(716005u64)),
+                (HumanAddr::from("token0002"), Uint256::from(1074007u64)),
             ],
         }
     );
@@ -158,6 +164,7 @@ fn query_bids() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -332,6 +339,7 @@ fn query_bid_pools() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);
@@ -480,6 +488,7 @@ fn query_collateral_info() {
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
+        overseer: HumanAddr::from("overseer0000"),
     };
 
     let env = mock_env("addr0000", &[]);

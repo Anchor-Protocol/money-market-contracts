@@ -1,10 +1,11 @@
 use crate::bid::{calculate_liquidated_collateral, calculate_remaining_bid};
+use crate::querier::query_collateral_max_ltv;
 use crate::state::{
     read_bid, read_bid_pool, read_bid_pools, read_bids_by_user, read_collateral_info, read_config,
-    Bid, BidPool, CollateralInfo, Config,
+    read_total_bids, Bid, BidPool, CollateralInfo, Config,
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdError, StdResult, Storage, Uint128};
+use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Querier, StdResult, Storage, Uint128};
 use moneymarket::liquidation_queue::{
     BidPoolResponse, BidPoolsResponse, BidResponse, BidsResponse, CollateralInfoResponse,
     ConfigResponse, LiquidationAmountResponse,
@@ -25,6 +26,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         liquidation_threshold: config.liquidation_threshold,
         price_timeframe: config.price_timeframe,
         waiting_period: config.waiting_period,
+        overseer: deps.api.human_address(&config.overseer)?,
     };
 
     Ok(resp)
@@ -38,6 +40,7 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     collateral_prices: Vec<Decimal256>,
 ) -> StdResult<LiquidationAmountResponse> {
     let config: Config = read_config(&deps.storage)?;
+    let overseer: HumanAddr = deps.api.human_address(&config.overseer)?;
 
     // Safely collateralized check
     if borrow_amount <= borrow_limit {
@@ -49,17 +52,34 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
     let tax_rate = query_tax_rate(&deps)?;
     let base_fee_deductor = (Decimal256::one() - config.bid_fee) * (Decimal256::one() - tax_rate);
 
-    let mut collaterals_value = Uint256::zero();
-    let mut expected_repay_amount = Uint256::zero();
-    for c in collaterals.iter().zip(collateral_prices.iter()) {
-        let (collateral, price) = c;
-        let collateral_value = collateral.1 * *price;
-        collaterals_value += collateral_value;
+    // calculate value of all collaterals and weights
+    let (collaterals_value, total_weight, collateral_weights, max_ltvs) =
+        compute_collateral_weights(&deps, &overseer, &collaterals, &collateral_prices)?;
+
+    // check partial liquidation condition
+    let safe_ratio = if collaterals_value <= config.liquidation_threshold {
+        Decimal256::zero()
+    } else {
+        config.safe_ratio
+    };
+
+    let mut result: Vec<(HumanAddr, Uint256)> = vec![];
+    for (i, collateral) in collaterals.iter().enumerate() {
+        let (price, weight, max_ltv) = (collateral_prices[i], collateral_weights[i], max_ltvs[i]);
 
         let collateral_token_raw = deps.api.canonical_address(&collateral.0)?;
         let collateral_info = read_collateral_info(&deps.storage, &collateral_token_raw)?;
 
-        let mut collateral_to_liquidate = collateral.1;
+        // calculate borrow amount and limit portion
+        let position_portion =
+            Decimal256::from_uint256(weight) / Decimal256::from_uint256(total_weight);
+        let collateral_borrow_amount = borrow_amount * position_portion;
+        let collateral_borrow_limit = borrow_limit * position_portion;
+
+        // iterate bid pools until safe ratio condition is met (intersection f(x) and g(x))
+        let mut x = Uint256::zero();
+        let mut g_x = Uint256::zero();
+        let mut intersected = false;
         for slot in 0..collateral_info.max_slot + 1 {
             let (slot_available_bids, premium_rate) =
                 match read_bid_pool(&deps.storage, &collateral_token_raw, slot) {
@@ -70,62 +90,81 @@ pub fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
                 continue;
             };
 
-            let premium_excluded_price = *price * (Decimal256::one() - premium_rate);
-            let mut pool_repay_amount = collateral_to_liquidate * premium_excluded_price;
+            let prev_x = x;
+            let prev_g_x = g_x;
 
-            if pool_repay_amount > slot_available_bids {
-                pool_repay_amount = slot_available_bids;
-                let pool_collateral_to_liquidate = pool_repay_amount / premium_excluded_price;
+            let discounted_price = price * (Decimal256::one() - premium_rate);
+            x += slot_available_bids / discounted_price;
 
-                expected_repay_amount += pool_repay_amount;
-                collateral_to_liquidate = collateral_to_liquidate - pool_collateral_to_liquidate;
-            } else {
-                collateral_to_liquidate = Uint256::zero();
-                expected_repay_amount += pool_repay_amount;
+            let safe_borrow = safe_ratio * collateral_borrow_limit;
+            let f_x = ((safe_ratio * max_ltv * price) * x) + collateral_borrow_amount - safe_borrow;
+
+            g_x += slot_available_bids;
+
+            if g_x > f_x {
+                let nominator = collateral_borrow_amount - (safe_ratio * collateral_borrow_limit)
+                    + Uint256::one() // always try to overliquidate
+                    + (discounted_price * prev_x)
+                    - prev_g_x;
+                let denominator = price
+                    * (((Decimal256::one() - premium_rate) * base_fee_deductor)
+                        - (safe_ratio * max_ltv));
+
+                let liquidation_amount = (nominator / denominator) + Uint256::one(); // round up
+
+                result.push((
+                    HumanAddr::from(&collateral.0),
+                    liquidation_amount.min(collateral.1),
+                ));
+                intersected = true;
                 break;
             }
         }
-
-        if !collateral_to_liquidate.is_zero() {
-            return Err(StdError::generic_err(
-                "Not enough bids to execute this liquidation",
-            ));
+        // Intersection is not reached in two situations:
+        //      1. Not enough bids. Should try to liquidate as much as possible
+        //      2. Not enouugh collateral. Also liquidate all collateral
+        if !intersected {
+            result.push((HumanAddr::from(&collateral.0), x)); // liquidate all collateral possible
         }
     }
 
-    // expected_repay_amount must be bigger than borrow_amount
-    // else force liquidate all collaterals
-    let expected_repay_amount = expected_repay_amount * base_fee_deductor;
-    if expected_repay_amount <= borrow_amount {
-        return Ok(LiquidationAmountResponse { collaterals });
+    return Ok(LiquidationAmountResponse {
+        collaterals: result,
+    });
+}
+
+fn compute_collateral_weights<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    overseer: &HumanAddr,
+    collaterals: &TokensHuman,
+    collateral_prices: &Vec<Decimal256>,
+) -> StdResult<(Uint256, Uint256, Vec<Uint256>, Vec<Decimal256>)> {
+    let mut collaterals_value = Uint256::zero();
+    let mut total_weight = Uint256::zero();
+    let mut collateral_weights: Vec<Uint256> = vec![];
+    let mut max_ltvs: Vec<Decimal256> = vec![];
+
+    for (collateral, price) in collaterals.iter().zip(collateral_prices.iter()) {
+        let collateral_available_bids =
+            read_total_bids(&deps.storage, &deps.api.canonical_address(&collateral.0)?)
+                .unwrap_or_default();
+        let max_ltv = query_collateral_max_ltv(&deps, overseer, &collateral.0)?;
+
+        let collateral_value = collateral.1 * *price;
+        let weigth = collateral_value.min(collateral_available_bids) / max_ltv;
+
+        total_weight += weigth;
+        collaterals_value += collateral_value;
+        collateral_weights.push(weigth);
+        max_ltvs.push(max_ltv);
     }
 
-    // When collaterals_value is smaller than liquidation_threshold,
-    // liquidate collaterals as much as the value of borrow_amount
-    let safe_borrow_amount = borrow_limit * config.safe_ratio;
-    let liquidation_ratio = if collaterals_value < config.liquidation_threshold {
-        Decimal256::from_uint256(borrow_amount) / Decimal256::from_uint256(expected_repay_amount)
-    } else {
-        Decimal256::from_uint256(borrow_amount - safe_borrow_amount)
-            / Decimal256::from_uint256(expected_repay_amount - safe_borrow_amount)
-    };
-
-    // Cap the liquidation_ratio to 1
-    let liquidation_ratio = std::cmp::min(Decimal256::one(), liquidation_ratio);
-    Ok(LiquidationAmountResponse {
-        collaterals: collaterals
-            .iter()
-            .zip(collateral_prices.iter())
-            .map(|c| {
-                let (collateral, _) = c;
-                let mut collateral = collateral.clone();
-
-                collateral.1 = collateral.1 * liquidation_ratio;
-                collateral
-            })
-            .filter(|c| c.1 > Uint256::zero())
-            .collect::<TokensHuman>(),
-    })
+    Ok((
+        collaterals_value,
+        total_weight,
+        collateral_weights,
+        max_ltvs,
+    ))
 }
 
 pub fn query_bid<S: Storage, A: Api, Q: Querier>(
@@ -133,8 +172,7 @@ pub fn query_bid<S: Storage, A: Api, Q: Querier>(
     bid_idx: Uint128,
 ) -> StdResult<BidResponse> {
     let bid: Bid = read_bid(&deps.storage, bid_idx)?;
-    let bid_pool: BidPool =
-            read_bid_pool(&deps.storage, &bid.collateral_token, bid.premium_slot)?;
+    let bid_pool: BidPool = read_bid_pool(&deps.storage, &bid.collateral_token, bid.premium_slot)?;
 
     let (bid_amount, bid_pending_liquidated_collateral) = if bid.wait_end.is_some() {
         (bid.amount, bid.pending_liquidated_collateral)
@@ -143,10 +181,12 @@ pub fn query_bid<S: Storage, A: Api, Q: Querier>(
         let (remaining_bid, _) = calculate_remaining_bid(&bid, &bid_pool)?;
 
         // calculate liquidated collateral
-        let (liquidated_collateral, _) =
-            calculate_liquidated_collateral(&deps.storage, &bid)?;
-        
-        (remaining_bid, bid.pending_liquidated_collateral + liquidated_collateral)
+        let (liquidated_collateral, _) = calculate_liquidated_collateral(&deps.storage, &bid)?;
+
+        (
+            remaining_bid,
+            bid.pending_liquidated_collateral + liquidated_collateral,
+        )
     };
 
     Ok(BidResponse {
@@ -192,10 +232,12 @@ pub fn query_bids_by_user<S: Storage, A: Api, Q: Querier>(
             let (remaining_bid, _) = calculate_remaining_bid(&bid, &bid_pool)?;
 
             // calculate liquidated collateral
-            let (liquidated_collateral, _) =
-                calculate_liquidated_collateral(&deps.storage, &bid)?;
-            
-            (remaining_bid, bid.pending_liquidated_collateral + liquidated_collateral)
+            let (liquidated_collateral, _) = calculate_liquidated_collateral(&deps.storage, &bid)?;
+
+            (
+                remaining_bid,
+                bid.pending_liquidated_collateral + liquidated_collateral,
+            )
         };
         let res = BidResponse {
             idx: bid.idx,

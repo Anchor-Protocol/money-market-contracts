@@ -28,6 +28,7 @@ pub struct Config {
     pub liquidation_threshold: Uint256,
     pub price_timeframe: u64,
     pub waiting_period: u64,
+    pub overseer: CanonicalAddr,
 }
 
 pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {

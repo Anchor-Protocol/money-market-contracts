@@ -6,6 +6,7 @@
     "bid_fee",
     "liquidation_threshold",
     "oracle_contract",
+    "overseer",
     "owner",
     "price_timeframe",
     "safe_ratio",
@@ -20,6 +21,9 @@
       "$ref": "#/definitions/Uint256"
     },
     "oracle_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "overseer": {
       "$ref": "#/definitions/HumanAddr"
     },
     "owner": {

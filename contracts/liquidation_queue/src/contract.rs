@@ -32,6 +32,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             liquidation_threshold: msg.liquidation_threshold,
             price_timeframe: msg.price_timeframe,
             waiting_period: msg.waiting_period,
+            overseer: deps.api.canonical_address(&msg.overseer)?,
         },
     )?;
 
@@ -54,6 +55,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             liquidation_threshold,
             price_timeframe,
             waiting_period,
+            overseer,
         } => update_config(
             deps,
             env,
@@ -65,6 +67,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             liquidation_threshold,
             price_timeframe,
             waiting_period,
+            overseer,
         ),
         HandleMsg::WhitelistCollateral {
             collateral_token,
@@ -146,6 +149,7 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
     liquidation_threshold: Option<Uint256>,
     price_timeframe: Option<u64>,
     waiting_period: Option<u64>,
+    overseer: Option<HumanAddr>,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
     if deps.api.canonical_address(&env.message.sender)? != config.owner {
@@ -182,6 +186,10 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
 
     if let Some(waiting_period) = waiting_period {
         config.waiting_period = waiting_period;
+    }
+
+    if let Some(overseer) = overseer {
+        config.overseer = deps.api.canonical_address(&overseer)?;
     }
 
     store_config(&mut deps.storage, &config)?;
