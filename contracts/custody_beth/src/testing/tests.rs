@@ -6,7 +6,7 @@ use cosmwasm_std::{
 
 use crate::contract::{handle, init, query};
 use crate::external::handle::RewardContractHandleMsg;
-use crate::state::{read_borrower_info, BETHState};
+use crate::state::{read_borrower_info, BETHAccruedRewardsResponse};
 use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
@@ -608,6 +608,11 @@ fn distribute_rewards() {
     let msg = HandleMsg::DistributeRewards {};
     let env = mock_env("overseer", &[]);
     deps.querier.set_reward_balance(Uint128(10000));
+    deps.querier
+        .set_accrued_rewards(BETHAccruedRewardsResponse {
+            rewards: Uint128(10000),
+        });
+
     let res = handle(&mut deps, env, msg).unwrap();
     // Do not print logs at this step
     assert_eq!(res.log, vec![]);
@@ -968,13 +973,43 @@ fn proper_distribute_rewards_with_no_rewards() {
 
     let msg = HandleMsg::DistributeRewards {};
     let env = mock_env("overseer", &[]);
-    deps.querier.set_beth_state(BETHState {
-        global_index: Default::default(),
-        total_balance: Default::default(),
-        prev_reward_balance: Uint128(1000),
-    });
-    deps.querier.set_reward_balance(Uint128(1000));
+    deps.querier
+        .set_accrued_rewards(BETHAccruedRewardsResponse {
+            rewards: Uint128(0),
+        });
     let res = handle(&mut deps, env, msg).unwrap();
     // must return
     assert_eq!(res, HandleResponse::default());
+
+    let msg = HandleMsg::DistributeRewards {};
+    let env = mock_env("overseer", &[]);
+
+    deps.querier
+        .set_accrued_rewards(BETHAccruedRewardsResponse {
+            rewards: Uint128(1000),
+        });
+
+    let res = handle(&mut deps, env, msg).unwrap();
+    // Do not print logs at this step
+    assert_eq!(res.log, vec![]);
+    assert_eq!(
+        res.messages,
+        vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from("reward"),
+                send: vec![],
+                msg: to_binary(&RewardContractHandleMsg::ClaimRewards { recipient: None }).unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                send: vec![],
+                msg: to_binary(&HandleMsg::SwapToStableDenom {}).unwrap(),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: HumanAddr::from(MOCK_CONTRACT_ADDR),
+                send: vec![],
+                msg: to_binary(&HandleMsg::DistributeHook {}).unwrap(),
+            }),
+        ]
+    );
 }

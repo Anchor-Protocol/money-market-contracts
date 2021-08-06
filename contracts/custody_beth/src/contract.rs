@@ -1,6 +1,7 @@
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, InitResult, Querier, StdError, StdResult, Storage,
+    InitResponse, InitResult, MigrateResponse, MigrateResult, Querier, StdError, StdResult,
+    Storage,
 };
 
 use crate::collateral::{
@@ -11,7 +12,7 @@ use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_de
 use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20ReceiveMsg;
-use moneymarket::custody::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
+use moneymarket::custody::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, MigrateMsg, QueryMsg};
 use terra_cosmwasm::TerraMsgWrapper;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -144,4 +145,12 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
         stable_denom: config.stable_denom,
         basset_info: config.basset_info,
     })
+}
+
+pub fn migrate<S: Storage, A: Api, Q: Querier>(
+    _deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> MigrateResult {
+    Ok(MigrateResponse::default())
 }

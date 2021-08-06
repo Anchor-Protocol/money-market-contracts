@@ -2,18 +2,14 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::Uint256;
-use cosmwasm_std::{
-    Api, CanonicalAddr, Decimal, Extern, Order, Querier, StdResult, Storage, Uint128,
-};
+use cosmwasm_std::{Api, CanonicalAddr, Extern, Order, Querier, StdResult, Storage, Uint128};
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
 use moneymarket::custody::{BAssetInfo, BorrowerResponse};
 
-//BETHState the struct that beth-reward contract stores the state of the contract
+//BETHAccruedRewardsResponse the struct that shows the result of accrued_rewards query
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
-pub struct BETHState {
-    pub global_index: Decimal,
-    pub total_balance: Uint128,
-    pub prev_reward_balance: Uint128,
+pub struct BETHAccruedRewardsResponse {
+    pub rewards: Uint128,
 }
 
 const KEY_CONFIG: &[u8] = b"config";
@@ -51,7 +47,7 @@ pub fn store_borrower_info<S: Storage>(
     borrower_info: &BorrowerInfo,
 ) -> StdResult<()> {
     let mut borrower_bucket: Bucket<S, BorrowerInfo> = Bucket::new(PREFIX_BORROWER, storage);
-    borrower_bucket.save(borrower.as_slice(), &borrower_info)?;
+    borrower_bucket.save(borrower.as_slice(), borrower_info)?;
 
     Ok(())
 }
@@ -64,7 +60,7 @@ pub fn remove_borrower_info<S: Storage>(storage: &mut S, borrower: &CanonicalAdd
 pub fn read_borrower_info<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> BorrowerInfo {
     let borrower_bucket: ReadonlyBucket<S, BorrowerInfo> =
         ReadonlyBucket::new(PREFIX_BORROWER, storage);
-    match borrower_bucket.load(&borrower.as_slice()) {
+    match borrower_bucket.load(borrower.as_slice()) {
         Ok(v) => v,
         _ => BorrowerInfo {
             balance: Uint256::zero(),

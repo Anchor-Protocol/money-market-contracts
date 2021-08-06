@@ -1,14 +1,12 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, BankMsg, Binary, Coin, CosmosMsg, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, Querier, QueryRequest, StdError, StdResult, Storage,
-    Uint128, WasmMsg, WasmQuery,
+    log, to_binary, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
+    HumanAddr, Querier, QueryRequest, StdError, StdResult, Storage, Uint128, WasmMsg, WasmQuery,
 };
 
-use crate::external::handle::RewardContractHandleMsg;
-use crate::state::{read_config, BETHState, Config};
+use crate::external::handle::{RewardContractHandleMsg, RewardContractQueryMsg};
+use crate::state::{read_config, BETHAccruedRewardsResponse, Config};
 
-use cosmwasm_storage::to_length_prefixed;
 use moneymarket::custody::HandleMsg;
 use moneymarket::querier::{deduct_tax, query_all_balances, query_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
@@ -21,24 +19,20 @@ pub fn distribute_rewards<S: Storage, A: Api, Q: Querier>(
     env: Env,
 ) -> HandleResult<TerraMsgWrapper> {
     let config: Config = read_config(&deps.storage)?;
+
+    let contract_addr = env.contract.address;
+
     if config.overseer_contract != deps.api.canonical_address(&env.message.sender)? {
         return Err(StdError::unauthorized());
     }
 
     let reward_contract = deps.api.human_address(&config.reward_contract)?;
 
-    // if there has not been a new reward return.
-    let current_reward_balance = deps
-        .querier
-        .query_balance(reward_contract.clone(), config.stable_denom.as_str())
-        .unwrap_or_default()
-        .amount;
-    let previous_reward_balance = get_previous_balance(deps, reward_contract.clone())?;
-    if current_reward_balance == previous_reward_balance {
+    let previous_reward_balance =
+        get_previous_accrued_rewards(deps, reward_contract.clone(), contract_addr.clone())?;
+    if previous_reward_balance.is_zero() {
         return Ok(HandleResponse::default());
     }
-
-    let contract_addr = env.contract.address;
 
     // Do not emit the event logs here
     Ok(HandleResponse {
@@ -81,7 +75,7 @@ pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
     // reward_amount = (prev_balance + reward_amount) - prev_balance
     // = (0 + reward_amount) - 0 = reward_amount = balance
     let reward_amount: Uint256 =
-        query_balance(&deps, &contract_addr, config.stable_denom.to_string())?;
+        query_balance(deps, &contract_addr, config.stable_denom.to_string())?;
     let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
     if !reward_amount.is_zero() {
         messages.push(CosmosMsg::Bank(BankMsg::Send {
@@ -120,7 +114,7 @@ pub fn swap_to_stable_denom<S: Storage, A: Api, Q: Querier>(
     }
 
     let contract_addr = env.contract.address;
-    let balances: Vec<Coin> = query_all_balances(&deps, &contract_addr)?;
+    let balances: Vec<Coin> = query_all_balances(deps, &contract_addr)?;
     let messages: Vec<CosmosMsg<TerraMsgWrapper>> = balances
         .iter()
         .filter(|x| x.denom != config.stable_denom)
@@ -140,18 +134,18 @@ pub fn swap_to_stable_denom<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub(crate) fn get_previous_balance<S: Storage, A: Api, Q: Querier>(
+pub(crate) fn get_previous_accrued_rewards<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
+    reward_contract_addr: HumanAddr,
     contract_addr: HumanAddr,
 ) -> StdResult<Uint128> {
-    let binary: Binary = deps
-        .querier
-        .query(&QueryRequest::Wasm(WasmQuery::Raw {
-            contract_addr,
-            key: Binary::from(to_length_prefixed(b"state")),
-        }))
-        .unwrap();
+    let rewards: BETHAccruedRewardsResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: reward_contract_addr,
+            msg: to_binary(&RewardContractQueryMsg::AccruedRewards {
+                address: contract_addr,
+            })?,
+        }))?;
 
-    let state: BETHState = from_binary(&binary)?;
-    Ok(state.prev_reward_balance)
+    Ok(rewards.rewards)
 }

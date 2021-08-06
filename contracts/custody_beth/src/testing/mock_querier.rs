@@ -1,8 +1,10 @@
-use crate::state::BETHState;
+use crate::external::handle::RewardContractQueryMsg;
+use crate::state::BETHAccruedRewardsResponse;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_slice, to_binary, Api, BalanceResponse, BankQuery, CanonicalAddr, Coin, Decimal, Extern,
-    HumanAddr, Querier, QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Api, BalanceResponse, BankQuery, CanonicalAddr, Coin,
+    Decimal, Extern, HumanAddr, Querier, QuerierResult, QueryRequest, SystemError, Uint128,
+    WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 use cw20::TokenInfoResponse;
@@ -32,7 +34,7 @@ pub fn mock_dependencies(
 pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     token_querier: TokenQuerier,
-    beth_state: BETHState,
+    accrued_rewards: BETHAccruedRewardsResponse,
     reward_balance: Uint128,
     other_balance: Uint128,
     tax_querier: TaxQuerier,
@@ -139,71 +141,76 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
 
-                let prefix_state = to_length_prefixed(b"state").to_vec();
                 let prefix_token_info = to_length_prefixed(b"token_info").to_vec();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
 
-                if key.to_vec() == prefix_state {
-                    return Ok(to_binary(&to_binary(&self.beth_state).unwrap()));
-                } else {
-                    let balances: &HashMap<HumanAddr, Uint128> =
-                        match self.token_querier.balances.get(contract_addr) {
-                            Some(balances) => balances,
-                            None => {
-                                return Err(SystemError::InvalidRequest {
-                                    error: format!(
-                                        "No balance info exists for the contract {}",
-                                        contract_addr
-                                    ),
-                                    request: key.into(),
-                                })
-                            }
-                        };
-
-                    if key.to_vec() == prefix_token_info {
-                        let mut total_supply = Uint128::zero();
-
-                        for balance in balances {
-                            total_supply += *balance.1;
-                        }
-
-                        Ok(to_binary(
-                            &to_binary(&TokenInfoResponse {
-                                name: "mAPPL".to_string(),
-                                symbol: "mAPPL".to_string(),
-                                decimals: 6,
-                                total_supply: total_supply,
+                let balances: &HashMap<HumanAddr, Uint128> =
+                    match self.token_querier.balances.get(contract_addr) {
+                        Some(balances) => balances,
+                        None => {
+                            return Err(SystemError::InvalidRequest {
+                                error: format!(
+                                    "No balance info exists for the contract {}",
+                                    contract_addr
+                                ),
+                                request: key.into(),
                             })
-                            .unwrap(),
-                        ))
-                    } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
-                        let key_address: &[u8] = &key[prefix_balance.len()..];
-                        let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
-                        let api: MockApi = MockApi::new(self.canonical_length);
-                        let address: HumanAddr = match api.human_address(&address_raw) {
-                            Ok(v) => v,
-                            Err(e) => {
-                                return Err(SystemError::InvalidRequest {
-                                    error: format!("Parsing query request: {}", e),
-                                    request: key.into(),
-                                })
-                            }
-                        };
-                        let balance = match balances.get(&address) {
-                            Some(v) => v,
-                            None => {
-                                return Err(SystemError::InvalidRequest {
-                                    error: "Balance not found".to_string(),
-                                    request: key.into(),
-                                })
-                            }
-                        };
-                        Ok(to_binary(&to_binary(&balance).unwrap()))
-                    } else {
-                        panic!("DO NOT ENTER HERE")
+                        }
+                    };
+
+                if key.to_vec() == prefix_token_info {
+                    let mut total_supply = Uint128::zero();
+
+                    for balance in balances {
+                        total_supply += *balance.1;
                     }
+
+                    Ok(to_binary(
+                        &to_binary(&TokenInfoResponse {
+                            name: "mAPPL".to_string(),
+                            symbol: "mAPPL".to_string(),
+                            decimals: 6,
+                            total_supply: total_supply,
+                        })
+                        .unwrap(),
+                    ))
+                } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
+                    let key_address: &[u8] = &key[prefix_balance.len()..];
+                    let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
+                    let api: MockApi = MockApi::new(self.canonical_length);
+                    let address: HumanAddr = match api.human_address(&address_raw) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            return Err(SystemError::InvalidRequest {
+                                error: format!("Parsing query request: {}", e),
+                                request: key.into(),
+                            })
+                        }
+                    };
+                    let balance = match balances.get(&address) {
+                        Some(v) => v,
+                        None => {
+                            return Err(SystemError::InvalidRequest {
+                                error: "Balance not found".to_string(),
+                                request: key.into(),
+                            })
+                        }
+                    };
+                    Ok(to_binary(&to_binary(&balance).unwrap()))
+                } else {
+                    panic!("DO NOT ENTER HERE")
                 }
             }
+            QueryRequest::Wasm(WasmQuery::Smart {
+                contract_addr: _,
+                msg,
+            }) => match from_binary(&msg).unwrap() {
+                RewardContractQueryMsg::AccruedRewards { address: _ } => {
+                    Ok(to_binary(&BETHAccruedRewardsResponse {
+                        rewards: self.accrued_rewards.rewards,
+                    }))
+                }
+            },
             QueryRequest::Bank(BankQuery::Balance { address, denom }) => {
                 if address == &HumanAddr::from("reward") && denom == "uusd" {
                     let bank_res = BalanceResponse {
@@ -238,7 +245,7 @@ impl WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
-            beth_state: BETHState::default(),
+            accrued_rewards: BETHAccruedRewardsResponse::default(),
             reward_balance: Uint128::zero(),
             other_balance: Uint128::zero(),
             canonical_length,
@@ -255,8 +262,8 @@ impl WasmMockQuerier {
         self.tax_querier = TaxQuerier::new(rate, caps);
     }
 
-    pub fn set_beth_state(&mut self, new_state: BETHState) {
-        self.beth_state = new_state
+    pub fn set_accrued_rewards(&mut self, new_state: BETHAccruedRewardsResponse) {
+        self.accrued_rewards = new_state
     }
 
     pub fn set_reward_balance(&mut self, balance: Uint128) {
