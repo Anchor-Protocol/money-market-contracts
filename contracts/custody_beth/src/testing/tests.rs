@@ -607,10 +607,10 @@ fn distribute_rewards() {
 
     let msg = HandleMsg::DistributeRewards {};
     let env = mock_env("overseer", &[]);
-    deps.querier.set_reward_balance(Uint128(10000));
+    deps.querier.set_reward_balance(Uint128(10000000));
     deps.querier
         .set_accrued_rewards(BETHAccruedRewardsResponse {
-            rewards: Uint128(10000),
+            rewards: Uint128(10000000),
         });
 
     let res = handle(&mut deps, env, msg).unwrap();
@@ -986,7 +986,7 @@ fn proper_distribute_rewards_with_no_rewards() {
 
     deps.querier
         .set_accrued_rewards(BETHAccruedRewardsResponse {
-            rewards: Uint128(1000),
+            rewards: Uint128(10000000),
         });
 
     let res = handle(&mut deps, env, msg).unwrap();

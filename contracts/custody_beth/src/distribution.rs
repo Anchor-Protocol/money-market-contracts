@@ -18,6 +18,7 @@ pub fn distribute_rewards<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> HandleResult<TerraMsgWrapper> {
+    let threshold = Uint128(1000000);
     let config: Config = read_config(&deps.storage)?;
 
     let contract_addr = env.contract.address;
@@ -30,7 +31,7 @@ pub fn distribute_rewards<S: Storage, A: Api, Q: Querier>(
 
     let previous_reward_balance =
         get_previous_accrued_rewards(deps, reward_contract.clone(), contract_addr.clone())?;
-    if previous_reward_balance.is_zero() {
+    if previous_reward_balance < threshold {
         return Ok(HandleResponse::default());
     }
 
