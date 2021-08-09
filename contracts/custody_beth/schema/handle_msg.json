@@ -1,0 +1,229 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HandleMsg",
+  "anyOf": [
+    {
+      "description": "CW20 token receiver",
+      "type": "object",
+      "required": [
+        "receive"
+      ],
+      "properties": {
+        "receive": {
+          "$ref": "#/definitions/Cw20ReceiveMsg"
+        }
+      }
+    },
+    {
+      "description": "Overseer operations Update config",
+      "type": "object",
+      "required": [
+        "update_config"
+      ],
+      "properties": {
+        "update_config": {
+          "type": "object",
+          "properties": {
+            "liquidation_contract": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "owner": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Make specified amount of tokens unspendable",
+      "type": "object",
+      "required": [
+        "lock_collateral"
+      ],
+      "properties": {
+        "lock_collateral": {
+          "type": "object",
+          "required": [
+            "amount",
+            "borrower"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint256"
+            },
+            "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Make specified amount of collateral tokens spendable",
+      "type": "object",
+      "required": [
+        "unlock_collateral"
+      ],
+      "properties": {
+        "unlock_collateral": {
+          "type": "object",
+          "required": [
+            "amount",
+            "borrower"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint256"
+            },
+            "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Claim bAsset rewards and distribute claimed rewards to market and overseer contracts",
+      "type": "object",
+      "required": [
+        "distribute_rewards"
+      ],
+      "properties": {
+        "distribute_rewards": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "description": "(internal) Send withdrawn rewards to market & overseer",
+      "type": "object",
+      "required": [
+        "distribute_hook"
+      ],
+      "properties": {
+        "distribute_hook": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "description": "(internal) Swap all coins to stable_denom",
+      "type": "object",
+      "required": [
+        "swap_to_stable_denom"
+      ],
+      "properties": {
+        "swap_to_stable_denom": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "description": "Liquidate collateral and send liquidated collateral to `to` address",
+      "type": "object",
+      "required": [
+        "liquidate_collateral"
+      ],
+      "properties": {
+        "liquidate_collateral": {
+          "type": "object",
+          "required": [
+            "amount",
+            "borrower",
+            "liquidator"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint256"
+            },
+            "borrower": {
+              "$ref": "#/definitions/HumanAddr"
+            },
+            "liquidator": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "User operations Withdraw spendable collateral token. If the amount is not given, return all spendable collateral",
+      "type": "object",
+      "required": [
+        "withdraw_collateral"
+      ],
+      "properties": {
+        "withdraw_collateral": {
+          "type": "object",
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
+      "type": "string"
+    },
+    "Cw20ReceiveMsg": {
+      "description": "Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg",
+      "type": "object",
+      "required": [
+        "amount",
+        "sender"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "msg": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sender": {
+          "$ref": "#/definitions/HumanAddr"
+        }
+      }
+    },
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    },
+    "Uint256": {
+      "type": "string"
+    }
+  }
+}

@@ -131,3 +131,7 @@ pub struct BAssetInfo {
     pub symbol: String,
     pub decimals: u8,
 }
+
+/// We currently take no arguments for migrations
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {}

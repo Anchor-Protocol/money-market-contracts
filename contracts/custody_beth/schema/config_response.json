@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfigResponse",
+  "type": "object",
+  "required": [
+    "basset_info",
+    "collateral_token",
+    "liquidation_contract",
+    "market_contract",
+    "overseer_contract",
+    "owner",
+    "reward_contract",
+    "stable_denom"
+  ],
+  "properties": {
+    "basset_info": {
+      "$ref": "#/definitions/BAssetInfo"
+    },
+    "collateral_token": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "liquidation_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "market_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "overseer_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "owner": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "reward_contract": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "stable_denom": {
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "BAssetInfo": {
+      "type": "object",
+      "required": [
+        "decimals",
+        "name",
+        "symbol"
+      ],
+      "properties": {
+        "decimals": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "name": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        }
+      }
+    },
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
+}
