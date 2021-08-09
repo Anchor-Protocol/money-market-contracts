@@ -23,7 +23,6 @@ pub fn deposit_collateral<S: Storage, A: Api, Q: Querier>(
     let borrower_raw = deps.api.canonical_address(&borrower)?;
     let mut borrower_info: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
 
-    // withdraw rewards to pending rewards
     borrower_info.balance += amount;
     borrower_info.spendable += amount;
 
