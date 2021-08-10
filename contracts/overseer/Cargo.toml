@@ -1,6 +1,6 @@
 [package]
 name = "moneymarket-overseer"
-version = "0.1.0"
+version = "0.0.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
 description = "A MoneyMarket custody contract - handles over loan management"
@@ -34,7 +34,7 @@ overflow-checks = true
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.1.1"}
+moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.2.0"}
 cosmwasm-bignumber = "1.0"
 cosmwasm-std = { version = "0.10.1", features = ["iterator"] }
 cosmwasm-storage = { version = "0.10.1", features = ["iterator"] }

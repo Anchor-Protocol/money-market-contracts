@@ -1,6 +1,6 @@
 [package]
 name = "moneymarket-custody-bluna"
-version = "0.1.0"
+version = "0.0.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
 description = "A MoneyMarket bluna custody contract - handles over collateral operations"
@@ -34,7 +34,7 @@ overflow-checks = true
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.1.1"}
+moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.2.0"}
 cw20 = "0.2"
 terra-cosmwasm = "1.2.3"
 cosmwasm-bignumber = "1.0"
