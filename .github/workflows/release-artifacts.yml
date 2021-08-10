@@ -27,8 +27,9 @@ jobs:
           --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
           --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
           cosmwasm/rust-optimizer:0.11.5
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+          tar -zcvf cosmwasm-artifacts.tar.gz artifacts
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: cosmwasm-artifacts
-          path: artifacts/
+          files: cosmwasm-artifacts.tar.gz
+          body_path: CHANGELOG.md
