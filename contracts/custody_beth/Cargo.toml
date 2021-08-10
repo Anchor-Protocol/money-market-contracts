@@ -34,7 +34,7 @@ overflow-checks = true
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.1.0"}
+moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.1.1"}
 cw20 = "0.2"
 terra-cosmwasm = "1.2.3"
 cosmwasm-bignumber = "1.0"

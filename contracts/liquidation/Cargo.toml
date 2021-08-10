@@ -35,7 +35,7 @@ backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
 cw20 = "0.2"
-moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.1.0"}
+moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.1.1"}
 cosmwasm-std = { version = "0.10.1", features = ["iterator"] }
 cosmwasm-storage = { version = "0.10.1", features = ["iterator"] }
 cosmwasm-bignumber = "1.0.0"
