@@ -30,7 +30,7 @@ pub fn distribute_rewards<S: Storage, A: Api, Q: Querier>(
     let reward_contract = deps.api.human_address(&config.reward_contract)?;
 
     let previous_reward_balance =
-        get_previous_accrued_rewards(deps, reward_contract.clone(), contract_addr.clone())?;
+        get_accrued_rewards(deps, reward_contract.clone(), contract_addr.clone())?;
     if previous_reward_balance < threshold {
         return Ok(HandleResponse::default());
     }
@@ -135,7 +135,7 @@ pub fn swap_to_stable_denom<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub(crate) fn get_previous_accrued_rewards<S: Storage, A: Api, Q: Querier>(
+pub(crate) fn get_accrued_rewards<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     reward_contract_addr: HumanAddr,
     contract_addr: HumanAddr,
