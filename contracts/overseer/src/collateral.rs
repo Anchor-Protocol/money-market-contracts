@@ -53,15 +53,13 @@ pub fn lock_collateral(
         .map(|c| format!("{}{}", c.1, c.0.to_string()))
         .collect();
 
-    Ok(Response {
-        messages,
-        attributes: vec![
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
             attr("action", "lock_collateral"),
             attr("borrower", info.sender),
             attr("collaterals", collateral_logs.join(",")),
-        ],
-        ..Response::default()
-    })
+        ]))
 }
 
 pub fn unlock_collateral(
@@ -124,15 +122,13 @@ pub fn unlock_collateral(
         .map(|c| format!("{}{}", c.1, c.0.to_string()))
         .collect();
 
-    Ok(Response {
-        messages,
-        attributes: vec![
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
             attr("action", "unlock_collateral"),
             attr("borrower", borrower),
             attr("collaterals", collateral_logs.join(",")),
-        ],
-        ..Response::default()
-    })
+        ]))
 }
 
 pub fn liquidate_collateral(
@@ -205,8 +201,8 @@ pub fn liquidate_collateral(
         .filter(|msg| msg.is_ok())
         .collect::<StdResult<Vec<SubMsg>>>()?;
 
-    Ok(Response {
-        messages: vec![
+    Ok(Response::new().add_submessages(
+        vec![
             liquidation_messages,
             vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: market_contract.to_string(),
@@ -218,8 +214,7 @@ pub fn liquidate_collateral(
             }))],
         ]
         .concat(),
-        ..Response::default()
-    })
+    ))
 }
 
 pub fn query_collaterals(deps: Deps, borrower: Addr) -> StdResult<CollateralsResponse> {

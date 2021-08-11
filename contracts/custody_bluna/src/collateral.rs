@@ -29,16 +29,11 @@ pub fn deposit_collateral(
 
     store_borrower_info(deps.storage, &borrower_raw, &borrower_info)?;
 
-    Ok(Response {
-        messages: vec![],
-        attributes: vec![
-            attr("action", "deposit_collateral"),
-            attr("borrower", borrower.as_str()),
-            attr("amount", amount.to_string()),
-        ],
-        events: vec![],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "deposit_collateral"),
+        attr("borrower", borrower.as_str()),
+        attr("amount", amount.to_string()),
+    ]))
 }
 
 /// Withdraw spendable collateral or a specified amount of collateral
@@ -73,8 +68,8 @@ pub fn withdraw_collateral(
         store_borrower_info(deps.storage, &borrower_raw, &borrower_info)?;
     }
 
-    Ok(Response {
-        messages: vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
                 .api
                 .addr_humanize(&config.collateral_token)?
@@ -84,15 +79,12 @@ pub fn withdraw_collateral(
                 recipient: borrower.to_string(),
                 amount: amount.into(),
             })?,
-        }))],
-        attributes: vec![
+        }))])
+        .add_attributes(vec![
             attr("action", "withdraw_collateral"),
             attr("borrower", borrower.as_str()),
             attr("amount", amount.to_string()),
-        ],
-        events: vec![],
-        data: None,
-    })
+        ]))
 }
 
 /// Decrease spendable collateral to lock
@@ -120,16 +112,11 @@ pub fn lock_collateral(
 
     borrower_info.spendable = borrower_info.spendable - amount;
     store_borrower_info(deps.storage, &borrower_raw, &borrower_info)?;
-    Ok(Response {
-        messages: vec![],
-        attributes: vec![
-            attr("action", "lock_collateral"),
-            attr("borrower", borrower),
-            attr("amount", amount),
-        ],
-        events: vec![],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "lock_collateral"),
+        attr("borrower", borrower),
+        attr("amount", amount),
+    ]))
 }
 
 /// Increase spendable collateral to unlock
@@ -159,16 +146,11 @@ pub fn unlock_collateral(
     borrower_info.spendable += amount;
     store_borrower_info(deps.storage, &borrower_raw, &borrower_info)?;
 
-    Ok(Response {
-        messages: vec![],
-        attributes: vec![
-            attr("action", "unlock_collateral"),
-            attr("borrower", borrower),
-            attr("amount", amount),
-        ],
-        events: vec![],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "unlock_collateral"),
+        attr("borrower", borrower),
+        attr("amount", amount),
+    ]))
 }
 
 pub fn liquidate_collateral(
@@ -196,8 +178,8 @@ pub fn liquidate_collateral(
     borrower_info.balance = borrower_info.balance - amount;
     store_borrower_info(deps.storage, &borrower_raw, &borrower_info)?;
 
-    Ok(Response {
-        messages: vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
                 .api
                 .addr_humanize(&config.collateral_token)?
@@ -221,16 +203,13 @@ pub fn liquidate_collateral(
                     ),
                 })?,
             })?,
-        }))],
-        attributes: vec![
+        }))])
+        .add_attributes(vec![
             attr("action", "liquidate_collateral"),
             attr("liquidator", liquidator),
             attr("borrower", borrower),
             attr("amount", amount),
-        ],
-        events: vec![],
-        data: None,
-    })
+        ]))
 }
 
 pub fn query_borrower(deps: Deps, borrower: Addr) -> StdResult<BorrowerResponse> {

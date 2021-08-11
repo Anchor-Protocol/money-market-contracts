@@ -47,23 +47,21 @@ pub fn deposit_stable(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<R
 
     state.prev_aterra_supply += mint_amount;
     store_state(deps.storage, &state)?;
-    Ok(Response {
-        messages: vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Mint {
                 recipient: info.sender.to_string(),
                 amount: mint_amount.into(),
             })?,
-        }))],
-        attributes: vec![
+        }))])
+        .add_attributes(vec![
             attr("action", "deposit_stable"),
             attr("depositor", info.sender),
             attr("mint_amount", mint_amount),
             attr("deposit_amount", deposit_amount),
-        ],
-        ..Response::default()
-    })
+        ]))
 }
 
 pub fn redeem_stable(
@@ -94,8 +92,8 @@ pub fn redeem_stable(
 
     state.prev_aterra_supply = state.prev_aterra_supply - Uint256::from(burn_amount);
     store_state(deps.storage, &state)?;
-    Ok(Response {
-        messages: vec![
+    Ok(Response::new()
+        .add_submessages(vec![
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
                 funds: vec![],
@@ -113,14 +111,12 @@ pub fn redeem_stable(
                     },
                 )?],
             })),
-        ],
-        attributes: vec![
+        ])
+        .add_attributes(vec![
             attr("action", "redeem_stable"),
             attr("burn_amount", burn_amount),
             attr("redeem_amount", redeem_amount),
-        ],
-        ..Response::default()
-    })
+        ]))
 }
 
 fn assert_redeem_amount(

@@ -25,19 +25,16 @@ pub fn distribute_rewards(
     let reward_contract = deps.api.addr_humanize(&config.reward_contract)?;
 
     // Do not emit the event logs here
-    Ok(Response {
-        messages: vec![SubMsg::reply_on_success(
+    Ok(
+        Response::new().add_submessages(vec![SubMsg::reply_on_success(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: reward_contract.to_string(),
                 funds: vec![],
                 msg: to_binary(&RewardContractExecuteMsg::ClaimRewards { recipient: None })?,
             }),
             1,
-        )],
-        attributes: vec![],
-        events: vec![],
-        data: None,
-    })
+        )]),
+    )
 }
 
 /// Apply swapped reward to global index
@@ -68,15 +65,12 @@ pub fn distribute_hook(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWr
         })));
     }
 
-    Ok(Response {
-        messages,
-        attributes: vec![
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
             attr("action", "distribute_rewards"),
             attr("buffer_rewards", reward_amount),
-        ],
-        events: vec![],
-        data: None,
-    })
+        ]))
 }
 
 /// Swap all coins to stable_denom
@@ -98,10 +92,5 @@ pub fn swap_to_stable_denom(deps: DepsMut, env: Env) -> StdResult<Response<Terra
         last.reply_on = ReplyOn::Success;
     }
 
-    Ok(Response {
-        messages,
-        attributes: vec![],
-        events: vec![],
-        data: None,
-    })
+    Ok(Response::new().add_submessages(messages))
 }

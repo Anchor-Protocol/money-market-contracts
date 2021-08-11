@@ -163,56 +163,16 @@ fn tokens_math() {
 fn tokens_math_normal_add() {
     let deps = mock_dependencies(&[]);
 
-    let acct1 = deps
-        .api
-        .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]))
-        .unwrap()
-        .to_string();
-
-    let acct2 = deps
-        .api
-        .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]))
-        .unwrap()
-        .to_string();
-
-    let acct3 = deps
-        .api
-        .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]))
-        .unwrap()
-        .to_string();
-
-    let acct4 = deps
-        .api
-        .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]))
-        .unwrap()
-        .to_string();
-
-    let acct5 = deps
-        .api
-        .addr_humanize(&CanonicalAddr::from(vec![
-            1, 1, 1, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]))
-        .unwrap()
-        .to_string();
-
     let tokens_1: TokensHuman = vec![
-        (acct1.clone(), Uint256::from(1000000u64)),
-        (acct2, Uint256::from(1000000u64)),
-        (acct3, Uint256::from(1000000u64)),
-        (acct5, Uint256::from(1000000u64)),
+        (String::from("token1"), Uint256::from(1000000u64)),
+        (String::from("token2"), Uint256::from(1000000u64)),
+        (String::from("token3"), Uint256::from(1000000u64)),
+        (String::from("token5"), Uint256::from(1000000u64)),
     ];
 
     let tokens_2: TokensHuman = vec![
-        (acct1, Uint256::from(1000000u64)),
-        (acct4, Uint256::from(1000000u64)),
+        (String::from("token1"), Uint256::from(1000000u64)),
+        (String::from("token4"), Uint256::from(1000000u64)),
     ];
 
     let mut tokens_1_raw: Tokens = tokens_1.to_raw(deps.as_ref()).unwrap();

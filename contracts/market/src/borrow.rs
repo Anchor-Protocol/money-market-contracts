@@ -68,8 +68,8 @@ pub fn borrow_stable(
     store_state(deps.storage, &state)?;
     store_borrower_info(deps.storage, &borrower_raw, &liability)?;
 
-    Ok(Response {
-        messages: vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+    Ok(Response::new()
+        .add_submessages(vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
             to_address: to.unwrap_or_else(|| borrower.clone()).to_string(),
             amount: vec![deduct_tax(
                 deps.as_ref(),
@@ -78,14 +78,12 @@ pub fn borrow_stable(
                     amount: borrow_amount.into(),
                 },
             )?],
-        }))],
-        attributes: vec![
+        }))])
+        .add_attributes(vec![
             attr("action", "borrow_stable"),
             attr("borrower", borrower),
             attr("borrow_amount", borrow_amount),
-        ],
-        ..Response::default()
-    })
+        ]))
 }
 
 pub fn repay_stable_from_liquidation(
@@ -184,15 +182,13 @@ pub fn repay_stable(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Res
     store_borrower_info(deps.storage, &borrower_raw, &liability)?;
     store_state(deps.storage, &state)?;
 
-    Ok(Response {
-        messages,
-        attributes: vec![
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
             attr("action", "repay_stable"),
             attr("borrower", borrower),
             attr("repay_amount", repay_amount),
-        ],
-        ..Response::default()
-    })
+        ]))
 }
 
 pub fn claim_rewards(
@@ -242,14 +238,12 @@ pub fn claim_rewards(
         vec![]
     };
 
-    Ok(Response {
-        messages,
-        attributes: vec![
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
             attr("action", "claim_rewards"),
             attr("claim_amount", claim_amount),
-        ],
-        ..Response::default()
-    })
+        ]))
 }
 
 /// Compute interest and update state

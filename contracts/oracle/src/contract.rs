@@ -71,14 +71,11 @@ pub fn register_feeder(
 
     store_feeder(deps.storage, &asset, &deps.api.addr_canonicalize(&feeder)?)?;
 
-    Ok(Response {
-        attributes: vec![
-            attr("action", "register_feeder"),
-            attr("asset", asset),
-            attr("feeder", feeder),
-        ],
-        ..Response::default()
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "register_feeder"),
+        attr("asset", asset),
+        attr("feeder", feeder),
+    ]))
 }
 
 pub fn feed_prices(
@@ -100,7 +97,7 @@ pub fn feed_prices(
         }
 
         attributes.push(attr("asset", asset.to_string()));
-        attributes.push(attr("price", price));
+        attributes.push(attr("price", price.to_string()));
 
         store_price(
             deps.storage,
@@ -112,10 +109,7 @@ pub fn feed_prices(
         )?;
     }
 
-    Ok(Response {
-        attributes,
-        ..Response::default()
-    })
+    Ok(Response::new().add_attributes(attributes))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

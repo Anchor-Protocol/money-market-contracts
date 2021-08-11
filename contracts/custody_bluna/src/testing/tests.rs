@@ -1,7 +1,7 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Api, BankMsg, Coin, ContractResult, CosmosMsg, Decimal, Reply,
-    StdError, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
+    attr, from_binary, to_binary, Api, Attribute, BankMsg, Coin, ContractResult, CosmosMsg,
+    Decimal, Reply, StdError, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
 
 use crate::contract::{execute, instantiate, query, reply};
@@ -600,7 +600,8 @@ fn distribute_rewards() {
     let info = mock_info("overseer", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     // Do not print logs at this step
-    assert_eq!(res.attributes, vec![]);
+    let empty_vector: Vec<Attribute> = Vec::new();
+    assert_eq!(res.attributes, empty_vector);
     assert_eq!(
         res.messages,
         vec![SubMsg::reply_on_success(

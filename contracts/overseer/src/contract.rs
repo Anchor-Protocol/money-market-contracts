@@ -202,10 +202,7 @@ pub fn update_config(
 
     store_config(deps.storage, &config)?;
 
-    Ok(Response {
-        attributes: vec![attr("action", "update_config")],
-        ..Response::default()
-    })
+    Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
 }
 
 pub fn register_whitelist(
@@ -240,17 +237,14 @@ pub fn register_whitelist(
         },
     )?;
 
-    Ok(Response {
-        attributes: vec![
-            attr("action", "register_whitelist"),
-            attr("name", name),
-            attr("symbol", symbol),
-            attr("collateral_token", collateral_token),
-            attr("custody_contract", custody_contract),
-            attr("LTV", max_ltv),
-        ],
-        ..Response::default()
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "register_whitelist"),
+        attr("name", name),
+        attr("symbol", symbol),
+        attr("collateral_token", collateral_token),
+        attr("custody_contract", custody_contract),
+        attr("LTV", max_ltv.to_string()),
+    ]))
 }
 
 pub fn update_whitelist(
@@ -279,18 +273,15 @@ pub fn update_whitelist(
 
     store_whitelist_elem(deps.storage, &collateral_token_raw, &whitelist_elem)?;
 
-    Ok(Response {
-        attributes: vec![
-            attr("action", "update_whitelist"),
-            attr("collateral_token", collateral_token),
-            attr(
-                "custody_contract",
-                deps.api.addr_humanize(&whitelist_elem.custody_contract)?,
-            ),
-            attr("LTV", whitelist_elem.max_ltv),
-        ],
-        ..Response::default()
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "update_whitelist"),
+        attr("collateral_token", collateral_token),
+        attr(
+            "custody_contract",
+            deps.api.addr_humanize(&whitelist_elem.custody_contract)?,
+        ),
+        attr("LTV", whitelist_elem.max_ltv.to_string()),
+    ]))
 }
 
 pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> {
@@ -412,18 +403,16 @@ pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> 
         })?,
     })));
 
-    Ok(Response {
-        messages,
-        attributes: vec![
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
             attr("action", "epoch_operations"),
-            attr("deposit_rate", deposit_rate),
-            attr("exchange_rate", epoch_state.exchange_rate),
+            attr("deposit_rate", deposit_rate.to_string()),
+            attr("exchange_rate", epoch_state.exchange_rate.to_string()),
             attr("aterra_supply", epoch_state.aterra_supply),
             attr("distributed_interest", distributed_interest),
             attr("anc_purchase_amount", anc_purchase_amount),
-        ],
-        ..Response::default()
-    })
+        ]))
 }
 
 pub fn update_epoch_state(
@@ -472,8 +461,8 @@ pub fn update_epoch_state(
         },
     )?;
 
-    Ok(Response {
-        messages: vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: market_contract.to_string(),
             funds: vec![],
             msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
@@ -482,16 +471,17 @@ pub fn update_epoch_state(
                 threshold_deposit_rate: config.threshold_deposit_rate,
                 distributed_interest,
             })?,
-        }))],
-        attributes: vec![
+        }))])
+        .add_attributes(vec![
             attr("action", "update_epoch_state"),
-            attr("deposit_rate", deposit_rate),
+            attr("deposit_rate", deposit_rate.to_string()),
             attr("aterra_supply", market_epoch_state.aterra_supply),
-            attr("exchange_rate", market_epoch_state.exchange_rate),
+            attr(
+                "exchange_rate",
+                market_epoch_state.exchange_rate.to_string(),
+            ),
             attr("interest_buffer", interest_buffer),
-        ],
-        ..Response::default()
-    })
+        ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

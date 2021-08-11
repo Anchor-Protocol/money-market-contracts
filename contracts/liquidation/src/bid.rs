@@ -59,14 +59,11 @@ pub fn submit_bid(
         },
     )?;
 
-    Ok(Response {
-        attributes: vec![
-            attr("action", "submit_bid"),
-            attr("collateral_token", collateral_token),
-            attr("amount", amount),
-        ],
-        ..Response::default()
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "submit_bid"),
+        attr("collateral_token", collateral_token),
+        attr("amount", amount),
+    ]))
 }
 
 pub fn retract_bid(
@@ -102,8 +99,8 @@ pub fn retract_bid(
         )?;
     }
 
-    Ok(Response {
-        messages: vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+    Ok(Response::new()
+        .add_submessages(vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
             to_address: info.sender.to_string(),
             amount: vec![deduct_tax(
                 deps.as_ref(),
@@ -112,15 +109,13 @@ pub fn retract_bid(
                     amount: amount.into(),
                 },
             )?],
-        }))],
-        attributes: vec![
+        }))])
+        .add_attributes(vec![
             attr("action", "retract_bid"),
             attr("collateral_token", collateral_token),
             attr("bidder", info.sender),
             attr("amount", amount),
-        ],
-        ..Response::default()
-    })
+        ]))
 }
 
 pub fn execute_bid(
@@ -211,18 +206,16 @@ pub fn execute_bid(
         })));
     }
 
-    Ok(Response {
-        messages,
-        attributes: vec![
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
             attr("action", "execute_bid"),
             attr("stable_denom", config.stable_denom),
             attr("repay_amount", repay_amount),
             attr("bid_fee", bid_fee),
             attr("collateral_token", collateral_token),
             attr("collateral_amount", amount),
-        ],
-        ..Response::default()
-    })
+        ]))
 }
 
 pub fn query_bid(deps: Deps, collateral_token: Addr, bidder: Addr) -> StdResult<BidResponse> {

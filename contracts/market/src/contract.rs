@@ -82,8 +82,8 @@ pub fn instantiate(
         },
     )?;
 
-    Ok(Response {
-        messages: vec![SubMsg::reply_on_success(
+    Ok(
+        Response::new().add_submessages(vec![SubMsg::reply_on_success(
             CosmosMsg::Wasm(WasmMsg::Instantiate {
                 admin: None,
                 code_id: msg.aterra_code_id,
@@ -107,9 +107,8 @@ pub fn instantiate(
                 })?,
             }),
             1,
-        )],
-        ..Response::default()
-    })
+        )]),
+    )
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -248,10 +247,7 @@ pub fn register_aterra(deps: DepsMut, token_addr: Addr) -> StdResult<Response> {
     config.aterra_contract = deps.api.addr_canonicalize(token_addr.as_str())?;
     store_config(deps.storage, &config)?;
 
-    Ok(Response {
-        attributes: vec![attr("aterra", token_addr)],
-        ..Response::default()
-    })
+    Ok(Response::new().add_attributes(vec![attr("aterra", token_addr)]))
 }
 
 pub fn register_contracts(
@@ -321,10 +317,7 @@ pub fn update_config(
     }
 
     store_config(deps.storage, &config)?;
-    Ok(Response {
-        attributes: vec![attr("action", "update_config")],
-        ..Response::default()
-    })
+    Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
 }
 
 pub fn execute_epoch_operations(
@@ -414,15 +407,13 @@ pub fn execute_epoch_operations(
 
     store_state(deps.storage, &state)?;
 
-    Ok(Response {
-        messages,
-        attributes: vec![
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
             attr("action", "execute_epoch_operations"),
             attr("total_reserves", total_reserves),
-            attr("anc_emission_rate", state.anc_emission_rate),
-        ],
-        ..Response::default()
-    })
+            attr("anc_emission_rate", state.anc_emission_rate.to_string()),
+        ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
