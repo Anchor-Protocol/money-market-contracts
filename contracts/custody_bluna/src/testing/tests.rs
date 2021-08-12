@@ -4,7 +4,9 @@ use cosmwasm_std::{
     Decimal, Reply, StdError, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
 
-use crate::contract::{execute, instantiate, query, reply};
+use crate::contract::{
+    execute, instantiate, query, reply, CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION,
+};
 use crate::external::handle::RewardContractExecuteMsg;
 use crate::state::read_borrower_info;
 use crate::testing::mock_querier::mock_dependencies;
@@ -432,7 +434,7 @@ fn lock_collateral() {
     //directly checking if spendable is decreased by amount
     let spend = read_borrower_info(
         &deps.storage,
-        &deps.api.addr_canonicalize(&"addr0000").unwrap(),
+        &deps.api.addr_canonicalize("addr0000").unwrap(),
     )
     .spendable;
     assert_eq!(spend, Uint256::from(50u128));
@@ -526,7 +528,7 @@ fn lock_collateral() {
     //checking if amount is added to spendable
     let spend = read_borrower_info(
         &deps.storage,
-        &deps.api.addr_canonicalize(&"addr0000").unwrap(),
+        &deps.api.addr_canonicalize("addr0000").unwrap(),
     )
     .spendable;
     assert_eq!(spend, Uint256::from(30u128));
@@ -611,7 +613,7 @@ fn distribute_rewards() {
                 msg: to_binary(&RewardContractExecuteMsg::ClaimRewards { recipient: None })
                     .unwrap(),
             }),
-            1
+            CLAIM_REWARDS_OPERATION
         )]
     );
 }
@@ -789,7 +791,7 @@ fn swap_to_stable_denom() {
                     },
                     "uusd".to_string(),
                 ),
-                2
+                SWAP_TO_STABLE_OPERATION
             ),
         ]
     );

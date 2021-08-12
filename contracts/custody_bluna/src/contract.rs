@@ -17,6 +17,9 @@ use moneymarket::common::optional_addr_validate;
 use moneymarket::custody::{ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
 use terra_cosmwasm::TerraMsgWrapper;
 
+pub const CLAIM_REWARDS_OPERATION: u64 = 1u64;
+pub const SWAP_TO_STABLE_OPERATION: u64 = 2u64;
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
@@ -87,9 +90,9 @@ pub fn execute(
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response<TerraMsgWrapper>> {
     match msg.id {
         // ClaimRewards callback
-        1 => swap_to_stable_denom(deps, env),
+        CLAIM_REWARDS_OPERATION => swap_to_stable_denom(deps, env),
         // Swap to stable callback
-        2 => distribute_hook(deps, env),
+        SWAP_TO_STABLE_OPERATION => distribute_hook(deps, env),
         _ => Err(StdError::generic_err("reply id does not exist")),
     }
 }

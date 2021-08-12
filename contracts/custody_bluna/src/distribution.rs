@@ -4,6 +4,7 @@ use cosmwasm_std::{
     StdError, StdResult, SubMsg, WasmMsg,
 };
 
+use crate::contract::{CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION};
 use crate::external::handle::RewardContractExecuteMsg;
 use crate::state::{read_config, Config};
 
@@ -32,7 +33,7 @@ pub fn distribute_rewards(
                 funds: vec![],
                 msg: to_binary(&RewardContractExecuteMsg::ClaimRewards { recipient: None })?,
             }),
-            1,
+            CLAIM_REWARDS_OPERATION,
         )]),
     )
 }
@@ -88,7 +89,7 @@ pub fn swap_to_stable_denom(deps: DepsMut, env: Env) -> StdResult<Response<Terra
         .collect();
 
     if let Some(last) = messages.last_mut() {
-        last.id = 2;
+        last.id = SWAP_TO_STABLE_OPERATION;
         last.reply_on = ReplyOn::Success;
     }
 

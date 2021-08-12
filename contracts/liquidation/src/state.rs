@@ -117,10 +117,10 @@ pub fn read_bids_by_collateral(
         .map(|elem| {
             let (k, _) = elem?;
             let bidder = CanonicalAddr::from(k);
-            let bid = read_bid(deps.storage, &bidder, &collateral_token)?;
+            let bid = read_bid(deps.storage, &bidder, collateral_token)?;
 
             let bidder = deps.api.addr_humanize(&bidder)?.to_string();
-            let collateral_token = deps.api.addr_humanize(&collateral_token)?.to_string();
+            let collateral_token = deps.api.addr_humanize(collateral_token)?.to_string();
             let amount = bid.amount;
             let premium_rate = bid.premium_rate;
 
@@ -152,10 +152,10 @@ pub fn read_bids_by_user(
         .map(|elem| {
             let (k, _) = elem?;
             let collateral_token = CanonicalAddr::from(k);
-            let bid = read_bid(deps.storage, &bidder, &collateral_token)?;
+            let bid = read_bid(deps.storage, bidder, &collateral_token)?;
 
             let collateral_token = deps.api.addr_humanize(&collateral_token)?.to_string();
-            let bidder = deps.api.addr_humanize(&bidder)?.to_string();
+            let bidder = deps.api.addr_humanize(bidder)?.to_string();
             let amount = bid.amount;
             let premium_rate = bid.premium_rate;
 

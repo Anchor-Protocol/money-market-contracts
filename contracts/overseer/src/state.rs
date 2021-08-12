@@ -69,7 +69,7 @@ pub fn store_whitelist_elem(
     whitelist_elem: &WhitelistElem,
 ) -> StdResult<()> {
     let mut whitelist_bucket: Bucket<WhitelistElem> = Bucket::new(storage, PREFIX_WHITELIST);
-    whitelist_bucket.save(collateral_token.as_slice(), &whitelist_elem)?;
+    whitelist_bucket.save(collateral_token.as_slice(), whitelist_elem)?;
 
     Ok(())
 }
@@ -80,7 +80,7 @@ pub fn read_whitelist_elem(
 ) -> StdResult<WhitelistElem> {
     let whitelist_bucket: ReadonlyBucket<WhitelistElem> =
         ReadonlyBucket::new(storage, PREFIX_WHITELIST);
-    match whitelist_bucket.load(&collateral_token.as_slice()) {
+    match whitelist_bucket.load(collateral_token.as_slice()) {
         Ok(v) => Ok(v),
         _ => Err(StdError::generic_err(
             "Token is not registered as collateral",
@@ -125,9 +125,9 @@ pub fn store_collaterals(
 ) -> StdResult<()> {
     let mut collaterals_bucket: Bucket<Tokens> = Bucket::new(storage, PREFIX_COLLATERALS);
     if collaterals.is_empty() {
-        collaterals_bucket.remove(&borrower.as_slice());
+        collaterals_bucket.remove(borrower.as_slice());
     } else {
-        collaterals_bucket.save(&borrower.as_slice(), &collaterals)?;
+        collaterals_bucket.save(borrower.as_slice(), collaterals)?;
     }
 
     Ok(())
@@ -136,7 +136,7 @@ pub fn store_collaterals(
 pub fn read_collaterals(storage: &dyn Storage, borrower: &CanonicalAddr) -> Tokens {
     let collaterals_bucket: ReadonlyBucket<Tokens> =
         ReadonlyBucket::new(storage, PREFIX_COLLATERALS);
-    match collaterals_bucket.load(&borrower.as_slice()) {
+    match collaterals_bucket.load(borrower.as_slice()) {
         Ok(v) => v,
         _ => vec![],
     }

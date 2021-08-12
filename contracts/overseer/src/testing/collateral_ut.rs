@@ -75,12 +75,12 @@ fn proper_compute_borrow_limit() {
 
     let mut collaterals: Tokens = vec![];
     let token1: Token = (
-        deps.api.addr_canonicalize(&"bluna").unwrap(),
+        deps.api.addr_canonicalize("bluna").unwrap(),
         Uint256::from(1000u128),
     );
     collaterals.push(token1);
     let token2: Token = (
-        deps.api.addr_canonicalize(&"batom").unwrap(),
+        deps.api.addr_canonicalize("batom").unwrap(),
         Uint256::from(1000u128),
     );
     collaterals.push(token2);

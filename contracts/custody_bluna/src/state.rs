@@ -41,7 +41,7 @@ pub fn store_borrower_info(
     borrower_info: &BorrowerInfo,
 ) -> StdResult<()> {
     let mut borrower_bucket: Bucket<BorrowerInfo> = Bucket::new(storage, PREFIX_BORROWER);
-    borrower_bucket.save(borrower.as_slice(), &borrower_info)?;
+    borrower_bucket.save(borrower.as_slice(), borrower_info)?;
 
     Ok(())
 }
@@ -54,7 +54,7 @@ pub fn remove_borrower_info(storage: &mut dyn Storage, borrower: &CanonicalAddr)
 pub fn read_borrower_info(storage: &dyn Storage, borrower: &CanonicalAddr) -> BorrowerInfo {
     let borrower_bucket: ReadonlyBucket<BorrowerInfo> =
         ReadonlyBucket::new(storage, PREFIX_BORROWER);
-    match borrower_bucket.load(&borrower.as_slice()) {
+    match borrower_bucket.load(borrower.as_slice()) {
         Ok(v) => v,
         _ => BorrowerInfo {
             balance: Uint256::zero(),

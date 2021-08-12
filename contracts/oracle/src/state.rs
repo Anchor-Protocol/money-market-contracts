@@ -34,7 +34,7 @@ pub struct PriceInfo {
 
 pub fn store_price(storage: &mut dyn Storage, asset: &str, price: &PriceInfo) -> StdResult<()> {
     let mut price_bucket: Bucket<PriceInfo> = Bucket::new(storage, PREFIX_PRICE);
-    price_bucket.save(asset.as_bytes(), &price)
+    price_bucket.save(asset.as_bytes(), price)
 }
 
 pub fn read_price(storage: &dyn Storage, asset: &str) -> StdResult<PriceInfo> {
@@ -83,7 +83,7 @@ pub fn store_feeder(
     feeder: &CanonicalAddr,
 ) -> StdResult<()> {
     let mut price_bucket: Bucket<CanonicalAddr> = Bucket::new(storage, PREFIX_FEEDER);
-    price_bucket.save(asset.as_bytes(), &feeder)
+    price_bucket.save(asset.as_bytes(), feeder)
 }
 
 pub fn read_feeder(storage: &dyn Storage, asset: &str) -> StdResult<CanonicalAddr> {

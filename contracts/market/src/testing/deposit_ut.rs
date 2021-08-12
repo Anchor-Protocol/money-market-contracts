@@ -15,13 +15,13 @@ fn proper_compute_exchange_rate() {
     //setting up the required environment for the function call (inputs)
     let mock_config = Config {
         contract_addr: deps.api.addr_canonicalize(MOCK_CONTRACT_ADDR).unwrap(),
-        owner_addr: deps.api.addr_canonicalize(&"owner").unwrap(),
-        aterra_contract: deps.api.addr_canonicalize(&"AT-uusd").unwrap(),
-        interest_model: deps.api.addr_canonicalize(&"interest").unwrap(),
-        distribution_model: deps.api.addr_canonicalize(&"distribution").unwrap(),
-        distributor_contract: deps.api.addr_canonicalize(&"distributor").unwrap(),
-        collector_contract: deps.api.addr_canonicalize(&"collector").unwrap(),
-        overseer_contract: deps.api.addr_canonicalize(&"overseer").unwrap(),
+        owner_addr: deps.api.addr_canonicalize("owner").unwrap(),
+        aterra_contract: deps.api.addr_canonicalize("AT-uusd").unwrap(),
+        interest_model: deps.api.addr_canonicalize("interest").unwrap(),
+        distribution_model: deps.api.addr_canonicalize("distribution").unwrap(),
+        distributor_contract: deps.api.addr_canonicalize("distributor").unwrap(),
+        collector_contract: deps.api.addr_canonicalize("collector").unwrap(),
+        overseer_contract: deps.api.addr_canonicalize("overseer").unwrap(),
         stable_denom: "uusd".to_string(),
         max_borrow_factor: Decimal256::one(),
     };
