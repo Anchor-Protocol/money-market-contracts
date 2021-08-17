@@ -1,3 +1,6 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+
 use crate::bid::{
     execute_bid, query_bid, query_bids_by_collateral, query_bids_by_user, retract_bid, submit_bid,
 };
@@ -5,26 +8,29 @@ use crate::state::{read_config, store_config, Config};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    from_binary, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, Querier, StdError, StdResult, Storage,
+    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult,
 };
 use cw20::Cw20ReceiveMsg;
+use moneymarket::common::optional_addr_validate;
 use moneymarket::liquidation::{
-    ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, LiquidationAmountResponse, QueryMsg,
+    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, LiquidationAmountResponse, QueryMsg,
 };
 use moneymarket::querier::query_tax_rate;
 use moneymarket::tokens::TokensHuman;
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     _env: Env,
-    msg: InitMsg,
-) -> StdResult<InitResponse> {
+    _info: MessageInfo,
+    msg: InstantiateMsg,
+) -> StdResult<Response> {
     store_config(
-        &mut deps.storage,
+        deps.storage,
         &Config {
-            owner: deps.api.canonical_address(&msg.owner)?,
-            oracle_contract: deps.api.canonical_address(&msg.oracle_contract)?,
+            owner: deps.api.addr_canonicalize(&msg.owner)?,
+            oracle_contract: deps.api.addr_canonicalize(&msg.oracle_contract)?,
             stable_denom: msg.stable_denom,
             safe_ratio: msg.safe_ratio,
             bid_fee: msg.bid_fee,
@@ -34,17 +40,14 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
-    Ok(InitResponse::default())
+    Ok(Response::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    msg: HandleMsg,
-) -> HandleResult {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
-        HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
-        HandleMsg::UpdateConfig {
+        ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
+        ExecuteMsg::UpdateConfig {
             owner,
             oracle_contract,
             stable_denom,
@@ -53,88 +56,102 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             max_premium_rate,
             liquidation_threshold,
             price_timeframe,
-        } => update_config(
-            deps,
-            env,
-            owner,
-            oracle_contract,
-            stable_denom,
-            safe_ratio,
-            bid_fee,
-            max_premium_rate,
-            liquidation_threshold,
-            price_timeframe,
-        ),
-        HandleMsg::SubmitBid {
+        } => {
+            let api = deps.api;
+            update_config(
+                deps,
+                info,
+                optional_addr_validate(api, owner)?,
+                optional_addr_validate(api, oracle_contract)?,
+                stable_denom,
+                safe_ratio,
+                bid_fee,
+                max_premium_rate,
+                liquidation_threshold,
+                price_timeframe,
+            )
+        }
+        ExecuteMsg::SubmitBid {
             collateral_token,
             premium_rate,
-        } => submit_bid(deps, env, collateral_token, premium_rate),
-        HandleMsg::RetractBid {
+        } => {
+            let api = deps.api;
+            submit_bid(
+                deps,
+                info,
+                api.addr_validate(&collateral_token)?,
+                premium_rate,
+            )
+        }
+        ExecuteMsg::RetractBid {
             collateral_token,
             amount,
-        } => retract_bid(deps, env, collateral_token, amount),
+        } => {
+            let api = deps.api;
+            retract_bid(deps, info, api.addr_validate(&collateral_token)?, amount)
+        }
     }
 }
 
-pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn receive_cw20(
+    deps: DepsMut,
     env: Env,
+    info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
-) -> HandleResult {
-    let contract_addr = env.message.sender.clone();
-    if let Some(msg) = cw20_msg.msg.clone() {
-        match from_binary(&msg)? {
-            Cw20HookMsg::ExecuteBid {
-                liquidator,
-                repay_address,
-                fee_address,
-            } => {
-                let collateral_token = contract_addr;
-                let repay_address = repay_address.unwrap_or_else(|| cw20_msg.sender.clone());
-                let fee_address = fee_address.unwrap_or_else(|| cw20_msg.sender.clone());
+) -> StdResult<Response> {
+    let contract_addr = info.sender;
+    match from_binary(&cw20_msg.msg) {
+        Ok(Cw20HookMsg::ExecuteBid {
+            liquidator,
+            repay_address,
+            fee_address,
+        }) => {
+            let collateral_token = contract_addr.to_string();
+            let repay_address = repay_address.unwrap_or_else(|| cw20_msg.sender.clone());
+            let fee_address = fee_address.unwrap_or_else(|| cw20_msg.sender.clone());
 
-                execute_bid(
-                    deps,
-                    env,
-                    liquidator,
-                    repay_address,
-                    fee_address,
-                    collateral_token,
-                    cw20_msg.amount.into(),
-                )
-            }
+            let api = deps.api;
+
+            execute_bid(
+                deps,
+                env,
+                api.addr_validate(&liquidator)?,
+                api.addr_validate(&repay_address)?,
+                api.addr_validate(&fee_address)?,
+                api.addr_validate(&collateral_token)?,
+                cw20_msg.amount.into(),
+            )
         }
-    } else {
-        Err(StdError::generic_err(
+        _ => Err(StdError::generic_err(
             "Invalid request: \"execute bid\" message not included in request",
-        ))
+        )),
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn update_config<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    owner: Option<HumanAddr>,
-    oracle_contract: Option<HumanAddr>,
+pub fn update_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    owner: Option<Addr>,
+    oracle_contract: Option<Addr>,
     stable_denom: Option<String>,
     safe_ratio: Option<Decimal256>,
     bid_fee: Option<Decimal256>,
     max_premium_rate: Option<Decimal256>,
     liquidation_threshold: Option<Uint256>,
     price_timeframe: Option<u64>,
-) -> HandleResult {
-    let mut config: Config = read_config(&deps.storage)?;
-    if deps.api.canonical_address(&env.message.sender)? != config.owner {
-        return Err(StdError::unauthorized());
+) -> StdResult<Response> {
+    let mut config: Config = read_config(deps.storage)?;
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     if let Some(owner) = owner {
-        config.owner = deps.api.canonical_address(&owner)?;
+        config.owner = deps.api.addr_canonicalize(&owner.to_string())?;
     }
 
     if let Some(oracle_contract) = oracle_contract {
-        config.oracle_contract = deps.api.canonical_address(&oracle_contract)?;
+        config.oracle_contract = deps.api.addr_canonicalize(&oracle_contract.to_string())?;
     }
 
     if let Some(stable_denom) = stable_denom {
@@ -161,14 +178,12 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.price_timeframe = price_timeframe;
     }
 
-    store_config(&mut deps.storage, &config)?;
-    Ok(HandleResponse::default())
+    store_config(deps.storage, &config)?;
+    Ok(Response::default())
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::LiquidationAmount {
@@ -186,32 +201,47 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
         QueryMsg::Bid {
             collateral_token,
             bidder,
-        } => to_binary(&query_bid(deps, collateral_token, bidder)?),
+        } => {
+            let collateral_addr = deps.api.addr_validate(&collateral_token)?;
+            let bidder_addr = deps.api.addr_validate(&bidder)?;
+            to_binary(&query_bid(deps, collateral_addr, bidder_addr)?)
+        }
         QueryMsg::BidsByUser {
             bidder,
             start_after,
             limit,
-        } => to_binary(&query_bids_by_user(deps, bidder, start_after, limit)?),
+        } => {
+            let bidder_addr = deps.api.addr_validate(&bidder)?;
+            let start_after_addr = optional_addr_validate(deps.api, start_after)?;
+            to_binary(&query_bids_by_user(
+                deps,
+                bidder_addr,
+                start_after_addr,
+                limit,
+            )?)
+        }
         QueryMsg::BidsByCollateral {
             collateral_token,
             start_after,
             limit,
-        } => to_binary(&query_bids_by_collateral(
-            deps,
-            collateral_token,
-            start_after,
-            limit,
-        )?),
+        } => {
+            let collateral_addr = deps.api.addr_validate(&collateral_token)?;
+            let start_after_addr = optional_addr_validate(deps.api, start_after)?;
+            to_binary(&query_bids_by_collateral(
+                deps,
+                collateral_addr,
+                start_after_addr,
+                limit,
+            )?)
+        }
     }
 }
 
-fn query_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let config = read_config(&deps.storage)?;
+fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let config = read_config(deps.storage)?;
     let resp = ConfigResponse {
-        owner: deps.api.human_address(&config.owner)?,
-        oracle_contract: deps.api.human_address(&config.oracle_contract)?,
+        owner: deps.api.addr_humanize(&config.owner)?.to_string(),
+        oracle_contract: deps.api.addr_humanize(&config.oracle_contract)?.to_string(),
         stable_denom: config.stable_denom,
         safe_ratio: config.safe_ratio,
         bid_fee: config.bid_fee,
@@ -223,14 +253,14 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
     Ok(resp)
 }
 
-fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+fn query_liquidation_amount(
+    deps: Deps,
     borrow_amount: Uint256,
     borrow_limit: Uint256,
     collaterals: TokensHuman,
     collateral_prices: Vec<Decimal256>,
 ) -> StdResult<LiquidationAmountResponse> {
-    let config: Config = read_config(&deps.storage)?;
+    let config: Config = read_config(deps.storage)?;
 
     // Safely collateralized check
     if borrow_amount <= borrow_limit {
@@ -246,7 +276,7 @@ fn query_liquidation_amount<S: Storage, A: Api, Q: Querier>(
         collaterals_value += collateral_value;
     }
 
-    let tax_rate = query_tax_rate(&deps)?;
+    let tax_rate = query_tax_rate(deps)?;
 
     let fee_deductor = (Decimal256::one() - config.max_premium_rate)
         * (Decimal256::one() - config.bid_fee)

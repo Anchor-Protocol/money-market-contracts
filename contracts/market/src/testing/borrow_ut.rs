@@ -3,11 +3,11 @@ use crate::state::{store_state, BorrowerInfo, Config, State};
 use crate::testing::mock_querier::mock_dependencies;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
-use cosmwasm_std::{Api, Coin, HumanAddr, Uint128};
+use cosmwasm_std::{Api, Coin, Uint128};
 
 #[test]
 fn proper_compute_borrower_interest() {
-    let env = mock_env("addr0000", &[]);
+    let env = mock_env();
     let mock_state = State {
         total_liabilities: Decimal256::from_uint256(1000000u128),
         total_reserves: Decimal256::from_uint256(0u128),
@@ -63,60 +63,33 @@ fn proper_compute_borrower_interest() {
 
 #[test]
 fn proper_compute_interest() {
-    let mut deps = mock_dependencies(
-        20,
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128(2000000u128),
-        }],
-    );
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(2000000u128),
+    }]);
 
     deps.querier.with_token_balances(&[(
-        &HumanAddr::from("AT-uusd"),
-        &[(&HumanAddr::from("addr0000"), &Uint128::from(2000000u128))],
+        &"AT-uusd".to_string(),
+        &[(&"addr0000".to_string(), &Uint128::from(2000000u128))],
     )]);
 
-    let mut env = mock_env("addr0000", &[]);
+    let mut env = mock_env();
 
     let mock_config = Config {
-        contract_addr: deps
-            .api
-            .canonical_address(&HumanAddr::from(MOCK_CONTRACT_ADDR))
-            .unwrap(),
-        owner_addr: deps
-            .api
-            .canonical_address(&HumanAddr::from("owner"))
-            .unwrap(),
-        aterra_contract: deps
-            .api
-            .canonical_address(&HumanAddr::from("AT-uusd"))
-            .unwrap(),
-        interest_model: deps
-            .api
-            .canonical_address(&HumanAddr::from("interest"))
-            .unwrap(),
-        distribution_model: deps
-            .api
-            .canonical_address(&HumanAddr::from("distribution"))
-            .unwrap(),
-        distributor_contract: deps
-            .api
-            .canonical_address(&HumanAddr::from("distributor"))
-            .unwrap(),
-        collector_contract: deps
-            .api
-            .canonical_address(&HumanAddr::from("collector"))
-            .unwrap(),
-        overseer_contract: deps
-            .api
-            .canonical_address(&HumanAddr::from("overseer"))
-            .unwrap(),
+        contract_addr: deps.api.addr_canonicalize(MOCK_CONTRACT_ADDR).unwrap(),
+        owner_addr: deps.api.addr_canonicalize("owner").unwrap(),
+        aterra_contract: deps.api.addr_canonicalize("AT-uusd").unwrap(),
+        interest_model: deps.api.addr_canonicalize("interest").unwrap(),
+        distribution_model: deps.api.addr_canonicalize("distribution").unwrap(),
+        distributor_contract: deps.api.addr_canonicalize("distributor").unwrap(),
+        collector_contract: deps.api.addr_canonicalize("collector").unwrap(),
+        overseer_contract: deps.api.addr_canonicalize("overseer").unwrap(),
         stable_denom: "uusd".to_string(),
         max_borrow_factor: Decimal256::one(),
     };
 
     deps.querier
-        .with_borrow_rate(&[(&HumanAddr::from("interest"), &Decimal256::percent(1))]);
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
 
     let mut mock_state = State {
         total_liabilities: Decimal256::from_uint256(1000000u128),
@@ -134,7 +107,7 @@ fn proper_compute_interest() {
     let mock_deposit_amount = Some(Uint256::from(1000u128));
 
     compute_interest(
-        &deps,
+        deps.as_ref(),
         &mock_config,
         &mut mock_state,
         env.block.height,
@@ -159,7 +132,7 @@ fn proper_compute_interest() {
     env.block.height += 100;
 
     compute_interest(
-        &deps,
+        deps.as_ref(),
         &mock_config,
         &mut mock_state,
         env.block.height,
@@ -207,7 +180,14 @@ fn proper_compute_interest() {
 
     // deposit_rate: 0.02
     // target_deposit_rate: 0.01
-    compute_interest(&deps, &mock_config, &mut mock_state, env.block.height, None).unwrap();
+    compute_interest(
+        deps.as_ref(),
+        &mock_config,
+        &mut mock_state,
+        env.block.height,
+        None,
+    )
+    .unwrap();
     assert_eq!(
         mock_state,
         State {

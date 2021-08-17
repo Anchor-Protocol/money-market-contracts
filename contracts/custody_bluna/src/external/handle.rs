@@ -1,11 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::HumanAddr;
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum RewardContractHandleMsg {
+pub enum RewardContractExecuteMsg {
     /// Request bAsset reward withdrawal
-    ClaimRewards { recipient: Option<HumanAddr> },
+    ClaimRewards { recipient: Option<String> },
 }

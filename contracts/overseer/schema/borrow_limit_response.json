@@ -11,13 +11,10 @@
       "$ref": "#/definitions/Uint256"
     },
     "borrower": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     }
   },
   "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    },
     "Uint256": {
       "type": "string"
     }

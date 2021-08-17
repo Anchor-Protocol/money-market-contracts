@@ -1,127 +1,97 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
-    log, to_binary, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
-    Querier, StdError, Storage, WasmMsg,
+    attr, to_binary, BankMsg, Coin, CosmosMsg, DepsMut, Env, MessageInfo, ReplyOn, Response,
+    StdError, StdResult, SubMsg, WasmMsg,
 };
 
-use crate::external::handle::RewardContractHandleMsg;
+use crate::contract::{CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION};
+use crate::external::handle::RewardContractExecuteMsg;
 use crate::state::{read_config, Config};
 
-use moneymarket::custody::HandleMsg;
 use moneymarket::querier::{deduct_tax, query_all_balances, query_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
 
 /// Request withdraw reward operation to
 /// reward contract and execute `distribute_hook`
 /// Executor: overseer
-pub fn distribute_rewards<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-) -> HandleResult<TerraMsgWrapper> {
-    let config: Config = read_config(&deps.storage)?;
-    if config.overseer_contract != deps.api.canonical_address(&env.message.sender)? {
-        return Err(StdError::unauthorized());
+pub fn distribute_rewards(
+    deps: DepsMut,
+    info: MessageInfo,
+) -> StdResult<Response<TerraMsgWrapper>> {
+    let config: Config = read_config(deps.storage)?;
+    if config.overseer_contract != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
-    let reward_contract = deps.api.human_address(&config.reward_contract)?;
-    let contract_addr = env.contract.address;
+    let reward_contract = deps.api.addr_humanize(&config.reward_contract)?;
 
     // Do not emit the event logs here
-    Ok(HandleResponse {
-        messages: vec![
+    Ok(
+        Response::new().add_submessages(vec![SubMsg::reply_on_success(
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: reward_contract,
-                send: vec![],
-                msg: to_binary(&RewardContractHandleMsg::ClaimRewards { recipient: None })?,
+                contract_addr: reward_contract.to_string(),
+                funds: vec![],
+                msg: to_binary(&RewardContractExecuteMsg::ClaimRewards { recipient: None })?,
             }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: contract_addr.clone(),
-                send: vec![],
-                msg: to_binary(&HandleMsg::SwapToStableDenom {})?,
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr,
-                send: vec![],
-                msg: to_binary(&HandleMsg::DistributeHook {})?,
-            }),
-        ],
-        log: vec![],
-        data: None,
-    })
+            CLAIM_REWARDS_OPERATION,
+        )]),
+    )
 }
 
 /// Apply swapped reward to global index
 /// Executor: itself
-pub fn distribute_hook<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-) -> HandleResult<TerraMsgWrapper> {
+pub fn distribute_hook(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
     let contract_addr = env.contract.address;
-    let config: Config = read_config(&deps.storage)?;
-    if env.message.sender != contract_addr {
-        return Err(StdError::unauthorized());
-    }
-
-    let overseer_contract = deps.api.human_address(&config.overseer_contract)?;
+    let config: Config = read_config(deps.storage)?;
+    let overseer_contract = deps.api.addr_humanize(&config.overseer_contract)?;
 
     // reward_amount = (prev_balance + reward_amount) - prev_balance
     // = (0 + reward_amount) - 0 = reward_amount = balance
-    let reward_amount: Uint256 =
-        query_balance(&deps, &contract_addr, config.stable_denom.to_string())?;
-    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
+    let reward_amount: Uint256 = query_balance(
+        deps.as_ref(),
+        contract_addr,
+        config.stable_denom.to_string(),
+    )?;
+    let mut messages: Vec<SubMsg<TerraMsgWrapper>> = vec![];
     if !reward_amount.is_zero() {
-        messages.push(CosmosMsg::Bank(BankMsg::Send {
-            from_address: contract_addr,
-            to_address: overseer_contract,
+        messages.push(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: overseer_contract.to_string(),
             amount: vec![deduct_tax(
-                deps,
+                deps.as_ref(),
                 Coin {
                     denom: config.stable_denom,
                     amount: reward_amount.into(),
                 },
             )?],
-        }));
+        })));
     }
 
-    Ok(HandleResponse {
-        messages,
-        log: vec![
-            log("action", "distribute_rewards"),
-            log("buffer_rewards", reward_amount),
-        ],
-        data: None,
-    })
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
+            attr("action", "distribute_rewards"),
+            attr("buffer_rewards", reward_amount),
+        ]))
 }
 
 /// Swap all coins to stable_denom
 /// and execute `swap_hook`
 /// Executor: itself
-pub fn swap_to_stable_denom<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-) -> HandleResult<TerraMsgWrapper> {
-    let config: Config = read_config(&deps.storage)?;
-    if env.message.sender != env.contract.address {
-        return Err(StdError::unauthorized());
-    }
+pub fn swap_to_stable_denom(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
+    let config: Config = read_config(deps.storage)?;
 
     let contract_addr = env.contract.address;
-    let balances: Vec<Coin> = query_all_balances(&deps, &contract_addr)?;
-    let messages: Vec<CosmosMsg<TerraMsgWrapper>> = balances
+    let balances: Vec<Coin> = query_all_balances(deps.as_ref(), contract_addr)?;
+    let mut messages: Vec<SubMsg<TerraMsgWrapper>> = balances
         .iter()
         .filter(|x| x.denom != config.stable_denom)
-        .map(|coin: &Coin| {
-            create_swap_msg(
-                contract_addr.clone(),
-                coin.clone(),
-                config.stable_denom.clone(),
-            )
-        })
+        .map(|coin: &Coin| SubMsg::new(create_swap_msg(coin.clone(), config.stable_denom.clone())))
         .collect();
 
-    Ok(HandleResponse {
-        messages,
-        log: vec![],
-        data: None,
-    })
+    if let Some(last) = messages.last_mut() {
+        last.id = SWAP_TO_STABLE_OPERATION;
+        last.reply_on = ReplyOn::Success;
+    }
+
+    Ok(Response::new().add_submessages(messages))
 }

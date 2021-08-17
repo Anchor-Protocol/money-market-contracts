@@ -33,11 +33,11 @@ struct LegacyState {
     pub anc_emission_rate: Decimal256,
 }
 
-fn read_legacy_config<S: Storage>(storage: &S) -> StdResult<LegacyConfig> {
+fn read_legacy_config(storage: &dyn Storage) -> StdResult<LegacyConfig> {
     ReadonlySingleton::new(storage, KEY_CONFIG).load()
 }
 
-fn read_legacy_state<S: Storage>(storage: &S) -> StdResult<LegacyState> {
+fn read_legacy_state(storage: &dyn Storage) -> StdResult<LegacyState> {
     ReadonlySingleton::new(storage, KEY_STATE).load()
 }
 
@@ -56,8 +56,8 @@ fn compute_exchange_rate_with_legacy_state(
         / Decimal256::from_uint256(aterra_supply)
 }
 
-pub fn migrate_config<S: Storage>(
-    storage: &mut S,
+pub fn migrate_config(
+    storage: &mut dyn Storage,
     collector_contract: CanonicalAddr,
 ) -> StdResult<()> {
     let legacy_config: LegacyConfig = read_legacy_config(storage)?;
@@ -78,8 +78,8 @@ pub fn migrate_config<S: Storage>(
     )
 }
 
-pub fn migrate_state<S: Storage>(
-    storage: &mut S,
+pub fn migrate_state(
+    storage: &mut dyn Storage,
     aterra_supply: Uint256,
     balance: Uint256,
 ) -> StdResult<()> {

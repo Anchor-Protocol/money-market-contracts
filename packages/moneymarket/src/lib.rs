@@ -1,3 +1,4 @@
+pub mod common;
 pub mod custody;
 pub mod distribution_model;
 pub mod interest_model;

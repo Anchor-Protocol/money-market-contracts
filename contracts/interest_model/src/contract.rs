@@ -1,60 +1,65 @@
 use crate::state::{read_config, store_config, Config};
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 
 use cosmwasm_bignumber::Decimal256;
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
-    to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr, InitResponse,
-    Querier, StdError, StdResult, Storage,
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
 use moneymarket::interest_model::{
-    BorrowRateResponse, ConfigResponse, HandleMsg, InitMsg, QueryMsg,
+    BorrowRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     _env: Env,
-    msg: InitMsg,
-) -> StdResult<InitResponse> {
+    _info: MessageInfo,
+    msg: InstantiateMsg,
+) -> StdResult<Response> {
     store_config(
-        &mut deps.storage,
+        deps.storage,
         &Config {
-            owner: deps.api.canonical_address(&msg.owner)?,
+            owner: deps.api.addr_canonicalize(&msg.owner)?,
             base_rate: msg.base_rate,
             interest_multiplier: msg.interest_multiplier,
         },
     )?;
 
-    Ok(InitResponse::default())
+    Ok(Response::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    msg: HandleMsg,
-) -> HandleResult {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> StdResult<Response> {
     match msg {
-        HandleMsg::UpdateConfig {
+        ExecuteMsg::UpdateConfig {
             owner,
             base_rate,
             interest_multiplier,
-        } => update_config(deps, env, owner, base_rate, interest_multiplier),
+        } => update_config(deps, info, owner, base_rate, interest_multiplier),
     }
 }
 
-pub fn update_config<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    owner: Option<HumanAddr>,
+pub fn update_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    owner: Option<String>,
     base_rate: Option<Decimal256>,
     interest_multiplier: Option<Decimal256>,
-) -> HandleResult {
-    let mut config: Config = read_config(&deps.storage)?;
-    if deps.api.canonical_address(&env.message.sender)? != config.owner {
-        return Err(StdError::unauthorized());
+) -> StdResult<Response> {
+    let mut config: Config = read_config(deps.storage)?;
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     if let Some(owner) = owner {
-        config.owner = deps.api.canonical_address(&owner)?;
+        config.owner = deps.api.addr_canonicalize(&owner)?;
     }
 
     if let Some(base_rate) = base_rate {
@@ -65,14 +70,12 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.interest_multiplier = interest_multiplier;
     }
 
-    store_config(&mut deps.storage, &config)?;
-    Ok(HandleResponse::default())
+    store_config(deps.storage, &config)?;
+    Ok(Response::default())
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::BorrowRate {
@@ -88,12 +91,10 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-fn query_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let state = read_config(&deps.storage)?;
+fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let state = read_config(deps.storage)?;
     let resp = ConfigResponse {
-        owner: deps.api.human_address(&state.owner)?,
+        owner: deps.api.addr_humanize(&state.owner)?.to_string(),
         base_rate: state.base_rate,
         interest_multiplier: state.interest_multiplier,
     };
@@ -101,13 +102,13 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
     Ok(resp)
 }
 
-fn query_borrow_rate<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+fn query_borrow_rate(
+    deps: Deps,
     market_balance: Uint256,
     total_liabilities: Decimal256,
     total_reserves: Decimal256,
 ) -> StdResult<BorrowRateResponse> {
-    let config: Config = read_config(&deps.storage)?;
+    let config: Config = read_config(deps.storage)?;
 
     // ignore decimal parts
     let total_value_in_market =
@@ -122,99 +123,4 @@ fn query_borrow_rate<S: Storage, A: Api, Q: Querier>(
     Ok(BorrowRateResponse {
         rate: utilization_ratio * config.interest_multiplier + config.base_rate,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::StdError;
-
-    #[test]
-    fn proper_initialization() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg {
-            owner: HumanAddr("owner0000".to_string()),
-            base_rate: Decimal256::percent(10),
-            interest_multiplier: Decimal256::percent(10),
-        };
-
-        let env = mock_env("addr0000", &[]);
-
-        // we can just call .unwrap() to assert this was a success
-        let res = init(&mut deps, env, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // it worked, let's query the state
-        let value = query_config(&deps).unwrap();
-        assert_eq!("owner0000", value.owner.as_str());
-        assert_eq!("0.1", &value.base_rate.to_string());
-        assert_eq!("0.1", &value.interest_multiplier.to_string());
-
-        let value = query_borrow_rate(
-            &deps,
-            Uint256::from(1000000u128),
-            Decimal256::from_uint256(500000u128),
-            Decimal256::from_uint256(100000u128),
-        )
-        .unwrap();
-        // utilization_ratio = 0.35714285714285714
-        // borrow_rate = 0.035714285 + 0.1
-        assert_eq!("0.135714285714285714", &value.rate.to_string());
-
-        let value = query_borrow_rate(
-            &deps,
-            Uint256::zero(),
-            Decimal256::zero(),
-            Decimal256::zero(),
-        )
-        .unwrap();
-        assert_eq!("0.1", &value.rate.to_string());
-    }
-
-    #[test]
-    fn update_config() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg {
-            owner: HumanAddr("owner0000".to_string()),
-            base_rate: Decimal256::percent(10),
-            interest_multiplier: Decimal256::percent(10),
-        };
-
-        let env = mock_env("addr0000", &[]);
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // update owner
-        let env = mock_env("owner0000", &[]);
-        let msg = HandleMsg::UpdateConfig {
-            owner: Some(HumanAddr("owner0001".to_string())),
-            base_rate: None,
-            interest_multiplier: None,
-        };
-
-        let res = handle(&mut deps, env, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // it worked, let's query the state
-        let value = query_config(&deps).unwrap();
-        assert_eq!("owner0001", value.owner.as_str());
-        assert_eq!("0.1", &value.base_rate.to_string());
-        assert_eq!("0.1", &value.interest_multiplier.to_string());
-
-        // Unauthorized err
-        let env = mock_env("owner0000", &[]);
-        let msg = HandleMsg::UpdateConfig {
-            owner: None,
-            base_rate: Some(Decimal256::percent(1)),
-            interest_multiplier: Some(Decimal256::percent(1)),
-        };
-
-        let res = handle(&mut deps, env, msg);
-        match res {
-            Err(StdError::Unauthorized { .. }) => {}
-            _ => panic!("Must return unauthorized error"),
-        }
-    }
 }

@@ -1,8 +1,8 @@
-use anchor_token::distributor::HandleMsg as FaucetHandleMsg;
+use anchor_token::distributor::ExecuteMsg as FaucetExecuteMsg;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    log, to_binary, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, Querier, StdError, StdResult, Storage, WasmMsg,
+    attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
+    StdError, StdResult, SubMsg, WasmMsg,
 };
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{BorrowerInfoResponse, BorrowerInfosResponse};
@@ -16,31 +16,36 @@ use crate::state::{
     store_state, BorrowerInfo, Config, State,
 };
 
-pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn borrow_stable(
+    deps: DepsMut,
     env: Env,
+    info: MessageInfo,
     borrow_amount: Uint256,
-    to: Option<HumanAddr>,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
+    to: Option<Addr>,
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
 
-    let mut state: State = read_state(&deps.storage)?;
+    let mut state: State = read_state(deps.storage)?;
 
-    let borrower = env.message.sender;
-    let borrower_raw = deps.api.canonical_address(&borrower)?;
-    let mut liability: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
+    let borrower = info.sender;
+    let borrower_raw = deps.api.addr_canonicalize(borrower.as_str())?;
+    let mut liability: BorrowerInfo = read_borrower_info(deps.storage, &borrower_raw);
 
     // Compute interest
-    compute_interest(&deps, &config, &mut state, env.block.height, None)?;
+    compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
     compute_borrower_interest(&state, &mut liability);
 
     // Compute ANC reward
     compute_reward(&mut state, env.block.height);
     compute_borrower_reward(&state, &mut liability);
 
-    let overseer = deps.api.human_address(&config.overseer_contract)?;
-    let borrow_limit_res: BorrowLimitResponse =
-        query_borrow_limit(deps, &overseer, &borrower, Some(env.block.time))?;
+    let overseer = deps.api.addr_humanize(&config.overseer_contract)?;
+    let borrow_limit_res: BorrowLimitResponse = query_borrow_limit(
+        deps.as_ref(),
+        overseer,
+        borrower.clone(),
+        Some(env.block.time.seconds()),
+    )?;
 
     if borrow_limit_res.borrow_limit < borrow_amount + liability.loan_amount {
         return Err(StdError::generic_err(format!(
@@ -50,8 +55,8 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
     }
 
     let current_balance = query_balance(
-        &deps,
-        &env.contract.address,
+        deps.as_ref(),
+        env.contract.address,
         config.stable_denom.to_string(),
     )?;
 
@@ -60,69 +65,63 @@ pub fn borrow_stable<S: Storage, A: Api, Q: Querier>(
 
     liability.loan_amount += borrow_amount;
     state.total_liabilities += Decimal256::from_uint256(borrow_amount);
-    store_state(&mut deps.storage, &state)?;
-    store_borrower_info(&mut deps.storage, &borrower_raw, &liability)?;
+    store_state(deps.storage, &state)?;
+    store_borrower_info(deps.storage, &borrower_raw, &liability)?;
 
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Bank(BankMsg::Send {
-            from_address: env.contract.address,
-            to_address: to.unwrap_or_else(|| borrower.clone()),
+    Ok(Response::new()
+        .add_submessages(vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: to.unwrap_or_else(|| borrower.clone()).to_string(),
             amount: vec![deduct_tax(
-                &deps,
+                deps.as_ref(),
                 Coin {
                     denom: config.stable_denom,
                     amount: borrow_amount.into(),
                 },
             )?],
-        })],
-        log: vec![
-            log("action", "borrow_stable"),
-            log("borrower", borrower),
-            log("borrow_amount", borrow_amount),
-        ],
-        data: None,
-    })
+        }))])
+        .add_attributes(vec![
+            attr("action", "borrow_stable"),
+            attr("borrower", borrower),
+            attr("borrow_amount", borrow_amount),
+        ]))
 }
 
-pub fn repay_stable_from_liquidation<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn repay_stable_from_liquidation(
+    deps: DepsMut,
     env: Env,
-    borrower: HumanAddr,
+    info: MessageInfo,
+    borrower: Addr,
     prev_balance: Uint256,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    if config.overseer_contract != deps.api.canonical_address(&env.message.sender)? {
-        return Err(StdError::unauthorized());
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    if config.overseer_contract != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(StdError::generic_err("unauthorized"));
     }
 
     let cur_balance: Uint256 = query_balance(
-        &deps,
-        &env.contract.address,
+        deps.as_ref(),
+        env.contract.address.clone(),
         config.stable_denom.to_string(),
     )?;
 
     // override env
-    let mut env = env;
+    let mut info = info;
 
-    env.message.sender = borrower;
-    env.message.sent_funds = vec![Coin {
+    info.sender = borrower;
+    info.funds = vec![Coin {
         denom: config.stable_denom,
         amount: (cur_balance - prev_balance).into(),
     }];
 
-    repay_stable(deps, env)
+    repay_stable(deps, env, info)
 }
 
-pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
+pub fn repay_stable(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
 
     // Check stable denom deposit
-    let amount: Uint256 = env
-        .message
-        .sent_funds
+    let amount: Uint256 = info
+        .funds
         .iter()
         .find(|c| c.denom == config.stable_denom)
         .map(|c| Uint256::from(c.amount))
@@ -136,14 +135,20 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
         )));
     }
 
-    let mut state: State = read_state(&deps.storage)?;
+    let mut state: State = read_state(deps.storage)?;
 
-    let borrower = env.message.sender;
-    let borrower_raw = deps.api.canonical_address(&borrower)?;
-    let mut liability: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
+    let borrower = info.sender;
+    let borrower_raw = deps.api.addr_canonicalize(borrower.as_str())?;
+    let mut liability: BorrowerInfo = read_borrower_info(deps.storage, &borrower_raw);
 
     // Compute interest
-    compute_interest(&deps, &config, &mut state, env.block.height, Some(amount))?;
+    compute_interest(
+        deps.as_ref(),
+        &config,
+        &mut state,
+        env.block.height,
+        Some(amount),
+    )?;
     compute_borrower_interest(&state, &mut liability);
 
     // Compute ANC reward
@@ -151,23 +156,22 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
     compute_borrower_reward(&state, &mut liability);
 
     let repay_amount: Uint256;
-    let mut messages: Vec<CosmosMsg> = vec![];
+    let mut messages: Vec<SubMsg> = vec![];
     if liability.loan_amount < amount {
         repay_amount = liability.loan_amount;
         liability.loan_amount = Uint256::zero();
 
         // Payback left repay amount to sender
-        messages.push(CosmosMsg::Bank(BankMsg::Send {
-            from_address: env.contract.address,
-            to_address: borrower.clone(),
+        messages.push(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: borrower.to_string(),
             amount: vec![deduct_tax(
-                &deps,
+                deps.as_ref(),
                 Coin {
                     denom: config.stable_denom,
                     amount: (amount - repay_amount).into(),
                 },
             )?],
-        }));
+        })));
     } else {
         repay_amount = amount;
         liability.loan_amount = liability.loan_amount - repay_amount;
@@ -175,34 +179,33 @@ pub fn repay_stable<S: Storage, A: Api, Q: Querier>(
 
     state.total_liabilities = state.total_liabilities - Decimal256::from_uint256(repay_amount);
 
-    store_borrower_info(&mut deps.storage, &borrower_raw, &liability)?;
-    store_state(&mut deps.storage, &state)?;
+    store_borrower_info(deps.storage, &borrower_raw, &liability)?;
+    store_state(deps.storage, &state)?;
 
-    Ok(HandleResponse {
-        messages,
-        log: vec![
-            log("action", "repay_stable"),
-            log("borrower", borrower),
-            log("repay_amount", repay_amount),
-        ],
-        data: None,
-    })
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
+            attr("action", "repay_stable"),
+            attr("borrower", borrower),
+            attr("repay_amount", repay_amount),
+        ]))
 }
 
-pub fn claim_rewards<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn claim_rewards(
+    deps: DepsMut,
     env: Env,
-    to: Option<HumanAddr>,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let mut state: State = read_state(&deps.storage)?;
+    info: MessageInfo,
+    to: Option<Addr>,
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
+    let mut state: State = read_state(deps.storage)?;
 
-    let borrower = env.message.sender;
-    let borrower_raw = deps.api.canonical_address(&borrower)?;
-    let mut liability: BorrowerInfo = read_borrower_info(&deps.storage, &borrower_raw);
+    let borrower = info.sender;
+    let borrower_raw = deps.api.addr_canonicalize(borrower.as_str())?;
+    let mut liability: BorrowerInfo = read_borrower_info(deps.storage, &borrower_raw);
 
     // Compute interest
-    compute_interest(&deps, &config, &mut state, env.block.height, None)?;
+    compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
     compute_borrower_interest(&state, &mut liability);
 
     // Compute ANC reward
@@ -212,36 +215,41 @@ pub fn claim_rewards<S: Storage, A: Api, Q: Querier>(
     let claim_amount = liability.pending_rewards * Uint256::one();
     liability.pending_rewards = liability.pending_rewards - Decimal256::from_uint256(claim_amount);
 
-    store_state(&mut deps.storage, &state)?;
-    store_borrower_info(&mut deps.storage, &borrower_raw, &liability)?;
+    store_state(deps.storage, &state)?;
+    store_borrower_info(deps.storage, &borrower_raw, &liability)?;
 
-    let messages: Vec<CosmosMsg> = if !claim_amount.is_zero() {
-        vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.human_address(&config.distributor_contract)?,
-            send: vec![],
-            msg: to_binary(&FaucetHandleMsg::Spend {
-                recipient: if let Some(to) = to { to } else { borrower },
+    let messages: Vec<SubMsg> = if !claim_amount.is_zero() {
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps
+                .api
+                .addr_humanize(&config.distributor_contract)?
+                .to_string(),
+            funds: vec![],
+            msg: to_binary(&FaucetExecuteMsg::Spend {
+                recipient: if let Some(to) = to {
+                    to.to_string()
+                } else {
+                    borrower.to_string()
+                },
                 amount: claim_amount.into(),
             })?,
-        })]
+        }))]
     } else {
         vec![]
     };
 
-    Ok(HandleResponse {
-        messages,
-        log: vec![
-            log("action", "claim_rewards"),
-            log("claim_amount", claim_amount),
-        ],
-        data: None,
-    })
+    Ok(Response::new()
+        .add_submessages(messages)
+        .add_attributes(vec![
+            attr("action", "claim_rewards"),
+            attr("claim_amount", claim_amount),
+        ]))
 }
 
 /// Compute interest and update state
 /// total liabilities and total reserves
-pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn compute_interest(
+    deps: Deps,
     config: &Config,
     state: &mut State,
     block_height: u64,
@@ -251,23 +259,23 @@ pub fn compute_interest<S: Storage, A: Api, Q: Querier>(
         return Ok(());
     }
 
-    let aterra_supply = query_supply(&deps, &deps.api.human_address(&config.aterra_contract)?)?;
+    let aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.aterra_contract)?)?;
     let balance: Uint256 = query_balance(
-        &deps,
-        &deps.api.human_address(&config.contract_addr)?,
+        deps,
+        deps.api.addr_humanize(&config.contract_addr)?,
         config.stable_denom.to_string(),
     )? - deposit_amount.unwrap_or_else(Uint256::zero);
 
     let borrow_rate_res: BorrowRateResponse = query_borrow_rate(
-        &deps,
-        &deps.api.human_address(&config.interest_model)?,
+        deps,
+        deps.api.addr_humanize(&config.interest_model)?,
         balance,
         state.total_liabilities,
         state.total_reserves,
     )?;
 
     let target_deposit_rate: Decimal256 =
-        query_target_deposit_rate(&deps, &deps.api.human_address(&config.overseer_contract)?)?;
+        query_target_deposit_rate(deps, deps.api.addr_humanize(&config.overseer_contract)?)?;
 
     compute_interest_raw(
         state,
@@ -307,7 +315,7 @@ pub fn compute_interest_raw(
         state.global_interest_index * (Decimal256::one() + interest_factor);
     state.total_liabilities += interest_accrued;
 
-    let mut exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
+    let mut exchange_rate = compute_exchange_rate_raw(state, aterra_supply, balance);
     let effective_deposit_rate = exchange_rate / state.prev_exchange_rate;
     let deposit_rate = (effective_deposit_rate - Decimal256::one()) / passed_blocks;
 
@@ -319,9 +327,9 @@ pub fn compute_interest_raw(
 
         // excess_yield = prev_deposits * excess_deposit_rate(_per_block) * blocks
         let excess_yield = prev_deposits * passed_blocks * excess_deposit_rate;
-        
+
         state.total_reserves += excess_yield;
-        exchange_rate = compute_exchange_rate_raw(&state, aterra_supply, balance);
+        exchange_rate = compute_exchange_rate_raw(state, aterra_supply, balance);
     }
 
     state.prev_aterra_supply = aterra_supply;
@@ -361,19 +369,21 @@ pub(crate) fn compute_borrower_reward(state: &State, liability: &mut BorrowerInf
     liability.reward_index = state.global_reward_index;
 }
 
-pub fn query_borrower_info<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    borrower: HumanAddr,
+pub fn query_borrower_info(
+    deps: Deps,
+    borrower: Addr,
     block_height: Option<u64>,
 ) -> StdResult<BorrowerInfoResponse> {
-    let mut borrower_info: BorrowerInfo =
-        read_borrower_info(&deps.storage, &deps.api.canonical_address(&borrower)?);
+    let mut borrower_info: BorrowerInfo = read_borrower_info(
+        deps.storage,
+        &deps.api.addr_canonicalize(borrower.as_str())?,
+    );
 
     if let Some(block_height) = block_height {
-        let config: Config = read_config(&deps.storage)?;
-        let mut state: State = read_state(&deps.storage)?;
+        let config: Config = read_config(deps.storage)?;
+        let mut state: State = read_state(deps.storage)?;
 
-        compute_interest(&deps, &config, &mut state, block_height, None)?;
+        compute_interest(deps, &config, &mut state, block_height, None)?;
         compute_borrower_interest(&state, &mut borrower_info);
 
         compute_reward(&mut state, block_height);
@@ -381,7 +391,7 @@ pub fn query_borrower_info<S: Storage, A: Api, Q: Querier>(
     }
 
     Ok(BorrowerInfoResponse {
-        borrower,
+        borrower: borrower.to_string(),
         interest_index: borrower_info.interest_index,
         reward_index: borrower_info.reward_index,
         loan_amount: borrower_info.loan_amount,
@@ -389,18 +399,18 @@ pub fn query_borrower_info<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn query_borrower_infos<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    start_after: Option<HumanAddr>,
+pub fn query_borrower_infos(
+    deps: Deps,
+    start_after: Option<Addr>,
     limit: Option<u32>,
 ) -> StdResult<BorrowerInfosResponse> {
     let start_after = if let Some(start_after) = start_after {
-        Some(deps.api.canonical_address(&start_after)?)
+        Some(deps.api.addr_canonicalize(start_after.as_str())?)
     } else {
         None
     };
 
-    let borrower_infos: Vec<BorrowerInfoResponse> = read_borrower_infos(&deps, start_after, limit)?;
+    let borrower_infos: Vec<BorrowerInfoResponse> = read_borrower_infos(deps, start_after, limit)?;
     Ok(BorrowerInfosResponse { borrower_infos })
 }
 
@@ -432,5 +442,5 @@ fn assert_max_borrow_factor(
         )));
     }
 
-    return Ok(());
+    Ok(())
 }
