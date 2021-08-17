@@ -1,6 +1,6 @@
 [package]
 name = "moneymarket-market"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
 description = "A MoneyMarket custody contract - handles over stable coins"
@@ -34,19 +34,20 @@ overflow-checks = true
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.1.0"}
-anchor-token = "0.1.0"
-cw20 = "0.2"
-terraswap = "1.1.0"
-cosmwasm-bignumber = "1.0"
-cosmwasm-std = { version = "0.10.1", features = ["iterator"] }
-cosmwasm-storage = { version = "0.10.1", features = ["iterator"] }
-schemars = "0.7"
+moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.2.0"}
+anchor-token = { git = "https://github.com/Anchor-Protocol/anchor-token-contracts", branch = "dev/col5" }
+cw20 = { version = "0.8.0" }
+protobuf = { version = "2", features = ["with-bytes"] }
+terraswap = { version = "2.3.0" }
+cosmwasm-bignumber = "2.2.0"
+cosmwasm-std = { version = "0.16.0", features = ["iterator"] }
+cosmwasm-storage = { version = "0.16.0", features = ["iterator"] }
+schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-cosmwasm-schema = "0.10.1"
-terra-cosmwasm = "1.2.3"
+cosmwasm-schema = "0.16.0"
+terra-cosmwasm = "2.2.0"
 
 [profile.dev]
 overflow-checks = true

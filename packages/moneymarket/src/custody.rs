@@ -2,24 +2,23 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::Uint256;
-use cosmwasm_std::HumanAddr;
 use cw20::Cw20ReceiveMsg;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct InitMsg {
+pub struct InstantiateMsg {
     /// owner address
-    pub owner: HumanAddr,
+    pub owner: String,
     /// bAsset token address
-    pub collateral_token: HumanAddr,
+    pub collateral_token: String,
     /// overseer contract address
-    pub overseer_contract: HumanAddr,
+    pub overseer_contract: String,
     /// market contract address
-    pub market_contract: HumanAddr,
+    pub market_contract: String,
     /// bAsset rewrad contract
-    pub reward_contract: HumanAddr,
+    pub reward_contract: String,
     /// liquidation contract address
-    pub liquidation_contract: HumanAddr,
+    pub liquidation_contract: String,
     /// Expected reward denom. If bAsset reward is not same with
     /// it, we try to convert the reward to the `stable_denom`.
     pub stable_denom: String,
@@ -28,7 +27,7 @@ pub struct InitMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+pub enum ExecuteMsg {
     /// CW20 token receiver
     Receive(Cw20ReceiveMsg),
 
@@ -38,33 +37,21 @@ pub enum HandleMsg {
 
     /// Update config
     UpdateConfig {
-        owner: Option<HumanAddr>,
-        liquidation_contract: Option<HumanAddr>,
+        owner: Option<String>,
+        liquidation_contract: Option<String>,
     },
     /// Make specified amount of tokens unspendable
-    LockCollateral {
-        borrower: HumanAddr,
-        amount: Uint256,
-    },
+    LockCollateral { borrower: String, amount: Uint256 },
     /// Make specified amount of collateral tokens spendable
-    UnlockCollateral {
-        borrower: HumanAddr,
-        amount: Uint256,
-    },
+    UnlockCollateral { borrower: String, amount: Uint256 },
     /// Claim bAsset rewards and distribute claimed rewards
     /// to market and overseer contracts
     DistributeRewards {},
 
-    /// (internal) Send withdrawn rewards to market & overseer
-    DistributeHook {},
-
-    /// (internal) Swap all coins to stable_denom
-    SwapToStableDenom {},
-
     /// Liquidate collateral and send liquidated collateral to `to` address
     LiquidateCollateral {
-        liquidator: HumanAddr,
-        borrower: HumanAddr,
+        liquidator: String,
+        borrower: String,
         amount: Uint256,
     },
 
@@ -90,10 +77,10 @@ pub enum Cw20HookMsg {
 pub enum QueryMsg {
     Config {},
     Borrower {
-        address: HumanAddr,
+        address: String,
     },
     Borrowers {
-        start_after: Option<HumanAddr>,
+        start_after: Option<String>,
         limit: Option<u32>,
     },
 }
@@ -101,12 +88,12 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub owner: HumanAddr,
-    pub collateral_token: HumanAddr,
-    pub overseer_contract: HumanAddr,
-    pub market_contract: HumanAddr,
-    pub reward_contract: HumanAddr,
-    pub liquidation_contract: HumanAddr,
+    pub owner: String,
+    pub collateral_token: String,
+    pub overseer_contract: String,
+    pub market_contract: String,
+    pub reward_contract: String,
+    pub liquidation_contract: String,
     pub stable_denom: String,
     pub basset_info: BAssetInfo,
 }
@@ -114,7 +101,7 @@ pub struct ConfigResponse {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BorrowerResponse {
-    pub borrower: HumanAddr,
+    pub borrower: String,
     pub balance: Uint256,
     pub spendable: Uint256,
 }

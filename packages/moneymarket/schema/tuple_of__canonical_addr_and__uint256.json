@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tuple_of_CanonicalAddr_and_Uint256",
+  "type": "array",
+  "items": [
+    {
+      "$ref": "#/definitions/CanonicalAddr"
+    },
+    {
+      "$ref": "#/definitions/Uint256"
+    }
+  ],
+  "maxItems": 2,
+  "minItems": 2,
+  "definitions": {
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
+      "type": "string"
+    },
+    "CanonicalAddr": {
+      "$ref": "#/definitions/Binary"
+    },
+    "Uint256": {
+      "type": "string"
+    }
+  }
+}

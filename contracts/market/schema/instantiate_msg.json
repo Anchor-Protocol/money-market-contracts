@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InstantiateMsg",
+  "type": "object",
+  "required": [
+    "anc_emission_rate",
+    "aterra_code_id",
+    "max_borrow_factor",
+    "owner_addr",
+    "stable_denom"
+  ],
+  "properties": {
+    "anc_emission_rate": {
+      "description": "Anchor token distribution speed",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal256"
+        }
+      ]
+    },
+    "aterra_code_id": {
+      "description": "Anchor token code ID used to instantiate",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "max_borrow_factor": {
+      "description": "Maximum allowed borrow rate over deposited stable balance",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal256"
+        }
+      ]
+    },
+    "owner_addr": {
+      "description": "Owner address for config update",
+      "type": "string"
+    },
+    "stable_denom": {
+      "description": "stable coin denom used to borrow & repay",
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "Decimal256": {
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal256(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 115792089237316195423570985008687907853269984665640564039457.584007913129639935 (which is (2^128 - 1) / 10^18)",
+      "type": "string"
+    }
+  }
+}

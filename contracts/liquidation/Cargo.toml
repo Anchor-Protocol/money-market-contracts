@@ -1,6 +1,6 @@
 [package]
 name = "moneymarket-liquidation"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
 description = "A MoneyMarket liquidation contract - handles over liquidation model"
@@ -34,17 +34,17 @@ overflow-checks = true
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cw20 = "0.2"
-moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.1.0"}
-cosmwasm-std = { version = "0.10.1", features = ["iterator"] }
-cosmwasm-storage = { version = "0.10.1", features = ["iterator"] }
-cosmwasm-bignumber = "1.0.0"
-schemars = "0.7"
+cw20 = { version = "0.8.0" }
+moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.2.0"}
+cosmwasm-std = { version = "0.16.0", features = ["iterator"] }
+cosmwasm-storage = { version = "0.16.0", features = ["iterator"] }
+cosmwasm-bignumber = "2.2.0"
+schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-cosmwasm-schema = "0.10.1"
-terra-cosmwasm = "1.2.3"
+cosmwasm-schema = "0.16.0"
+terra-cosmwasm = "2.2.0"
 
 [profile.dev]
 overflow-checks = true

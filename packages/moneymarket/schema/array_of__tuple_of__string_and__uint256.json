@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Array_of_Tuple_of_String_and_Uint256",
+  "type": "array",
+  "items": {
+    "type": "array",
+    "items": [
+      {
+        "type": "string"
+      },
+      {
+        "$ref": "#/definitions/Uint256"
+      }
+    ],
+    "maxItems": 2,
+    "minItems": 2
+  },
+  "definitions": {
+    "Uint256": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,303 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExecuteMsg",
+  "anyOf": [
+    {
+      "description": "Owner operations Update Configs",
+      "type": "object",
+      "required": [
+        "update_config"
+      ],
+      "properties": {
+        "update_config": {
+          "type": "object",
+          "properties": {
+            "anc_purchase_factor": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "buffer_distribution_factor": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "epoch_period": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "liquidation_contract": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "oracle_contract": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "owner_addr": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "price_timeframe": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "target_deposit_rate": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "threshold_deposit_rate": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Create new custody contract for the given collateral token",
+      "type": "object",
+      "required": [
+        "whitelist"
+      ],
+      "properties": {
+        "whitelist": {
+          "type": "object",
+          "required": [
+            "collateral_token",
+            "custody_contract",
+            "max_ltv",
+            "name",
+            "symbol"
+          ],
+          "properties": {
+            "collateral_token": {
+              "type": "string"
+            },
+            "custody_contract": {
+              "type": "string"
+            },
+            "max_ltv": {
+              "$ref": "#/definitions/Decimal256"
+            },
+            "name": {
+              "type": "string"
+            },
+            "symbol": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Update registered whitelist info",
+      "type": "object",
+      "required": [
+        "update_whitelist"
+      ],
+      "properties": {
+        "update_whitelist": {
+          "type": "object",
+          "required": [
+            "collateral_token"
+          ],
+          "properties": {
+            "collateral_token": {
+              "type": "string"
+            },
+            "custody_contract": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "max_ltv": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Claims all staking rewards from the bAsset contracts and also do a epoch basis updates 1. Distribute interest buffers to depositors 2. Invoke [Custody] DistributeRewards 3. Update epoch state",
+      "type": "object",
+      "required": [
+        "execute_epoch_operations"
+      ],
+      "properties": {
+        "execute_epoch_operations": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "update_epoch_state"
+      ],
+      "properties": {
+        "update_epoch_state": {
+          "type": "object",
+          "required": [
+            "distributed_interest",
+            "interest_buffer"
+          ],
+          "properties": {
+            "distributed_interest": {
+              "$ref": "#/definitions/Uint256"
+            },
+            "interest_buffer": {
+              "$ref": "#/definitions/Uint256"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "User operations",
+      "type": "object",
+      "required": [
+        "lock_collateral"
+      ],
+      "properties": {
+        "lock_collateral": {
+          "type": "object",
+          "required": [
+            "collaterals"
+          ],
+          "properties": {
+            "collaterals": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/definitions/Uint256"
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "unlock_collateral"
+      ],
+      "properties": {
+        "unlock_collateral": {
+          "type": "object",
+          "required": [
+            "collaterals"
+          ],
+          "properties": {
+            "collaterals": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/definitions/Uint256"
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Permissionless operations",
+      "type": "object",
+      "required": [
+        "liquidate_collateral"
+      ],
+      "properties": {
+        "liquidate_collateral": {
+          "type": "object",
+          "required": [
+            "borrower"
+          ],
+          "properties": {
+            "borrower": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "definitions": {
+    "Decimal256": {
+      "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal256(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 115792089237316195423570985008687907853269984665640564039457.584007913129639935 (which is (2^128 - 1) / 10^18)",
+      "type": "string"
+    },
+    "Uint256": {
+      "type": "string"
+    }
+  }
+}

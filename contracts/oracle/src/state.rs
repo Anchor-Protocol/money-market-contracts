@@ -18,11 +18,11 @@ pub struct Config {
     pub base_asset: String,
 }
 
-pub fn store_config<S: Storage>(storage: &mut S, config: &Config) -> StdResult<()> {
+pub fn store_config(storage: &mut dyn Storage, config: &Config) -> StdResult<()> {
     singleton(storage, KEY_CONFIG).save(config)
 }
 
-pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
+pub fn read_config(storage: &dyn Storage) -> StdResult<Config> {
     singleton_read(storage, KEY_CONFIG).load()
 }
 
@@ -32,13 +32,13 @@ pub struct PriceInfo {
     pub last_updated_time: u64,
 }
 
-pub fn store_price<S: Storage>(storage: &mut S, asset: &str, price: &PriceInfo) -> StdResult<()> {
-    let mut price_bucket: Bucket<S, PriceInfo> = Bucket::new(PREFIX_PRICE, storage);
-    price_bucket.save(asset.as_bytes(), &price)
+pub fn store_price(storage: &mut dyn Storage, asset: &str, price: &PriceInfo) -> StdResult<()> {
+    let mut price_bucket: Bucket<PriceInfo> = Bucket::new(storage, PREFIX_PRICE);
+    price_bucket.save(asset.as_bytes(), price)
 }
 
-pub fn read_price<S: Storage>(storage: &S, asset: &str) -> StdResult<PriceInfo> {
-    let price_bucket: ReadonlyBucket<S, PriceInfo> = ReadonlyBucket::new(PREFIX_PRICE, storage);
+pub fn read_price(storage: &dyn Storage, asset: &str) -> StdResult<PriceInfo> {
+    let price_bucket: ReadonlyBucket<PriceInfo> = ReadonlyBucket::new(storage, PREFIX_PRICE);
     let res = price_bucket.load(asset.as_bytes());
     match res {
         Ok(data) => Ok(data),
@@ -51,12 +51,12 @@ pub fn read_price<S: Storage>(storage: &S, asset: &str) -> StdResult<PriceInfo> 
 // settings for pagination
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
-pub fn read_prices<S: Storage>(
-    storage: &S,
+pub fn read_prices(
+    storage: &dyn Storage,
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Vec<PricesResponseElem>> {
-    let price_bucket: ReadonlyBucket<S, PriceInfo> = ReadonlyBucket::new(PREFIX_PRICE, storage);
+    let price_bucket: ReadonlyBucket<PriceInfo> = ReadonlyBucket::new(storage, PREFIX_PRICE);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = calc_range_start(start_after);
@@ -77,17 +77,17 @@ pub fn read_prices<S: Storage>(
         .collect()
 }
 
-pub fn store_feeder<S: Storage>(
-    storage: &mut S,
+pub fn store_feeder(
+    storage: &mut dyn Storage,
     asset: &str,
     feeder: &CanonicalAddr,
 ) -> StdResult<()> {
-    let mut price_bucket: Bucket<S, CanonicalAddr> = Bucket::new(PREFIX_FEEDER, storage);
-    price_bucket.save(asset.as_bytes(), &feeder)
+    let mut price_bucket: Bucket<CanonicalAddr> = Bucket::new(storage, PREFIX_FEEDER);
+    price_bucket.save(asset.as_bytes(), feeder)
 }
 
-pub fn read_feeder<S: Storage>(storage: &S, asset: &str) -> StdResult<CanonicalAddr> {
-    let price_bucket: ReadonlyBucket<S, CanonicalAddr> = ReadonlyBucket::new(PREFIX_FEEDER, storage);
+pub fn read_feeder(storage: &dyn Storage, asset: &str) -> StdResult<CanonicalAddr> {
+    let price_bucket: ReadonlyBucket<CanonicalAddr> = ReadonlyBucket::new(storage, PREFIX_FEEDER);
     let res = price_bucket.load(asset.as_bytes());
     match res {
         Ok(data) => Ok(data),
