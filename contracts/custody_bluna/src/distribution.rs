@@ -1,21 +1,27 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
-    attr, to_binary, BankMsg, Coin, CosmosMsg, DepsMut, Env, MessageInfo, ReplyOn, Response,
-    StdError, StdResult, SubMsg, WasmMsg,
+    attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, QueryRequest,
+    ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg, WasmQuery,
 };
 
 use crate::contract::{CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION};
-use crate::external::handle::RewardContractExecuteMsg;
-use crate::state::{read_config, Config};
+use crate::external::handle::{RewardContractExecuteMsg, RewardContractQueryMsg};
+use crate::state::{read_config, BLunaAccruedRewardsResponse, Config};
 
 use moneymarket::querier::{deduct_tax, query_all_balances, query_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
+
+// REWARD_THRESHOLD is there to make sure that
+// if there is some reward and it is not above 1 UST
+// do not send the ClaimRewards
+const REWARDS_THRESHOLD: Uint128 = Uint128::new(1000000);
 
 /// Request withdraw reward operation to
 /// reward contract and execute `distribute_hook`
 /// Executor: overseer
 pub fn distribute_rewards(
     deps: DepsMut,
+    env: Env,
     info: MessageInfo,
 ) -> StdResult<Response<TerraMsgWrapper>> {
     let config: Config = read_config(deps.storage)?;
@@ -23,7 +29,14 @@ pub fn distribute_rewards(
         return Err(StdError::generic_err("unauthorized"));
     }
 
+    let contract_addr = env.contract.address;
     let reward_contract = deps.api.addr_humanize(&config.reward_contract)?;
+
+    let accrued_rewards =
+        get_accrued_rewards(deps.as_ref(), reward_contract.clone(), contract_addr)?;
+    if accrued_rewards < REWARDS_THRESHOLD {
+        return Ok(Response::default());
+    }
 
     // Do not emit the event logs here
     Ok(
@@ -94,4 +107,20 @@ pub fn swap_to_stable_denom(deps: DepsMut, env: Env) -> StdResult<Response<Terra
     }
 
     Ok(Response::new().add_submessages(messages))
+}
+
+pub(crate) fn get_accrued_rewards(
+    deps: Deps,
+    reward_contract_addr: Addr,
+    contract_addr: Addr,
+) -> StdResult<Uint128> {
+    let rewards: BLunaAccruedRewardsResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: reward_contract_addr.to_string(),
+            msg: to_binary(&RewardContractQueryMsg::AccruedRewards {
+                address: contract_addr.to_string(),
+            })?,
+        }))?;
+
+    Ok(rewards.rewards)
 }

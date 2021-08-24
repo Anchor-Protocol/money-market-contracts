@@ -1,14 +1,14 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
     attr, from_binary, to_binary, Api, Attribute, BankMsg, Coin, ContractResult, CosmosMsg,
-    Decimal, Reply, StdError, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
+    Decimal, Reply, Response, StdError, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
 
 use crate::contract::{
     execute, instantiate, query, reply, CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION,
 };
 use crate::external::handle::RewardContractExecuteMsg;
-use crate::state::read_borrower_info;
+use crate::state::{read_borrower_info, BLunaAccruedRewardsResponse};
 use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
@@ -598,6 +598,12 @@ fn distribute_rewards() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
+    deps.querier.set_reward_balance(Uint128::new(10000000));
+    deps.querier
+        .set_accrued_rewards(BLunaAccruedRewardsResponse {
+            rewards: Uint128::new(10000000),
+        });
+
     let msg = ExecuteMsg::DistributeRewards {};
     let info = mock_info("overseer", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -655,6 +661,7 @@ fn distribute_hook() {
 
     // Claimed rewards is 1000000uusd
     // mimic last swap_msg callback to execute distribute_hook
+    deps.querier.set_other_balances(Uint128::new(1000000));
     let reply_msg = Reply {
         id: 2,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -904,5 +911,79 @@ fn liquidate_collateral() {
             })
             .unwrap(),
         }))]
+    );
+}
+
+#[test]
+fn proper_distribute_rewards_with_no_rewards() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::new(1000000u128),
+    }]);
+
+    let msg = InstantiateMsg {
+        owner: "owner".to_string(),
+        collateral_token: "bluna".to_string(),
+        overseer_contract: "overseer".to_string(),
+        market_contract: "market".to_string(),
+        reward_contract: "reward".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+    let msg = ExecuteMsg::DistributeRewards {};
+    let res = execute(deps.as_mut(), mock_env(), info, msg);
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let msg = ExecuteMsg::DistributeRewards {};
+    let info = mock_info("overseer", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    // must return
+    assert_eq!(res, Response::default());
+
+    let msg = ExecuteMsg::DistributeRewards {};
+    let info = mock_info("overseer", &[]);
+    deps.querier
+        .set_accrued_rewards(BLunaAccruedRewardsResponse {
+            rewards: Uint128::new(0),
+        });
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    // must return
+    assert_eq!(res, Response::default());
+
+    let msg = ExecuteMsg::DistributeRewards {};
+    let info = mock_info("overseer", &[]);
+
+    deps.querier
+        .set_accrued_rewards(BLunaAccruedRewardsResponse {
+            rewards: Uint128::new(10000000),
+        });
+
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    // Do not print logs at this step
+    let empty_vector: Vec<Attribute> = Vec::new();
+    assert_eq!(res.attributes, empty_vector);
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::reply_on_success(
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "reward".to_string(),
+                funds: vec![],
+                msg: to_binary(&RewardContractExecuteMsg::ClaimRewards { recipient: None })
+                    .unwrap(),
+            }),
+            CLAIM_REWARDS_OPERATION
+        ),]
     );
 }
