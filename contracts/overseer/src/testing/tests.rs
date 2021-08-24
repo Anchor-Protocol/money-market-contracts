@@ -529,7 +529,7 @@ fn execute_epoch_operations() {
                 funds: vec![],
                 msg: to_binary(&ExecuteMsg::UpdateEpochState {
                     interest_buffer: Uint256::from(9999746320u128),
-                    distributed_interest: Uint256::from(53148u128),
+                    distributed_interest: Uint256::from(53149u128),
                 })
                 .unwrap(),
             }))
@@ -543,7 +543,7 @@ fn execute_epoch_operations() {
             attr("deposit_rate", "0.000000482253086419"),
             attr("exchange_rate", "1.25"),
             attr("aterra_supply", "1000000"),
-            attr("distributed_interest", "53148"),
+            attr("distributed_interest", "53149"),
             attr("anc_purchase_amount", "200000")
         ]
     );

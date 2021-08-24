@@ -685,7 +685,7 @@ fn distribute_hook() {
             to_address: "overseer".to_string(),
             amount: vec![Coin {
                 denom: "uusd".to_string(),
-                amount: Uint128::from(990099u128)
+                amount: Uint128::from(990100u128)
             }],
         })),],
     )

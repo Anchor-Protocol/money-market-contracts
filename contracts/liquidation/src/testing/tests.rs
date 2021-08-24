@@ -398,14 +398,14 @@ fn execute_bid() {
                 to_address: "repay0000".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128::from(485198u128), // 490050 / (1 + tax_rate)
+                    amount: Uint128::from(485199u128), // 490050 / (1 + tax_rate)
                 }]
             })),
             SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                 to_address: "fee0000".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128::from(4900u128), // 4950 / (1 + tax_rate)
+                    amount: Uint128::from(4901u128), // 4950 / (1 + tax_rate)
                 }]
             })),
         ]
@@ -438,14 +438,14 @@ fn execute_bid() {
                 to_address: "addr0001".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128::from(485198u128), // 490050 / (1 + tax_rate)
+                    amount: Uint128::from(485199u128), // 490050 / (1 + tax_rate)
                 }]
             })),
             SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                 to_address: "addr0001".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128::from(4900u128), // 4950 / (1 + tax_rate)
+                    amount: Uint128::from(4901u128), // 4950 / (1 + tax_rate)
                 }]
             })),
         ]
