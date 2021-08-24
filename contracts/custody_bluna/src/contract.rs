@@ -46,7 +46,7 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> StdResult<Response<TerraMsgWrapper>> {
@@ -72,7 +72,7 @@ pub fn execute(
             let borrower_addr = deps.api.addr_validate(&borrower)?;
             unlock_collateral(deps, info, borrower_addr, amount)
         }
-        ExecuteMsg::DistributeRewards {} => distribute_rewards(deps, info),
+        ExecuteMsg::DistributeRewards {} => distribute_rewards(deps, env, info),
         ExecuteMsg::WithdrawCollateral { amount } => withdraw_collateral(deps, info, amount),
         ExecuteMsg::LiquidateCollateral {
             liquidator,

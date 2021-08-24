@@ -1,7 +1,10 @@
+use crate::external::handle::RewardContractQueryMsg;
+use crate::state::BLunaAccruedRewardsResponse;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_slice, to_binary, Addr, Api, CanonicalAddr, Coin, ContractResult, Decimal, OwnedDeps,
-    Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Addr, Api, BalanceResponse, BankQuery, CanonicalAddr, Coin,
+    ContractResult, Decimal, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError,
+    SystemResult, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 use cw20::TokenInfoResponse;
@@ -26,6 +29,9 @@ pub fn mock_dependencies(
 pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     token_querier: TokenQuerier,
+    accrued_rewards: BLunaAccruedRewardsResponse,
+    reward_balance: Uint128,
+    other_balance: Uint128,
     tax_querier: TaxQuerier,
 }
 
@@ -191,6 +197,35 @@ impl WasmMockQuerier {
                     panic!("DO NOT ENTER HERE")
                 }
             }
+            QueryRequest::Wasm(WasmQuery::Smart {
+                contract_addr: _,
+                msg,
+            }) => match from_binary(msg).unwrap() {
+                RewardContractQueryMsg::AccruedRewards { address: _ } => SystemResult::Ok(
+                    ContractResult::from(to_binary(&BLunaAccruedRewardsResponse {
+                        rewards: self.accrued_rewards.rewards,
+                    })),
+                ),
+            },
+            QueryRequest::Bank(BankQuery::Balance { address, denom }) => {
+                if address == "reward" && denom == "uusd" {
+                    let bank_res = BalanceResponse {
+                        amount: Coin {
+                            amount: self.reward_balance,
+                            denom: denom.to_string(),
+                        },
+                    };
+                    SystemResult::Ok(ContractResult::from(to_binary(&bank_res)))
+                } else {
+                    let bank_res = BalanceResponse {
+                        amount: Coin {
+                            amount: self.other_balance,
+                            denom: denom.to_string(),
+                        },
+                    };
+                    SystemResult::Ok(ContractResult::from(to_binary(&bank_res)))
+                }
+            }
             _ => self.base.handle_query(request),
         }
     }
@@ -202,6 +237,9 @@ impl WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
+            accrued_rewards: BLunaAccruedRewardsResponse::default(),
+            reward_balance: Uint128::zero(),
+            other_balance: Uint128::zero(),
         }
     }
 
@@ -213,5 +251,17 @@ impl WasmMockQuerier {
     // configure the tax mock querier
     pub fn with_tax(&mut self, rate: Decimal, caps: &[(&String, &Uint128)]) {
         self.tax_querier = TaxQuerier::new(rate, caps);
+    }
+
+    pub fn set_accrued_rewards(&mut self, new_state: BLunaAccruedRewardsResponse) {
+        self.accrued_rewards = new_state
+    }
+
+    pub fn set_reward_balance(&mut self, balance: Uint128) {
+        self.reward_balance = balance
+    }
+
+    pub fn set_other_balances(&mut self, balance: Uint128) {
+        self.other_balance = balance
     }
 }
