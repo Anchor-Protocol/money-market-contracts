@@ -63,6 +63,13 @@ pub fn query_supply(deps: Deps, contract_addr: Addr) -> StdResult<Uint256> {
     Ok(Uint256::from(token_info.total_supply))
 }
 
+pub fn query_tax_rate_and_cap(deps: Deps, denom: String) -> StdResult<(Decimal256, Uint256)> {
+    let terra_querier = TerraQuerier::new(&deps.querier);
+    let rate = terra_querier.query_tax_rate()?.rate;
+    let cap = terra_querier.query_tax_cap(denom)?.cap;
+    Ok((rate.into(), cap.into()))
+}
+
 pub fn query_tax_rate(deps: Deps) -> StdResult<Decimal256> {
     let terra_querier = TerraQuerier::new(&deps.querier);
     Ok(terra_querier.query_tax_rate()?.rate.into())
