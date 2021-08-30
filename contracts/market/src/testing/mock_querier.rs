@@ -272,7 +272,7 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
 
-                let prefix_token_info = to_length_prefixed(b"token_info").to_vec();
+                let prefix_token_info = "\u{0}\ntoken_info".as_bytes();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
 
                 let balances: HashMap<String, Uint128> =
@@ -288,15 +288,12 @@ impl WasmMockQuerier {
                         total_supply += balance.1;
                     }
 
-                    SystemResult::Ok(ContractResult::from(to_binary(
-                        &to_binary(&TokenInfoResponse {
-                            name: "mAPPL".to_string(),
-                            symbol: "mAPPL".to_string(),
-                            decimals: 6,
-                            total_supply,
-                        })
-                        .unwrap(),
-                    )))
+                    SystemResult::Ok(ContractResult::from(to_binary(&TokenInfoResponse {
+                        name: "mAPPL".to_string(),
+                        symbol: "mAPPL".to_string(),
+                        decimals: 6,
+                        total_supply,
+                    })))
                 } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
                     let key_address: &[u8] = &key[prefix_balance.len()..];
                     let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
@@ -319,9 +316,7 @@ impl WasmMockQuerier {
                             })
                         }
                     };
-                    SystemResult::Ok(ContractResult::from(to_binary(
-                        &to_binary(&balance).unwrap(),
-                    )))
+                    SystemResult::Ok(ContractResult::from(to_binary(&balance)))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }

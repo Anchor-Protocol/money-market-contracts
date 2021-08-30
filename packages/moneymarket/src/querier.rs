@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Binary, Coin,
-    Deps, QueryRequest, StdError, StdResult, Uint128, WasmQuery,
+    to_binary, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Binary, Coin, Deps,
+    QueryRequest, StdError, StdResult, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 use cw20::TokenInfoResponse;
@@ -37,7 +37,7 @@ pub fn query_token_balance(
     account_addr: Addr,
 ) -> StdResult<Uint256> {
     // load balance form the token contract
-    let res: Binary = deps
+    let balance: Uint128 = deps
         .querier
         .query(&QueryRequest::Wasm(WasmQuery::Raw {
             contract_addr: contract_addr.to_string(),
@@ -46,20 +46,19 @@ pub fn query_token_balance(
                 (deps.api.addr_canonicalize(account_addr.as_str())?).as_slice(),
             )),
         }))
-        .unwrap_or_else(|_| to_binary(&Uint128::zero()).unwrap());
+        .unwrap_or_else(|_| Uint128::zero());
 
-    let balance: Uint128 = from_binary(&res)?;
     Ok(balance.into())
 }
 
 pub fn query_supply(deps: Deps, contract_addr: Addr) -> StdResult<Uint256> {
     // load price form the oracle
-    let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: contract_addr.to_string(),
-        key: Binary::from(to_length_prefixed(b"token_info")),
-    }))?;
+    let token_info: TokenInfoResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+            contract_addr: contract_addr.to_string(),
+            key: Binary::from("\u{0}\ntoken_info".as_bytes()),
+        }))?;
 
-    let token_info: TokenInfoResponse = from_binary(&res)?;
     Ok(Uint256::from(token_info.total_supply))
 }
 
