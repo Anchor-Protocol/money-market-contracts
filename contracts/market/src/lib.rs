@@ -5,7 +5,5 @@ pub mod querier;
 pub mod response;
 pub mod state;
 
-mod migration;
-
 #[cfg(test)]
 mod testing;

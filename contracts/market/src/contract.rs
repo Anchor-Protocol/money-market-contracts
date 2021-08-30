@@ -6,7 +6,6 @@ use crate::borrow::{
     query_borrower_info, query_borrower_infos, repay_stable, repay_stable_from_liquidation,
 };
 use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
-use crate::migration::{migrate_config, migrate_state};
 use crate::querier::{query_anc_emission_rate, query_borrow_rate, query_target_deposit_rate};
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
@@ -21,8 +20,8 @@ use cw20::{Cw20Coin, Cw20ReceiveMsg, MinterResponse};
 use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{
-    ConfigResponse, Cw20HookMsg, EpochStateResponse, ExecuteMsg, InstantiateMsg, MigrateMsg,
-    QueryMsg, StateResponse,
+    ConfigResponse, Cw20HookMsg, EpochStateResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
+    StateResponse,
 };
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
 use protobuf::Message;
@@ -563,26 +562,4 @@ pub fn query_epoch_state(
         exchange_rate,
         aterra_supply,
     })
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> {
-    // migrate config to use new Config
-    // also update collector_contract to the given address
-    migrate_config(
-        deps.storage,
-        deps.api.addr_canonicalize(&msg.collector_contract)?,
-    )?;
-
-    let config: Config = read_config(deps.storage)?;
-    let aterra_supply = query_supply(
-        deps.as_ref(),
-        deps.api.addr_humanize(&config.aterra_contract)?,
-    )?;
-    let balance = query_balance(deps.as_ref(), env.contract.address, config.stable_denom)?;
-
-    // migrate state to use new State
-    migrate_state(deps.storage, aterra_supply, balance)?;
-
-    Ok(Response::default())
 }
