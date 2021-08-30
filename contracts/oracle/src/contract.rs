@@ -9,8 +9,8 @@ use cosmwasm_std::{
     attr, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
 use moneymarket::oracle::{
-    ConfigResponse, ExecuteMsg, FeederResponse, InstantiateMsg, MigrateMsg, PriceResponse,
-    PricesResponse, PricesResponseElem, QueryMsg,
+    ConfigResponse, ExecuteMsg, FeederResponse, InstantiateMsg, PriceResponse, PricesResponse,
+    PricesResponseElem, QueryMsg,
 };
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -178,9 +178,4 @@ fn query_prices(
 ) -> StdResult<PricesResponse> {
     let prices: Vec<PricesResponseElem> = read_prices(deps.storage, start_after, limit)?;
     Ok(PricesResponse { prices })
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    Ok(Response::default())
 }
