@@ -374,10 +374,10 @@ pub fn execute_epoch_operations(
     // Update total_reserves and send it to collector contract
     // only when there is enough balance
     let total_reserves = state.total_reserves * Uint256::one();
-    let messages: Vec<SubMsg> = if !total_reserves.is_zero() && balance > total_reserves {
+    let messages: Vec<CosmosMsg> = if !total_reserves.is_zero() && balance > total_reserves {
         state.total_reserves = state.total_reserves - Decimal256::from_uint256(total_reserves);
 
-        vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+        vec![CosmosMsg::Bank(BankMsg::Send {
             to_address: deps
                 .api
                 .addr_humanize(&config.collector_contract)?
@@ -389,7 +389,7 @@ pub fn execute_epoch_operations(
                     amount: total_reserves.into(),
                 },
             )?],
-        }))]
+        })]
     } else {
         vec![]
     };
@@ -407,13 +407,11 @@ pub fn execute_epoch_operations(
 
     store_state(deps.storage, &state)?;
 
-    Ok(Response::new()
-        .add_submessages(messages)
-        .add_attributes(vec![
-            attr("action", "execute_epoch_operations"),
-            attr("total_reserves", total_reserves),
-            attr("anc_emission_rate", state.anc_emission_rate.to_string()),
-        ]))
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "execute_epoch_operations"),
+        attr("total_reserves", total_reserves),
+        attr("anc_emission_rate", state.anc_emission_rate.to_string()),
+    ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

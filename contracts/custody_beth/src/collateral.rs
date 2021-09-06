@@ -6,7 +6,7 @@ use crate::state::{
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
     attr, to_binary, Addr, CanonicalAddr, CosmosMsg, Deps, DepsMut, MessageInfo, Response,
-    StdError, StdResult, SubMsg, WasmMsg,
+    StdError, StdResult, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 use moneymarket::custody::{BorrowerResponse, BorrowersResponse};
@@ -23,7 +23,7 @@ pub fn deposit_collateral(
     let borrower_raw = deps.api.addr_canonicalize(borrower.as_str())?;
     let mut borrower_info: BorrowerInfo = read_borrower_info(deps.storage, &borrower_raw);
 
-    // withdraw rewards to pending rewards
+    // increase borrower collateral
     borrower_info.balance += amount;
     borrower_info.spendable += amount;
 
@@ -58,7 +58,7 @@ pub fn withdraw_collateral(
         )));
     }
 
-    // withdraw rewards to pending rewards
+    // decrease borrower collateral
     borrower_info.balance = borrower_info.balance - amount;
     borrower_info.spendable = borrower_info.spendable - amount;
 
@@ -69,7 +69,7 @@ pub fn withdraw_collateral(
     }
 
     Ok(Response::new()
-        .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
                 .api
                 .addr_humanize(&config.collateral_token)?
@@ -79,7 +79,7 @@ pub fn withdraw_collateral(
                 recipient: borrower.to_string(),
                 amount: amount.into(),
             })?,
-        }))])
+        }))
         .add_attributes(vec![
             attr("action", "withdraw_collateral"),
             attr("borrower", borrower.as_str()),
@@ -135,11 +135,11 @@ pub fn unlock_collateral(
 
     let borrower_raw: CanonicalAddr = deps.api.addr_canonicalize(borrower.as_str())?;
     let mut borrower_info: BorrowerInfo = read_borrower_info(deps.storage, &borrower_raw);
-    let borrowed_amt = borrower_info.balance - borrower_info.spendable;
-    if amount > borrowed_amt {
+    let locked_amount = borrower_info.balance - borrower_info.spendable;
+    if amount > locked_amount {
         return Err(StdError::generic_err(format!(
             "Unlock amount cannot exceed locked amount: {}",
-            borrowed_amt
+            locked_amount
         )));
     }
 
@@ -167,11 +167,11 @@ pub fn liquidate_collateral(
 
     let borrower_raw: CanonicalAddr = deps.api.addr_canonicalize(borrower.as_str())?;
     let mut borrower_info: BorrowerInfo = read_borrower_info(deps.storage, &borrower_raw);
-    let borrowed_amt = borrower_info.balance - borrower_info.spendable;
-    if amount > borrowed_amt {
+    let locked_amount = borrower_info.balance - borrower_info.spendable;
+    if amount > locked_amount {
         return Err(StdError::generic_err(format!(
             "Liquidation amount cannot exceed locked amount: {}",
-            borrowed_amt
+            locked_amount
         )));
     }
 
@@ -179,7 +179,7 @@ pub fn liquidate_collateral(
     store_borrower_info(deps.storage, &borrower_raw, &borrower_info)?;
 
     Ok(Response::new()
-        .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
                 .api
                 .addr_humanize(&config.collateral_token)?
@@ -203,7 +203,7 @@ pub fn liquidate_collateral(
                     ),
                 })?,
             })?,
-        }))])
+        }))
         .add_attributes(vec![
             attr("action", "liquidate_collateral"),
             attr("liquidator", liquidator),

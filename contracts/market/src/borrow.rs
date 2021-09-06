@@ -2,7 +2,7 @@ use anchor_token::distributor::ExecuteMsg as FaucetExecuteMsg;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
-    StdError, StdResult, SubMsg, WasmMsg,
+    StdError, StdResult, WasmMsg,
 };
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{BorrowerInfoResponse, BorrowerInfosResponse};
@@ -69,7 +69,7 @@ pub fn borrow_stable(
     store_borrower_info(deps.storage, &borrower_raw, &liability)?;
 
     Ok(Response::new()
-        .add_submessages(vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+        .add_message(CosmosMsg::Bank(BankMsg::Send {
             to_address: to.unwrap_or_else(|| borrower.clone()).to_string(),
             amount: vec![deduct_tax(
                 deps.as_ref(),
@@ -78,7 +78,7 @@ pub fn borrow_stable(
                     amount: borrow_amount.into(),
                 },
             )?],
-        }))])
+        }))
         .add_attributes(vec![
             attr("action", "borrow_stable"),
             attr("borrower", borrower),
@@ -156,13 +156,13 @@ pub fn repay_stable(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Res
     compute_borrower_reward(&state, &mut liability);
 
     let repay_amount: Uint256;
-    let mut messages: Vec<SubMsg> = vec![];
+    let mut messages: Vec<CosmosMsg> = vec![];
     if liability.loan_amount < amount {
         repay_amount = liability.loan_amount;
         liability.loan_amount = Uint256::zero();
 
         // Payback left repay amount to sender
-        messages.push(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
             to_address: borrower.to_string(),
             amount: vec![deduct_tax(
                 deps.as_ref(),
@@ -171,7 +171,7 @@ pub fn repay_stable(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Res
                     amount: (amount - repay_amount).into(),
                 },
             )?],
-        })));
+        }));
     } else {
         repay_amount = amount;
         liability.loan_amount = liability.loan_amount - repay_amount;
@@ -182,13 +182,11 @@ pub fn repay_stable(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Res
     store_borrower_info(deps.storage, &borrower_raw, &liability)?;
     store_state(deps.storage, &state)?;
 
-    Ok(Response::new()
-        .add_submessages(messages)
-        .add_attributes(vec![
-            attr("action", "repay_stable"),
-            attr("borrower", borrower),
-            attr("repay_amount", repay_amount),
-        ]))
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "repay_stable"),
+        attr("borrower", borrower),
+        attr("repay_amount", repay_amount),
+    ]))
 }
 
 pub fn claim_rewards(
@@ -218,8 +216,8 @@ pub fn claim_rewards(
     store_state(deps.storage, &state)?;
     store_borrower_info(deps.storage, &borrower_raw, &liability)?;
 
-    let messages: Vec<SubMsg> = if !claim_amount.is_zero() {
-        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+    let messages: Vec<CosmosMsg> = if !claim_amount.is_zero() {
+        vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
                 .api
                 .addr_humanize(&config.distributor_contract)?
@@ -233,17 +231,15 @@ pub fn claim_rewards(
                 },
                 amount: claim_amount.into(),
             })?,
-        }))]
+        })]
     } else {
         vec![]
     };
 
-    Ok(Response::new()
-        .add_submessages(messages)
-        .add_attributes(vec![
-            attr("action", "claim_rewards"),
-            attr("claim_amount", claim_amount),
-        ]))
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "claim_rewards"),
+        attr("claim_amount", claim_amount),
+    ]))
 }
 
 /// Compute interest and update state

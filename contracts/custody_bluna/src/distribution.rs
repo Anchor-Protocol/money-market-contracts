@@ -11,9 +11,9 @@ use crate::state::{read_config, BLunaAccruedRewardsResponse, Config};
 use moneymarket::querier::{deduct_tax, query_all_balances, query_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
 
-// REWARD_THRESHOLD is there to make sure that
-// if there is some reward and it is not above 1 UST
-// do not send the ClaimRewards
+// REWARD_THRESHOLD
+// This value is used as the minimum reward claim amount
+// thus if a user's reward is less than 1 ust do not send the ClaimRewards msg
 const REWARDS_THRESHOLD: Uint128 = Uint128::new(1000000);
 
 /// Request withdraw reward operation to
@@ -65,9 +65,9 @@ pub fn distribute_hook(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWr
         contract_addr,
         config.stable_denom.to_string(),
     )?;
-    let mut messages: Vec<SubMsg<TerraMsgWrapper>> = vec![];
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
     if !reward_amount.is_zero() {
-        messages.push(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
             to_address: overseer_contract.to_string(),
             amount: vec![deduct_tax(
                 deps.as_ref(),
@@ -76,15 +76,13 @@ pub fn distribute_hook(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWr
                     amount: reward_amount.into(),
                 },
             )?],
-        })));
+        }));
     }
 
-    Ok(Response::new()
-        .add_submessages(messages)
-        .add_attributes(vec![
-            attr("action", "distribute_rewards"),
-            attr("buffer_rewards", reward_amount),
-        ]))
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "distribute_rewards"),
+        attr("buffer_rewards", reward_amount),
+    ]))
 }
 
 /// Swap all coins to stable_denom
