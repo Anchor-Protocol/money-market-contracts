@@ -1,7 +1,7 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
-    StdError, StdResult, SubMsg, Uint128, WasmMsg,
+    StdError, StdResult, Uint128, WasmMsg,
 };
 
 use crate::borrow::{compute_interest, compute_reward};
@@ -48,14 +48,14 @@ pub fn deposit_stable(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<R
     state.prev_aterra_supply += mint_amount;
     store_state(deps.storage, &state)?;
     Ok(Response::new()
-        .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Mint {
                 recipient: info.sender.to_string(),
                 amount: mint_amount.into(),
             })?,
-        }))])
+        }))
         .add_attributes(vec![
             attr("action", "deposit_stable"),
             attr("depositor", info.sender),
@@ -93,15 +93,15 @@ pub fn redeem_stable(
     state.prev_aterra_supply = state.prev_aterra_supply - Uint256::from(burn_amount);
     store_state(deps.storage, &state)?;
     Ok(Response::new()
-        .add_submessages(vec![
-            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+        .add_messages(vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Burn {
                     amount: burn_amount,
                 })?,
-            })),
-            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
                 to_address: sender.to_string(),
                 amount: vec![deduct_tax(
                     deps.as_ref(),
@@ -110,7 +110,7 @@ pub fn redeem_stable(
                         amount: redeem_amount.into(),
                     },
                 )?],
-            })),
+            }),
         ])
         .add_attributes(vec![
             attr("action", "redeem_stable"),

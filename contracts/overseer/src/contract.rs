@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    Response, StdError, StdResult, SubMsg, WasmMsg,
+    Response, StdError, StdResult, WasmMsg,
 };
 
 use crate::collateral::{
@@ -312,7 +312,7 @@ pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> 
     let deposit_rate =
         (effective_deposit_rate - Decimal256::one()) / Decimal256::from_uint256(blocks);
 
-    let mut messages: Vec<SubMsg> = vec![];
+    let mut messages: Vec<CosmosMsg> = vec![];
     let mut interest_buffer = query_balance(
         deps.as_ref(),
         env.contract.address.clone(),
@@ -323,7 +323,7 @@ pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> 
     let accrued_buffer = interest_buffer - state.prev_interest_buffer;
     let anc_purchase_amount = accrued_buffer * config.anc_purchase_factor;
     if !anc_purchase_amount.is_zero() {
-        messages.push(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
             to_address: deps
                 .api
                 .addr_humanize(&config.collector_contract)?
@@ -335,7 +335,7 @@ pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> 
                     amount: anc_purchase_amount.into(),
                 },
             )?],
-        })));
+        }));
     }
 
     // Deduct anc_purchase_amount from the interest_buffer
@@ -372,47 +372,45 @@ pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> 
             );
 
             // Send some portion of interest buffer to Market contract
-            messages.push(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            messages.push(CosmosMsg::Bank(BankMsg::Send {
                 to_address: market_contract.to_string(),
                 amount: vec![Coin {
                     denom: config.stable_denom,
                     amount: distributed_interest.into(),
                 }],
-            })));
+            }));
         }
     }
 
     // Execute DistributeRewards
     let whitelist: Vec<WhitelistResponseElem> = read_whitelist(deps.as_ref(), None, None)?;
     for elem in whitelist.iter() {
-        messages.push(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: elem.custody_contract.clone(),
             funds: vec![],
             msg: to_binary(&CustodyExecuteMsg::DistributeRewards {})?,
-        })));
+        }));
     }
 
     // TODO: Should this become a reply? If so which SubMsg to make reply_on?
     // Execute store epoch state operation
-    messages.push(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: env.contract.address.to_string(),
         funds: vec![],
         msg: to_binary(&ExecuteMsg::UpdateEpochState {
             interest_buffer,
             distributed_interest,
         })?,
-    })));
+    }));
 
-    Ok(Response::new()
-        .add_submessages(messages)
-        .add_attributes(vec![
-            attr("action", "epoch_operations"),
-            attr("deposit_rate", deposit_rate.to_string()),
-            attr("exchange_rate", epoch_state.exchange_rate.to_string()),
-            attr("aterra_supply", epoch_state.aterra_supply),
-            attr("distributed_interest", distributed_interest),
-            attr("anc_purchase_amount", anc_purchase_amount),
-        ]))
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "epoch_operations"),
+        attr("deposit_rate", deposit_rate.to_string()),
+        attr("exchange_rate", epoch_state.exchange_rate.to_string()),
+        attr("aterra_supply", epoch_state.aterra_supply),
+        attr("distributed_interest", distributed_interest),
+        attr("anc_purchase_amount", anc_purchase_amount),
+    ]))
 }
 
 pub fn update_epoch_state(
@@ -462,7 +460,7 @@ pub fn update_epoch_state(
     )?;
 
     Ok(Response::new()
-        .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: market_contract.to_string(),
             funds: vec![],
             msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
@@ -471,7 +469,7 @@ pub fn update_epoch_state(
                 threshold_deposit_rate: config.threshold_deposit_rate,
                 distributed_interest,
             })?,
-        }))])
+        }))
         .add_attributes(vec![
             attr("action", "update_epoch_state"),
             attr("deposit_rate", deposit_rate.to_string()),

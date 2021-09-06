@@ -11,9 +11,9 @@ use crate::state::{read_config, BETHAccruedRewardsResponse, Config};
 use moneymarket::querier::{deduct_tax, query_all_balances, query_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
 
-// REWARD_THRESHOLD is there to make sure that
-// if there is some reward and it is not above 1 UST
-// do not send the ClaimRewards
+// REWARD_THRESHOLD
+// This value is used as the minimum reward claim amount
+// thus if a user's reward is less than 1 ust do not send the ClaimRewards msg
 const REWARDS_THRESHOLD: Uint128 = Uint128::new(1000000);
 
 /// Request withdraw reward operation to

@@ -6,7 +6,7 @@ use crate::state::{
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
-    StdError, StdResult, SubMsg, WasmMsg,
+    StdError, StdResult, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 use moneymarket::liquidation::{BidResponse, BidsResponse};
@@ -100,7 +100,7 @@ pub fn retract_bid(
     }
 
     Ok(Response::new()
-        .add_submessages(vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+        .add_message(CosmosMsg::Bank(BankMsg::Send {
             to_address: info.sender.to_string(),
             amount: vec![deduct_tax(
                 deps.as_ref(),
@@ -109,7 +109,7 @@ pub fn retract_bid(
                     amount: amount.into(),
                 },
             )?],
-        }))])
+        }))
         .add_attributes(vec![
             attr("action", "retract_bid"),
             attr("collateral_token", collateral_token),
@@ -172,16 +172,16 @@ pub fn execute_bid(
     let bid_fee = required_stable * config.bid_fee;
     let repay_amount = required_stable - bid_fee;
 
-    let mut messages: Vec<SubMsg> = vec![
-        SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+    let mut messages: Vec<CosmosMsg> = vec![
+        CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: collateral_token.to_string(),
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: liquidator.to_string(),
                 amount: amount.into(),
             })?,
-        })),
-        SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+        }),
+        CosmosMsg::Bank(BankMsg::Send {
             to_address: repay_address.to_string(),
             amount: vec![deduct_tax(
                 deps.as_ref(),
@@ -190,11 +190,11 @@ pub fn execute_bid(
                     amount: repay_amount.into(),
                 },
             )?],
-        })),
+        }),
     ];
 
     if !bid_fee.is_zero() {
-        messages.push(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
             to_address: fee_address.to_string(),
             amount: vec![deduct_tax(
                 deps.as_ref(),
@@ -203,19 +203,17 @@ pub fn execute_bid(
                     amount: bid_fee.into(),
                 },
             )?],
-        })));
+        }));
     }
 
-    Ok(Response::new()
-        .add_submessages(messages)
-        .add_attributes(vec![
-            attr("action", "execute_bid"),
-            attr("stable_denom", config.stable_denom),
-            attr("repay_amount", repay_amount),
-            attr("bid_fee", bid_fee),
-            attr("collateral_token", collateral_token),
-            attr("collateral_amount", amount),
-        ]))
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "execute_bid"),
+        attr("stable_denom", config.stable_denom),
+        attr("repay_amount", repay_amount),
+        attr("bid_fee", bid_fee),
+        attr("collateral_token", collateral_token),
+        attr("collateral_amount", amount),
+    ]))
 }
 
 pub fn query_bid(deps: Deps, collateral_token: Addr, bidder: Addr) -> StdResult<BidResponse> {

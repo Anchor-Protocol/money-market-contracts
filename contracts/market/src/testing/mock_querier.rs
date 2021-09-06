@@ -39,6 +39,8 @@ pub enum QueryMsg {
     },
     /// Query overseer config to get target deposit rate
     Config {},
+    /// Query cw20 Token Info
+    TokenInfo {},
 }
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -267,12 +269,31 @@ impl WasmMockQuerier {
                             price_timeframe: 100u64,
                         })))
                     }
+                    QueryMsg::TokenInfo {} => {
+                        let balances: HashMap<String, Uint128> =
+                            match self.token_querier.balances.get(contract_addr) {
+                                Some(balances) => balances.clone(),
+                                None => HashMap::new(),
+                            };
+
+                        let mut total_supply = Uint128::zero();
+
+                        for balance in balances {
+                            total_supply += balance.1;
+                        }
+
+                        SystemResult::Ok(ContractResult::from(to_binary(&TokenInfoResponse {
+                            name: "mAPPL".to_string(),
+                            symbol: "mAPPL".to_string(),
+                            decimals: 6,
+                            total_supply,
+                        })))
+                    }
                 }
             }
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
 
-                let prefix_token_info = "\u{0}\ntoken_info".as_bytes();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
 
                 let balances: HashMap<String, Uint128> =
@@ -281,20 +302,7 @@ impl WasmMockQuerier {
                         None => HashMap::new(),
                     };
 
-                if key.to_vec() == prefix_token_info {
-                    let mut total_supply = Uint128::zero();
-
-                    for balance in balances {
-                        total_supply += balance.1;
-                    }
-
-                    SystemResult::Ok(ContractResult::from(to_binary(&TokenInfoResponse {
-                        name: "mAPPL".to_string(),
-                        symbol: "mAPPL".to_string(),
-                        decimals: 6,
-                        total_supply,
-                    })))
-                } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
+                if key[..prefix_balance.len()].to_vec() == prefix_balance {
                     let key_address: &[u8] = &key[prefix_balance.len()..];
                     let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
                     let api: MockApi = MockApi::default();
