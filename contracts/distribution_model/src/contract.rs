@@ -8,7 +8,7 @@ use crate::state::{read_config, store_config, Config};
 
 use cosmwasm_bignumber::Decimal256;
 use moneymarket::distribution_model::{
-    AncEmissionRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+    AncEmissionRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -159,9 +159,4 @@ fn query_anc_emission_rate(
     };
 
     Ok(AncEmissionRateResponse { emission_rate })
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    Ok(Response::default())
 }

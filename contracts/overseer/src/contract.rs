@@ -21,8 +21,7 @@ use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
 use moneymarket::market::EpochStateResponse;
 use moneymarket::market::ExecuteMsg as MarketExecuteMsg;
 use moneymarket::overseer::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, WhitelistResponse,
-    WhitelistResponseElem,
+    ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
 use moneymarket::querier::{deduct_tax, query_balance};
 
@@ -578,19 +577,4 @@ pub fn query_whitelist(
         let whitelist: Vec<WhitelistResponseElem> = read_whitelist(deps, start_after, limit)?;
         Ok(WhitelistResponse { elems: whitelist })
     }
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
-    let config: Config = read_config(deps.storage)?;
-    store_config(
-        deps.storage,
-        &Config {
-            target_deposit_rate: msg.target_deposit_rate,
-            threshold_deposit_rate: msg.threshold_deposit_rate,
-            ..config
-        },
-    )?;
-
-    Ok(Response::default())
 }
