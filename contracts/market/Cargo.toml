@@ -40,7 +40,7 @@ cw20 = { version = "0.8.0" }
 protobuf = { version = "2", features = ["with-bytes"] }
 terraswap = { version = "2.3.0" }
 cosmwasm-bignumber = "2.2.0"
-cosmwasm-std = { version = "0.16.0", features = ["iterator"] }
+cosmwasm-std = "0.16.0"
 cosmwasm-storage = { version = "0.16.0", features = ["iterator"] }
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
