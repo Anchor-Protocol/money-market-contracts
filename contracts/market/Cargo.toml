@@ -34,7 +34,7 @@ overflow-checks = true
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.2.0"}
+moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.3.0"}
 anchor-token = { git = "https://github.com/Anchor-Protocol/anchor-token-contracts", branch = "dev/col5" }
 cw20 = { version = "0.8.0" }
 protobuf = { version = "2", features = ["with-bytes"] }
