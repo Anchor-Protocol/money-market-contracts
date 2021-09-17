@@ -22,6 +22,7 @@ fn proper_initialization() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -45,6 +46,7 @@ fn proper_initialization() {
             stable_denom: "uusd".to_string(),
             safe_ratio: Decimal256::percent(10),
             bid_fee: Decimal256::percent(1),
+            liquidator_fee: Decimal256::percent(0),
             liquidation_threshold: Uint256::from(100000000u64),
             price_timeframe: 60u64,
             waiting_period: 60u64,
@@ -63,6 +65,7 @@ fn update_config() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -79,6 +82,7 @@ fn update_config() {
         oracle_contract: None,
         safe_ratio: None,
         bid_fee: None,
+        liquidator_fee: None,
         liquidation_threshold: None,
         price_timeframe: None,
         waiting_period: None,
@@ -99,6 +103,7 @@ fn update_config() {
             stable_denom: "uusd".to_string(),
             safe_ratio: Decimal256::percent(10),
             bid_fee: Decimal256::percent(1),
+            liquidator_fee: Decimal256::percent(0),
             liquidation_threshold: Uint256::from(100000000u64),
             price_timeframe: 60u64,
             waiting_period: 60u64,
@@ -113,6 +118,7 @@ fn update_config() {
         oracle_contract: Some("oracle0001".to_string()),
         safe_ratio: Some(Decimal256::percent(15)),
         bid_fee: Some(Decimal256::percent(2)),
+        liquidator_fee: Some(Decimal256::percent(1)),
         liquidation_threshold: Some(Uint256::from(150000000u64)),
         price_timeframe: Some(120u64),
         waiting_period: Some(100u64),
@@ -133,6 +139,7 @@ fn update_config() {
             stable_denom: "uusd".to_string(),
             safe_ratio: Decimal256::percent(15),
             bid_fee: Decimal256::percent(2),
+            liquidator_fee: Decimal256::percent(1),
             liquidation_threshold: Uint256::from(150000000u64),
             price_timeframe: 120u64,
             waiting_period: 100u64,
@@ -147,6 +154,7 @@ fn update_config() {
         oracle_contract: Some("oracle0001".to_string()),
         safe_ratio: Some(Decimal256::percent(1)),
         bid_fee: Some(Decimal256::percent(2)),
+        liquidator_fee: Some(Decimal256::percent(1)),
         liquidation_threshold: Some(Uint256::from(150000000u64)),
         price_timeframe: Some(100u64),
         waiting_period: Some(100u64),
@@ -167,6 +175,7 @@ fn submit_bid() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -278,6 +287,7 @@ fn activate_bid() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -374,6 +384,7 @@ fn retract_bid() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -444,6 +455,7 @@ fn retract_unactive_bid() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -522,6 +534,7 @@ fn execute_bid() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(1),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 100000u64,
         waiting_period: 60u64,
@@ -576,7 +589,8 @@ fn execute_bid() {
 
     // required_stable 495,000
     // bid_fee         4,950
-    // repay_amount    490,050
+    // liquidator_fee  4,950
+    // repay_amount    485,100
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: "addr0001".to_string(),
         amount: Uint128::from(1000000u128),
@@ -601,7 +615,7 @@ fn execute_bid() {
         sender: "custody0000".to_string(), // only custody contract can execute
         amount: Uint128::from(1000000u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
-            liquidator: "liquidator00000".to_string(),
+            liquidator: "liquidator0000".to_string(),
             fee_address: Some("fee0000".to_string()),
             repay_address: Some("repay0000".to_string()),
         })
@@ -616,11 +630,18 @@ fn execute_bid() {
                 to_address: "repay0000".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128::from(485198u128), // 490050 / (1 + tax_rate)
+                    amount: Uint128::from(480297u128), // 485100 / (1 + tax_rate)
                 }]
             })),
             SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                 to_address: "fee0000".to_string(),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(4900u128), // 4950 / (1 + tax_rate)
+                }]
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "liquidator0000".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
                     amount: Uint128::from(4900u128), // 4950 / (1 + tax_rate)
@@ -633,7 +654,7 @@ fn execute_bid() {
         sender: "custody0000".to_string(),
         amount: Uint128::from(1000000u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
-            liquidator: "liquidator00000".to_string(),
+            liquidator: "liquidator0000".to_string(),
             fee_address: None,
             repay_address: None,
         })
@@ -647,11 +668,18 @@ fn execute_bid() {
                 to_address: "custody0000".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
-                    amount: Uint128::from(485198u128), // 490050 / (1 + tax_rate)
+                    amount: Uint128::from(480297u128), // 485100 / (1 + tax_rate)
                 }]
             })),
             SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                 to_address: "custody0000".to_string(),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(4900u128), // 4950 / (1 + tax_rate)
+                }]
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "liquidator0000".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
                     amount: Uint128::from(4900u128), // 4950 / (1 + tax_rate)
@@ -692,6 +720,7 @@ fn claim_liquidations() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 1000000u64,
         waiting_period: 60u64,
@@ -785,6 +814,7 @@ fn update_collateral_info() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,

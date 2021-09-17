@@ -33,6 +33,7 @@ pub fn instantiate(
             stable_denom: msg.stable_denom,
             safe_ratio: msg.safe_ratio,
             bid_fee: msg.bid_fee,
+            liquidator_fee: msg.liquidator_fee,
             liquidation_threshold: msg.liquidation_threshold,
             price_timeframe: msg.price_timeframe,
             waiting_period: msg.waiting_period,
@@ -52,6 +53,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             oracle_contract,
             safe_ratio,
             bid_fee,
+            liquidator_fee,
             liquidation_threshold,
             price_timeframe,
             waiting_period,
@@ -63,6 +65,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             oracle_contract,
             safe_ratio,
             bid_fee,
+            liquidator_fee,
             liquidation_threshold,
             price_timeframe,
             waiting_period,
@@ -111,7 +114,7 @@ pub fn receive_cw20(
     let contract_addr = info.sender;
     match from_binary(&cw20_msg.msg)? {
         Cw20HookMsg::ExecuteBid {
-            liquidator: _, // ignored to not change legacy liquidation contract interface
+            liquidator,
             repay_address,
             fee_address,
         } => {
@@ -123,6 +126,7 @@ pub fn receive_cw20(
                 deps,
                 env,
                 cw20_msg.sender,
+                liquidator,
                 repay_address,
                 fee_address,
                 collateral_token,
@@ -140,6 +144,7 @@ pub fn update_config(
     oracle_contract: Option<String>,
     safe_ratio: Option<Decimal256>,
     bid_fee: Option<Decimal256>,
+    liquidator_fee: Option<Decimal256>,
     liquidation_threshold: Option<Uint256>,
     price_timeframe: Option<u64>,
     waiting_period: Option<u64>,
@@ -164,6 +169,10 @@ pub fn update_config(
 
     if let Some(bid_fee) = bid_fee {
         config.bid_fee = bid_fee;
+    }
+
+    if let Some(liquidator_fee) = liquidator_fee {
+        config.liquidator_fee = liquidator_fee;
     }
 
     if let Some(liquidation_threshold) = liquidation_threshold {

@@ -21,6 +21,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         stable_denom: config.stable_denom,
         safe_ratio: config.safe_ratio,
         bid_fee: config.bid_fee,
+        liquidator_fee: config.liquidator_fee,
         liquidation_threshold: config.liquidation_threshold,
         price_timeframe: config.price_timeframe,
         waiting_period: config.waiting_period,
@@ -73,7 +74,9 @@ pub fn query_liquidation_amount(
         tax_cap_adj = Uint256::from(1u128)
     }
 
-    let base_fee_deductor = (Decimal256::one() - config.bid_fee) * (Decimal256::one() - tax_rate);
+    let base_fee_deductor = (Decimal256::one() - config.bid_fee)
+        * (Decimal256::one() - config.liquidator_fee)
+        * (Decimal256::one() - tax_rate);
 
     let mut result: Vec<(String, Uint256)> = vec![];
     for (i, collateral) in collaterals.iter().enumerate() {

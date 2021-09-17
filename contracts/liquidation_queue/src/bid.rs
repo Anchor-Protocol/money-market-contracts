@@ -277,10 +277,12 @@ pub fn retract_bid(
 /// Overseer executes the liquidation providing a whitelisted collateral.
 /// This operation returns a repay_amount based on the available bids on each
 /// premium slot, consuming bids from lowest to higher premium slots
+#[allow(clippy::too_many_arguments)]
 pub fn execute_liquidation(
     deps: DepsMut,
     env: Env,
     sender: String,
+    liquidator: String,
     repay_address: String,
     fee_address: String,
     collateral_token: String,
@@ -366,7 +368,8 @@ pub fn execute_liquidation(
     )?;
 
     let bid_fee = repay_amount * config.bid_fee;
-    let repay_amount = repay_amount - bid_fee;
+    let liquidator_fee = repay_amount * config.liquidator_fee;
+    let repay_amount = repay_amount - bid_fee - liquidator_fee;
 
     let mut messages: Vec<CosmosMsg> = vec![CosmosMsg::Bank(BankMsg::Send {
         to_address: repay_address,
@@ -391,12 +394,25 @@ pub fn execute_liquidation(
             )?],
         }));
     }
+    if !liquidator_fee.is_zero() {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: liquidator,
+            amount: vec![deduct_tax(
+                deps.as_ref(),
+                Coin {
+                    denom: config.stable_denom.clone(),
+                    amount: liquidator_fee.into(),
+                },
+            )?],
+        }));
+    }
 
     Ok(Response::new().add_messages(messages).add_attributes(vec![
         attr("action", "execute_bid"),
         attr("stable_denom", config.stable_denom),
         attr("repay_amount", repay_amount),
         attr("bid_fee", bid_fee),
+        attr("liquidator_fee", liquidator_fee),
         attr("collateral_token", collateral_token),
         attr("collateral_amount", amount),
     ]))

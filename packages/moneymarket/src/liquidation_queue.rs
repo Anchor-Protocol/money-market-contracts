@@ -18,6 +18,9 @@ pub struct InstantiateMsg {
     /// Fee applied to executed bids
     /// Sent to Overseer interest buffer
     pub bid_fee: Decimal256,
+    /// Fee applied to executed bids
+    /// Sent to the address executing the liquidation
+    pub liquidator_fee: Decimal256,
     /// Liquidation threshold amount in stable denom.
     /// When the current collaterals value is smaller than
     /// the threshold, all collaterals will be liquidated
@@ -38,6 +41,7 @@ pub enum ExecuteMsg {
         oracle_contract: Option<String>,
         safe_ratio: Option<Decimal256>,
         bid_fee: Option<Decimal256>,
+        liquidator_fee: Option<Decimal256>,
         liquidation_threshold: Option<Uint256>,
         price_timeframe: Option<u64>,
         waiting_period: Option<u64>,
@@ -128,6 +132,7 @@ pub struct ConfigResponse {
     pub stable_denom: String,
     pub safe_ratio: Decimal256,
     pub bid_fee: Decimal256,
+    pub liquidator_fee: Decimal256,
     pub liquidation_threshold: Uint256,
     pub price_timeframe: u64,
     pub waiting_period: u64,

@@ -24,6 +24,7 @@ fn partial_one_collateral_one_slot_high_ltv() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -129,6 +130,7 @@ fn partial_one_collateral_one_slot() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -234,6 +236,7 @@ fn partial_one_collateral_one_slot_with_fees() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -333,6 +336,128 @@ fn partial_one_collateral_one_slot_with_fees() {
 }
 
 #[test]
+fn partial_one_collateral_one_slot_with_fees_all() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"token0000".to_string(), &Decimal256::percent(50))]);
+
+    let msg = InstantiateMsg {
+        owner: "owner0000".to_string(),
+        oracle_contract: "oracle0000".to_string(),
+        stable_denom: "uusd".to_string(),
+        safe_ratio: Decimal256::percent(80),
+        bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(1),
+        liquidation_threshold: Uint256::zero(),
+        price_timeframe: 60u64,
+        waiting_period: 60u64,
+        overseer: "overseer0000".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let msg = ExecuteMsg::WhitelistCollateral {
+        collateral_token: "token0000".to_string(),
+        max_slot: 30u8,
+        bid_threshold: Uint256::from(10000u128), // to get instant activation
+        premium_rate_per_slot: Decimal256::percent(1),
+    };
+    let info = mock_info("owner0000", &[]);
+    execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let msg = ExecuteMsg::SubmitBid {
+        collateral_token: "token0000".to_string(),
+        premium_slot: 5u8,
+    };
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(1000u128),
+        }],
+    );
+    execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let msg = QueryMsg::LiquidationAmount {
+        borrow_amount: Uint256::from(1200u64),
+        borrow_limit: Uint256::from(1000u64),
+        collaterals: vec![("token0000".to_string(), Uint256::from(20000u64))],
+        collateral_prices: vec![Decimal256::percent(10)],
+    };
+
+    let res = query(deps.as_ref(), mock_env(), msg).unwrap();
+    let res: LiquidationAmountResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        res,
+        LiquidationAmountResponse {
+            collaterals: vec![("token0000".to_string(), Uint256::from(7686u64))],
+        }
+    );
+
+    // 7686 col liq
+    // remaining = 20000 - 7686 = 12,314
+    // new limit = 12,314 * 0.1 * 0.5 = 615.7
+    // safe = 615.7 * 0.8 = 492.56
+
+    // new borrow amount = 1200 - 708 = 492
+
+    let info = mock_info("token0000", &[]);
+    let env = mock_env();
+    deps.querier.with_oracle_price(&[(
+        &("token0000".to_string(), "uusd".to_string()),
+        &(
+            Decimal256::percent(10),
+            env.block.time.seconds(),
+            env.block.time.seconds(),
+        ),
+    )]);
+
+    let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+        sender: "custody0000".to_string(),
+        amount: Uint128::from(7686u64),
+        msg: to_binary(&Cw20HookMsg::ExecuteBid {
+            liquidator: "liquidator00000".to_string(),
+            fee_address: Some("fee0000".to_string()),
+            repay_address: Some("repay0000".to_string()),
+        })
+        .unwrap(),
+    });
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    assert_eq!(
+        res.messages,
+        vec![
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "repay0000".to_string(),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(708u128),
+                }]
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "fee0000".to_string(),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(6u128),
+                }]
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "liquidator00000".to_string(),
+                amount: vec![Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(6u128),
+                }]
+            }))
+        ]
+    );
+}
+
+#[test]
 fn partial_one_collateral_two_slots() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_tax(
@@ -348,6 +473,7 @@ fn partial_one_collateral_two_slots() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -460,6 +586,7 @@ fn partial_one_collateral_two_slots_with_fees() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -581,6 +708,7 @@ fn non_partial_liquidation() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(1000000u128),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -679,6 +807,7 @@ fn non_partial_liquidation_two_slots() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(1000000u128),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -782,6 +911,7 @@ fn non_partial_liquidation_with_fees() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(1000000u128),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -889,6 +1019,7 @@ fn non_partial_liquidation_two_slots_with_fees() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(1000000u128),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -1001,6 +1132,7 @@ fn non_partial_liquidation_two_slots_with_fees_big_nums() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(2000000000u128),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -1115,6 +1247,7 @@ fn partial_two_collaterals_ltv_diff() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -1279,6 +1412,7 @@ fn partial_two_collaterals_multi_slots_per_col() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -1453,6 +1587,7 @@ fn partial_two_collaterals_one_slot_diff_ltv() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -1618,6 +1753,7 @@ fn partial_three_collaterals_one_slot_diff_ltv() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -1835,6 +1971,7 @@ fn partial_three_collaterals_one_slot_diff_ltv_big_amounts() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -2058,6 +2195,7 @@ fn partial_three_collaterals_one_slot_diff_ltv_big_amounts_2() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -2280,6 +2418,7 @@ fn not_enough_bids_for_one_of_two_col() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -2469,6 +2608,7 @@ fn integration_test_simul() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(80),
         bid_fee: Decimal256::percent(0),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::zero(),
         price_timeframe: 60u64,
         waiting_period: 60u64,
