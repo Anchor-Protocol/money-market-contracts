@@ -50,7 +50,6 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::UpdateConfig {
             owner,
             oracle_contract,
-            stable_denom,
             safe_ratio,
             bid_fee,
             liquidation_threshold,
@@ -62,7 +61,6 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             info,
             owner,
             oracle_contract,
-            stable_denom,
             safe_ratio,
             bid_fee,
             liquidation_threshold,
@@ -139,7 +137,6 @@ pub fn update_config(
     info: MessageInfo,
     owner: Option<String>,
     oracle_contract: Option<String>,
-    stable_denom: Option<String>,
     safe_ratio: Option<Decimal256>,
     bid_fee: Option<Decimal256>,
     liquidation_threshold: Option<Uint256>,
@@ -158,10 +155,6 @@ pub fn update_config(
 
     if let Some(oracle_contract) = oracle_contract {
         config.oracle_contract = deps.api.addr_canonicalize(&oracle_contract)?;
-    }
-
-    if let Some(stable_denom) = stable_denom {
-        config.stable_denom = stable_denom;
     }
 
     if let Some(safe_ratio) = safe_ratio {

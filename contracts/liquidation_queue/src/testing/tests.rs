@@ -77,7 +77,6 @@ fn update_config() {
     let msg = ExecuteMsg::UpdateConfig {
         owner: Some("owner0001".to_string()),
         oracle_contract: None,
-        stable_denom: None,
         safe_ratio: None,
         bid_fee: None,
         liquidation_threshold: None,
@@ -112,7 +111,6 @@ fn update_config() {
     let msg = ExecuteMsg::UpdateConfig {
         owner: None,
         oracle_contract: Some("oracle0001".to_string()),
-        stable_denom: Some("ukrw".to_string()),
         safe_ratio: Some(Decimal256::percent(15)),
         bid_fee: Some(Decimal256::percent(2)),
         liquidation_threshold: Some(Uint256::from(150000000u64)),
@@ -132,7 +130,7 @@ fn update_config() {
         ConfigResponse {
             owner: "owner0001".to_string(),
             oracle_contract: "oracle0001".to_string(),
-            stable_denom: "ukrw".to_string(),
+            stable_denom: "uusd".to_string(),
             safe_ratio: Decimal256::percent(15),
             bid_fee: Decimal256::percent(2),
             liquidation_threshold: Uint256::from(150000000u64),
@@ -147,7 +145,6 @@ fn update_config() {
     let msg = ExecuteMsg::UpdateConfig {
         owner: None,
         oracle_contract: Some("oracle0001".to_string()),
-        stable_denom: Some("ukrw".to_string()),
         safe_ratio: Some(Decimal256::percent(1)),
         bid_fee: Some(Decimal256::percent(2)),
         liquidation_threshold: Some(Uint256::from(150000000u64)),

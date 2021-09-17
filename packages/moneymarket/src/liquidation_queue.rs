@@ -36,7 +36,6 @@ pub enum ExecuteMsg {
     UpdateConfig {
         owner: Option<String>,
         oracle_contract: Option<String>,
-        stable_denom: Option<String>,
         safe_ratio: Option<Decimal256>,
         bid_fee: Option<Decimal256>,
         liquidation_threshold: Option<Uint256>,
