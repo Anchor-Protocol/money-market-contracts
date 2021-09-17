@@ -29,18 +29,27 @@ pub fn submit_bid(
         read_collateral_info(deps.storage, &collateral_token_raw)?;
     let bidder_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
 
-    let amount: Uint256 = Uint256::from(
-        info.funds
-            .iter()
-            .find(|c| c.denom == config.stable_denom)
-            .map(|c| c.amount)
-            .ok_or_else(|| {
-                StdError::generic_err(format!(
-                    "No {} assets have been provided",
+    let amount: Uint256 = info
+        .funds
+        .iter()
+        .map(|item| {
+            if item.denom != config.stable_denom {
+                Err(StdError::generic_err(format!(
+                    "Invalid asset provided, only {} allowed",
                     config.stable_denom
-                ))
-            })?,
-    );
+                )))
+            } else {
+                Ok(item.amount)
+            }
+        })
+        .last()
+        .ok_or_else(|| {
+            StdError::generic_err(format!(
+                "No {} assets have been provided",
+                config.stable_denom
+            ))
+        })??
+        .into();
 
     // read or create bid_pool, make sure slot is valid
     let mut bid_pool: BidPool =

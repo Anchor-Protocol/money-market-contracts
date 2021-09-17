@@ -199,6 +199,38 @@ fn submit_bid() {
     let info = mock_info(
         "addr0000",
         &[Coin {
+            denom: "uluna".to_string(),
+            amount: Uint128::from(1000000u128),
+        }],
+    );
+    let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+    assert_eq!(
+        err,
+        StdError::generic_err("Invalid asset provided, only uusd allowed")
+    );
+
+    let info = mock_info(
+        "addr0000",
+        &[
+            Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128::from(1000000u128),
+            },
+            Coin {
+                denom: "uluna".to_string(),
+                amount: Uint128::from(1000000u128),
+            },
+        ],
+    );
+    let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+    assert_eq!(
+        err,
+        StdError::generic_err("Invalid asset provided, only uusd allowed")
+    );
+
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
             denom: "uusd".to_string(),
             amount: Uint128::from(1000000u128),
         }],
