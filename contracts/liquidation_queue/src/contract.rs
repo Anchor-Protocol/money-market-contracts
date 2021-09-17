@@ -122,6 +122,7 @@ pub fn receive_cw20(
             execute_liquidation(
                 deps,
                 env,
+                cw20_msg.sender,
                 repay_address,
                 fee_address,
                 collateral_token,

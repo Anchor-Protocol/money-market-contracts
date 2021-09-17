@@ -1,4 +1,5 @@
 use crate::asserts::{assert_activate_status, assert_withdraw_amount};
+use crate::querier::query_collateral_whitelist_info;
 use crate::state::{
     pop_bid_idx, read_bid, read_bid_pool, read_bids_by_user, read_collateral_info, read_config,
     read_epoch_scale_sum, read_or_create_bid_pool, read_total_bids, remove_bid, store_bid,
@@ -270,6 +271,7 @@ pub fn retract_bid(
 pub fn execute_liquidation(
     deps: DepsMut,
     env: Env,
+    sender: String,
     repay_address: String,
     fee_address: String,
     collateral_token: String,
@@ -280,6 +282,20 @@ pub fn execute_liquidation(
     let collateral_info: CollateralInfo =
         read_collateral_info(deps.storage, &collateral_token_raw)?;
     let available_bids: Uint256 = read_total_bids(deps.storage, &collateral_token_raw)?;
+
+    // only collateral token custody can execute liquidations
+    let overseer = deps.api.addr_humanize(&config.overseer)?;
+    let custody_contract = query_collateral_whitelist_info(
+        &deps.querier,
+        overseer.to_string(),
+        collateral_token.to_string(),
+    )?
+    .custody_contract;
+    if sender != custody_contract {
+        return Err(StdError::generic_err(
+            "Unauthorized: only custody contract can execute liquidations",
+        ));
+    }
 
     let oracle_contract = deps.api.addr_humanize(&config.oracle_contract)?;
     let price: PriceResponse = query_price(

@@ -1,5 +1,5 @@
 use crate::bid::{calculate_liquidated_collateral, calculate_remaining_bid};
-use crate::querier::query_collateral_max_ltv;
+use crate::querier::query_collateral_whitelist_info;
 use crate::state::{
     read_bid, read_bid_pool, read_bid_pools, read_bids_by_user, read_collateral_info, read_config,
     read_total_bids, Bid, BidPool, CollateralInfo, Config,
@@ -164,11 +164,12 @@ fn compute_collateral_weights(
         let collateral_available_bids =
             read_total_bids(deps.storage, &deps.api.addr_canonicalize(&collateral.0)?)
                 .unwrap_or_default();
-        let max_ltv = query_collateral_max_ltv(
+        let max_ltv = query_collateral_whitelist_info(
             &deps.querier,
             overseer.to_string(),
             collateral.0.to_string(),
-        )?;
+        )?
+        .max_ltv;
 
         let collateral_value = collateral.1 * *price;
         let weigth = collateral_value.min(collateral_available_bids) / max_ltv;

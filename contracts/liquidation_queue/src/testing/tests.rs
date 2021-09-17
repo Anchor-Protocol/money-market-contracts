@@ -481,6 +481,9 @@ fn execute_bid() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"asset0000".to_string(), &Decimal256::percent(90))]);
+
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
@@ -552,8 +555,27 @@ fn execute_bid() {
         })
         .unwrap(),
     });
+
+    // unauthorized attempt
     let info = mock_info("asset0000", &[]);
     let env = mock_env();
+    let err = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
+    assert_eq!(
+        err,
+        StdError::generic_err("Unauthorized: only custody contract can execute liquidations",)
+    );
+
+    let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+        sender: "custody0000".to_string(), // only custody contract can execute
+        amount: Uint128::from(1000000u128),
+        msg: to_binary(&Cw20HookMsg::ExecuteBid {
+            liquidator: "liquidator00000".to_string(),
+            fee_address: Some("fee0000".to_string()),
+            repay_address: Some("repay0000".to_string()),
+        })
+        .unwrap(),
+    });
+
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
     assert_eq!(
         res.messages,
@@ -576,7 +598,7 @@ fn execute_bid() {
     );
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(1000000u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -590,14 +612,14 @@ fn execute_bid() {
         res.messages,
         vec![
             SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "addr0001".to_string(),
+                to_address: "custody0000".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
                     amount: Uint128::from(485198u128), // 490050 / (1 + tax_rate)
                 }]
             })),
             SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "addr0001".to_string(),
+                to_address: "custody0000".to_string(),
                 amount: vec![Coin {
                     denom: "uusd".to_string(),
                     amount: Uint128::from(4900u128), // 4950 / (1 + tax_rate)
@@ -607,7 +629,7 @@ fn execute_bid() {
     );
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(2020206u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -630,6 +652,8 @@ fn claim_liquidations() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"asset0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
@@ -692,7 +716,7 @@ fn claim_liquidations() {
     // repay_amount    490,050
     let info = mock_info("asset0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(1000000u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
