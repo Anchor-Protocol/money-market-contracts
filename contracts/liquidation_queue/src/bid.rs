@@ -101,7 +101,7 @@ pub fn activate_bids(
     let collateral_token_raw: CanonicalAddr = deps.api.addr_canonicalize(&collateral_token)?;
     let collateral_info: CollateralInfo =
         read_collateral_info(deps.storage, &collateral_token_raw)?;
-    let available_bids: Uint256 =
+    let mut available_bids: Uint256 =
         read_total_bids(deps.storage, &collateral_token_raw).unwrap_or_default();
 
     let bids: Vec<Bid> = if let Some(bids_idx) = bids_idx {
@@ -145,13 +145,10 @@ pub fn activate_bids(
         )?;
 
         total_activated_amount += amount_to_activate;
+        available_bids += amount_to_activate;
     }
 
-    store_total_bids(
-        deps.storage,
-        &collateral_token_raw,
-        available_bids + total_activated_amount,
-    )?;
+    store_total_bids(deps.storage, &collateral_token_raw, available_bids)?;
 
     Ok(Response::new().add_attributes(vec![
         attr("action", "activate_bids"),
