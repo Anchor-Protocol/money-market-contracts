@@ -1,10 +1,11 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, QueryRequest,
-    ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg, WasmQuery,
+    ReplyOn, Response, StdResult, SubMsg, Uint128, WasmMsg, WasmQuery,
 };
 
 use crate::contract::{CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION};
+use crate::error::ContractError;
 use crate::external::handle::{RewardContractExecuteMsg, RewardContractQueryMsg};
 use crate::state::{read_config, BLunaAccruedRewardsResponse, Config};
 
@@ -23,10 +24,10 @@ pub fn distribute_rewards(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let config: Config = read_config(deps.storage)?;
     if config.overseer_contract != deps.api.addr_canonicalize(info.sender.as_str())? {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     let contract_addr = env.contract.address;
@@ -53,7 +54,10 @@ pub fn distribute_rewards(
 
 /// Apply swapped reward to global index
 /// Executor: itself
-pub fn distribute_hook(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn distribute_hook(
+    deps: DepsMut,
+    env: Env,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let contract_addr = env.contract.address;
     let config: Config = read_config(deps.storage)?;
     let overseer_contract = deps.api.addr_humanize(&config.overseer_contract)?;
@@ -88,7 +92,10 @@ pub fn distribute_hook(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWr
 /// Swap all coins to stable_denom
 /// and execute `swap_hook`
 /// Executor: itself
-pub fn swap_to_stable_denom(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn swap_to_stable_denom(
+    deps: DepsMut,
+    env: Env,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let config: Config = read_config(deps.storage)?;
 
     let contract_addr = env.contract.address;

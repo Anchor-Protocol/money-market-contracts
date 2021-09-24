@@ -1,4 +1,5 @@
 use crate::contract::{execute, instantiate, query};
+use crate::error::ContractError;
 use crate::querier::query_epoch_state;
 use crate::state::{read_epoch_state, store_epoch_state, EpochState};
 use crate::testing::mock_querier::mock_dependencies;
@@ -7,7 +8,7 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Decimal,
-    StdError, SubMsg, Uint128, WasmMsg,
+    SubMsg, Uint128, WasmMsg,
 };
 
 use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
@@ -172,7 +173,7 @@ fn update_config() {
 
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("Must return unauthorized error"),
     }
 }
@@ -211,7 +212,7 @@ fn whitelist() {
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     };
 
@@ -265,9 +266,7 @@ fn whitelist() {
     let info = mock_info("owner", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
     match res {
-        StdError::GenericErr { msg, .. } => {
-            assert_eq!(msg, "Token is already registered as collateral")
-        }
+        ContractError::TokenAlreadyRegistered {} => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -280,7 +279,7 @@ fn whitelist() {
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     };
 
@@ -390,10 +389,7 @@ fn execute_epoch_operations() {
     let msg = ExecuteMsg::ExecuteEpochOperations {};
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(
-            msg,
-            "An epoch has not passed yet; last executed height: 12345"
-        ),
+        Err(ContractError::EpochNotPassed(12345)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -603,7 +599,7 @@ fn update_epoch_state() {
     };
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -914,9 +910,7 @@ fn unlock_collateral() {
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Unlock amount cannot exceed locked amount")
-        }
+        Err(ContractError::UnlockExceedsLocked {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -951,12 +945,7 @@ fn unlock_collateral() {
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(
-                msg,
-                "Unlock amount too high; Loan liability becomes greater than borrow limit: 12599999400"
-            )
-        }
+        Err(ContractError::UnlockTooLarge(12599999400)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -965,12 +954,7 @@ fn unlock_collateral() {
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(
-                msg,
-                "Unlock amount too high; Loan liability becomes greater than borrow limit: 12599998800"
-            )
-        }
+        Err(ContractError::UnlockTooLarge(12599998800)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -996,9 +980,7 @@ fn unlock_collateral() {
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Unlock amount too high; Loan liability becomes greater than borrow limit: 12599998800")
-        }
+        Err(ContractError::UnlockTooLarge(12599998800)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -1177,9 +1159,7 @@ fn liquidate_collateral() {
     let info = mock_info("addr0001", &[]);
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Cannot liquidate safely collateralized loan")
-        }
+        Err(ContractError::CannotLiquidateSafeLoan {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 

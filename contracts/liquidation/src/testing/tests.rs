@@ -1,10 +1,11 @@
 use crate::contract::{execute, instantiate, query};
+use crate::error::ContractError;
 use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, mock_info};
 use cosmwasm_std::{
-    from_binary, to_binary, BankMsg, Coin, CosmosMsg, Decimal, StdError, SubMsg, Uint128, WasmMsg,
+    from_binary, to_binary, BankMsg, Coin, CosmosMsg, Decimal, SubMsg, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use moneymarket::liquidation::{
@@ -150,7 +151,7 @@ fn update_config() {
 
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("Must return unauthorized error"),
     }
 }
@@ -178,10 +179,9 @@ fn submit_bid() {
         premium_rate: Decimal256::percent(20),
     };
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+    let _premium_string = "0.05".to_string();
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Premium rate cannot exceed the max premium rate: 0.05")
-        }
+        Err(ContractError::PremiumExceedsMaxPremium(_premium_string)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -190,10 +190,9 @@ fn submit_bid() {
         premium_rate: Decimal256::percent(1),
     };
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
+    let _uusd = "uusd".to_string();
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "No uusd assets have been provided")
-        }
+        Err(ContractError::AssetNotProvided(_uusd)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -267,9 +266,7 @@ fn retract_bid() {
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Retract amount cannot exceed bid balance: 1000000")
-        }
+        Err(ContractError::RetractExceedsBid(1000000)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -363,9 +360,7 @@ fn execute_bid() {
     let info = mock_info("asset0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Insufficient bid balance; Required balance: 1000001")
-        }
+        Err(ContractError::InsufficientBidBalance(1000001)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
     // required_stable 495,000

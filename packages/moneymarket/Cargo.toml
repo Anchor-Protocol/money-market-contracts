@@ -1,6 +1,6 @@
 [package]
 name = "moneymarket"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
 description = "Common helpers for other moneymarket specs"
@@ -17,7 +17,7 @@ documentation = "https://docs.terra.money"
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cw20 = { version = "0.8.0" }
+cw20 = "0.8.0"
 cosmwasm-bignumber = "2.2.0"
 cosmwasm-storage = "0.16.0"
 terra-cosmwasm = "2.2.0"
