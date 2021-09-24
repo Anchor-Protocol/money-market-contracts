@@ -17,22 +17,22 @@
       "$ref": "#/definitions/BAssetInfo"
     },
     "collateral_token": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "liquidation_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "market_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "overseer_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "owner": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "reward_contract": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "stable_denom": {
       "type": "string"
@@ -59,9 +59,6 @@
           "type": "string"
         }
       }
-    },
-    "HumanAddr": {
-      "type": "string"
     }
   }
 }

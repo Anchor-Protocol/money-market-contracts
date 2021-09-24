@@ -11,7 +11,8 @@
         "config": {
           "type": "object"
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -26,11 +27,12 @@
           ],
           "properties": {
             "address": {
-              "$ref": "#/definitions/HumanAddr"
+              "type": "string"
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -50,23 +52,15 @@
               "minimum": 0.0
             },
             "start_after": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     }
-  ],
-  "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    }
-  }
+  ]
 }

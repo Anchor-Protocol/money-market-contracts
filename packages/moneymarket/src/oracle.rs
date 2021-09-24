@@ -2,23 +2,22 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::Decimal256;
-use cosmwasm_std::HumanAddr;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {
-    pub owner: HumanAddr,
+pub struct InstantiateMsg {
+    pub owner: String,
     pub base_asset: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+pub enum ExecuteMsg {
     UpdateConfig {
-        owner: Option<HumanAddr>,
+        owner: Option<String>,
     },
     RegisterFeeder {
         asset: String,
-        feeder: HumanAddr,
+        feeder: String,
     },
     FeedPrice {
         prices: Vec<(String, Decimal256)>, // (asset, price)
@@ -45,7 +44,7 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub owner: HumanAddr,
+    pub owner: String,
     pub base_asset: String,
 }
 
@@ -53,7 +52,7 @@ pub struct ConfigResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct FeederResponse {
     pub asset: String,
-    pub feeder: HumanAddr,
+    pub feeder: String,
 }
 
 // We define a custom struct for each query response
@@ -77,7 +76,3 @@ pub struct PricesResponseElem {
 pub struct PricesResponse {
     pub prices: Vec<PricesResponseElem>,
 }
-
-/// We currently take no arguments for migrations
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MigrateMsg {}

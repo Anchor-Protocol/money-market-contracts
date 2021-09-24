@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, Coin, Decimal, Extern, HumanAddr, Querier,
-    QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Coin, ContractResult, Decimal, OwnedDeps, Querier,
+    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use std::collections::HashMap;
 
@@ -22,18 +22,14 @@ pub enum QueryMsg {
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
 pub fn mock_dependencies(
-    canonical_length: usize,
     contract_balance: &[Coin],
-) -> Extern<MockStorage, MockApi, WasmMockQuerier> {
-    let contract_addr = HumanAddr::from(MOCK_CONTRACT_ADDR);
-    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
-        MockQuerier::new(&[(&contract_addr, contract_balance)]),
-        MockApi::new(canonical_length),
-    );
+) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
+    let custom_querier: WasmMockQuerier =
+        WasmMockQuerier::new(MockQuerier::new(&[(MOCK_CONTRACT_ADDR, contract_balance)]));
 
-    Extern {
+    OwnedDeps {
         storage: MockStorage::default(),
-        api: MockApi::new(canonical_length),
+        api: MockApi::default(),
         querier: custom_querier,
     }
 }
@@ -74,6 +70,7 @@ pub struct OraclePriceQuerier {
     oracle_price: HashMap<(String, String), (Decimal256, u64, u64)>,
 }
 
+#[allow(clippy::type_complexity)]
 impl OraclePriceQuerier {
     pub fn new(oracle_price: &[(&(String, String), &(Decimal256, u64, u64))]) -> Self {
         OraclePriceQuerier {
@@ -82,6 +79,7 @@ impl OraclePriceQuerier {
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) fn oracle_price_to_map(
     oracle_price: &[(&(String, String), &(Decimal256, u64, u64))],
 ) -> HashMap<(String, String), (Decimal256, u64, u64)> {
@@ -99,7 +97,7 @@ impl Querier for WasmMockQuerier {
         let request: QueryRequest<TerraQueryWrapper> = match from_slice(bin_request) {
             Ok(v) => v,
             Err(e) => {
-                return Err(SystemError::InvalidRequest {
+                return SystemResult::Err(SystemError::InvalidRequest {
                     error: format!("Parsing query request: {}", e),
                     request: bin_request.into(),
                 })
@@ -119,7 +117,7 @@ impl WasmMockQuerier {
                             let res = TaxRateResponse {
                                 rate: self.tax_querier.rate,
                             };
-                            Ok(to_binary(&res))
+                            SystemResult::Ok(ContractResult::from(to_binary(&res)))
                         }
                         TerraQuery::TaxCap { denom } => {
                             let cap = self
@@ -129,7 +127,7 @@ impl WasmMockQuerier {
                                 .copied()
                                 .unwrap_or_default();
                             let res = TaxCapResponse { cap };
-                            Ok(to_binary(&res))
+                            SystemResult::Ok(ContractResult::from(to_binary(&res)))
                         }
                         _ => panic!("DO NOT ENTER HERE"),
                     }
@@ -140,15 +138,17 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: _,
                 msg,
-            }) => match from_binary(&msg).unwrap() {
+            }) => match from_binary(msg).unwrap() {
                 QueryMsg::Price { base, quote } => {
                     match self.oracle_price_querier.oracle_price.get(&(base, quote)) {
-                        Some(v) => Ok(to_binary(&PriceResponse {
-                            rate: v.0,
-                            last_updated_base: v.1,
-                            last_updated_quote: v.2,
-                        })),
-                        None => Err(SystemError::InvalidRequest {
+                        Some(v) => {
+                            SystemResult::Ok(ContractResult::from(to_binary(&PriceResponse {
+                                rate: v.0,
+                                last_updated_base: v.1,
+                                last_updated_quote: v.2,
+                            })))
+                        }
+                        None => SystemResult::Err(SystemError::InvalidRequest {
                             error: "No oracle price exists".to_string(),
                             request: msg.as_slice().into(),
                         }),
@@ -161,7 +161,7 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new<A: Api>(base: MockQuerier<TerraQueryWrapper>, _api: A) -> Self {
+    pub fn new(base: MockQuerier<TerraQueryWrapper>) -> Self {
         WasmMockQuerier {
             base,
             tax_querier: TaxQuerier::default(),
@@ -174,6 +174,7 @@ impl WasmMockQuerier {
         self.tax_querier = TaxQuerier::new(rate, caps);
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn with_oracle_price(
         &mut self,
         oracle_price: &[(&(String, String), &(Decimal256, u64, u64))],

@@ -12,7 +12,8 @@
         "redeem_stable": {
           "type": "object"
         }
-      }
+      },
+      "additionalProperties": false
     }
   ]
 }

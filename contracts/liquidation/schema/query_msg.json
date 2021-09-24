@@ -11,7 +11,8 @@
         "config": {
           "type": "object"
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -46,7 +47,7 @@
                 "type": "array",
                 "items": [
                   {
-                    "$ref": "#/definitions/HumanAddr"
+                    "type": "string"
                   },
                   {
                     "$ref": "#/definitions/Uint256"
@@ -58,7 +59,8 @@
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -74,14 +76,15 @@
           ],
           "properties": {
             "bidder": {
-              "$ref": "#/definitions/HumanAddr"
+              "type": "string"
             },
             "collateral_token": {
-              "$ref": "#/definitions/HumanAddr"
+              "type": "string"
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -96,7 +99,7 @@
           ],
           "properties": {
             "bidder": {
-              "$ref": "#/definitions/HumanAddr"
+              "type": "string"
             },
             "limit": {
               "type": [
@@ -107,18 +110,15 @@
               "minimum": 0.0
             },
             "start_after": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -133,7 +133,7 @@
           ],
           "properties": {
             "collateral_token": {
-              "$ref": "#/definitions/HumanAddr"
+              "type": "string"
             },
             "limit": {
               "type": [
@@ -144,26 +144,20 @@
               "minimum": 0.0
             },
             "start_after": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {
     "Decimal256": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal256(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 115792089237316195423570985008687907853269984665640564039457.584007913129639935 (which is (2^128 - 1) / 10^18)",
-      "type": "string"
-    },
-    "HumanAddr": {
       "type": "string"
     },
     "Uint256": {

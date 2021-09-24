@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "HandleMsg",
+  "title": "ExecuteMsg",
   "anyOf": [
     {
       "description": "Owner operations Update Configs",
@@ -41,33 +41,21 @@
               "minimum": 0.0
             },
             "liquidation_contract": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             },
             "oracle_contract": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             },
             "owner_addr": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             },
             "price_timeframe": {
@@ -100,7 +88,8 @@
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "description": "Create new custody contract for the given collateral token",
@@ -120,10 +109,10 @@
           ],
           "properties": {
             "collateral_token": {
-              "$ref": "#/definitions/HumanAddr"
+              "type": "string"
             },
             "custody_contract": {
-              "$ref": "#/definitions/HumanAddr"
+              "type": "string"
             },
             "max_ltv": {
               "$ref": "#/definitions/Decimal256"
@@ -136,7 +125,8 @@
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "description": "Update registered whitelist info",
@@ -152,16 +142,12 @@
           ],
           "properties": {
             "collateral_token": {
-              "$ref": "#/definitions/HumanAddr"
+              "type": "string"
             },
             "custody_contract": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             },
             "max_ltv": {
@@ -176,7 +162,8 @@
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "description": "Claims all staking rewards from the bAsset contracts and also do a epoch basis updates 1. Distribute interest buffers to depositors 2. Invoke [Custody] DistributeRewards 3. Update epoch state",
@@ -188,7 +175,8 @@
         "execute_epoch_operations": {
           "type": "object"
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -211,7 +199,8 @@
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "description": "User operations",
@@ -232,7 +221,7 @@
                 "type": "array",
                 "items": [
                   {
-                    "$ref": "#/definitions/HumanAddr"
+                    "type": "string"
                   },
                   {
                     "$ref": "#/definitions/Uint256"
@@ -244,7 +233,8 @@
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -264,7 +254,7 @@
                 "type": "array",
                 "items": [
                   {
-                    "$ref": "#/definitions/HumanAddr"
+                    "type": "string"
                   },
                   {
                     "$ref": "#/definitions/Uint256"
@@ -276,7 +266,8 @@
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     {
       "description": "Permissionless operations",
@@ -292,19 +283,17 @@
           ],
           "properties": {
             "borrower": {
-              "$ref": "#/definitions/HumanAddr"
+              "type": "string"
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {
     "Decimal256": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal256(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 115792089237316195423570985008687907853269984665640564039457.584007913129639935 (which is (2^128 - 1) / 10^18)",
-      "type": "string"
-    },
-    "HumanAddr": {
       "type": "string"
     },
     "Uint256": {

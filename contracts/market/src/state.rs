@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::{Api, CanonicalAddr, Extern, HumanAddr, Order, Querier, StdResult, Storage};
+use cosmwasm_std::{CanonicalAddr, Deps, Order, StdResult, Storage};
 use cosmwasm_storage::{bucket, bucket_read, ReadonlyBucket, ReadonlySingleton, Singleton};
 
 use moneymarket::market::BorrowerInfoResponse;
@@ -47,32 +47,32 @@ pub struct BorrowerInfo {
     pub pending_rewards: Decimal256,
 }
 
-pub fn store_config<S: Storage>(storage: &mut S, data: &Config) -> StdResult<()> {
+pub fn store_config(storage: &mut dyn Storage, data: &Config) -> StdResult<()> {
     Singleton::new(storage, KEY_CONFIG).save(data)
 }
 
-pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
+pub fn read_config(storage: &dyn Storage) -> StdResult<Config> {
     ReadonlySingleton::new(storage, KEY_CONFIG).load()
 }
 
-pub fn store_state<S: Storage>(storage: &mut S, data: &State) -> StdResult<()> {
+pub fn store_state(storage: &mut dyn Storage, data: &State) -> StdResult<()> {
     Singleton::new(storage, KEY_STATE).save(data)
 }
 
-pub fn read_state<S: Storage>(storage: &S) -> StdResult<State> {
+pub fn read_state(storage: &dyn Storage) -> StdResult<State> {
     ReadonlySingleton::new(storage, KEY_STATE).load()
 }
 
-pub fn store_borrower_info<S: Storage>(
-    storage: &mut S,
+pub fn store_borrower_info(
+    storage: &mut dyn Storage,
     borrower: &CanonicalAddr,
     liability: &BorrowerInfo,
 ) -> StdResult<()> {
-    bucket(PREFIX_LIABILITY, storage).save(borrower.as_slice(), liability)
+    bucket(storage, PREFIX_LIABILITY).save(borrower.as_slice(), liability)
 }
 
-pub fn read_borrower_info<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> BorrowerInfo {
-    match bucket_read(PREFIX_LIABILITY, storage).load(borrower.as_slice()) {
+pub fn read_borrower_info(storage: &dyn Storage, borrower: &CanonicalAddr) -> BorrowerInfo {
+    match bucket_read(storage, PREFIX_LIABILITY).load(borrower.as_slice()) {
         Ok(v) => v,
         _ => BorrowerInfo {
             interest_index: Decimal256::one(),
@@ -86,13 +86,13 @@ pub fn read_borrower_info<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> 
 // settings for pagination
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
-pub fn read_borrower_infos<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn read_borrower_infos(
+    deps: Deps,
     start_after: Option<CanonicalAddr>,
     limit: Option<u32>,
 ) -> StdResult<Vec<BorrowerInfoResponse>> {
-    let liability_bucket: ReadonlyBucket<S, BorrowerInfo> =
-        bucket_read(PREFIX_LIABILITY, &deps.storage);
+    let liability_bucket: ReadonlyBucket<BorrowerInfo> =
+        bucket_read(deps.storage, PREFIX_LIABILITY);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = calc_range_start(start_after);
@@ -102,7 +102,7 @@ pub fn read_borrower_infos<S: Storage, A: Api, Q: Querier>(
         .take(limit)
         .map(|elem| {
             let (k, v) = elem?;
-            let borrower: HumanAddr = deps.api.human_address(&CanonicalAddr::from(k))?;
+            let borrower = deps.api.addr_humanize(&CanonicalAddr::from(k))?.to_string();
             Ok(BorrowerInfoResponse {
                 borrower,
                 interest_index: v.interest_index,

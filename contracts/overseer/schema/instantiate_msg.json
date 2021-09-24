@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "InitMsg",
+  "title": "InstantiateMsg",
   "type": "object",
   "required": [
     "anc_purchase_factor",
@@ -35,11 +35,7 @@
     },
     "collector_contract": {
       "description": "Collector contract address which is purchasing ANC token",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      ]
+      "type": "string"
     },
     "epoch_period": {
       "title": "of blocks per epoch period",
@@ -49,35 +45,19 @@
     },
     "liquidation_contract": {
       "description": "Liquidation model contract address to compute liquidation amount",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      ]
+      "type": "string"
     },
     "market_contract": {
       "description": "Market contract address to receive missing interest buffer",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      ]
+      "type": "string"
     },
     "oracle_contract": {
       "description": "Oracle contract address for collateral tokens",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      ]
+      "type": "string"
     },
     "owner_addr": {
       "description": "Initial owner address",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      ]
+      "type": "string"
     },
     "price_timeframe": {
       "description": "Valid oracle price timeframe",
@@ -109,9 +89,6 @@
   "definitions": {
     "Decimal256": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal256(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 115792089237316195423570985008687907853269984665640564039457.584007913129639935 (which is (2^128 - 1) / 10^18)",
-      "type": "string"
-    },
-    "HumanAddr": {
       "type": "string"
     }
   }

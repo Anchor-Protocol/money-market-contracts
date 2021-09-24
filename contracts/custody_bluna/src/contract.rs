@@ -1,6 +1,8 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, log, to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, InitResult, Querier, StdError, StdResult, Storage,
+    attr, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    StdResult,
 };
 
 use crate::collateral::{
@@ -8,139 +10,178 @@ use crate::collateral::{
     unlock_collateral, withdraw_collateral,
 };
 use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
+use crate::error::ContractError;
 use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20ReceiveMsg;
-use moneymarket::custody::{ConfigResponse, Cw20HookMsg, HandleMsg, InitMsg, QueryMsg};
+use moneymarket::common::optional_addr_validate;
+use moneymarket::custody::{ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
 use terra_cosmwasm::TerraMsgWrapper;
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub const CLAIM_REWARDS_OPERATION: u64 = 1u64;
+pub const SWAP_TO_STABLE_OPERATION: u64 = 2u64;
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     _env: Env,
-    msg: InitMsg,
-) -> InitResult {
+    _info: MessageInfo,
+    msg: InstantiateMsg,
+) -> StdResult<Response> {
     let config = Config {
-        owner: deps.api.canonical_address(&msg.owner)?,
-        overseer_contract: deps.api.canonical_address(&msg.overseer_contract)?,
-        collateral_token: deps.api.canonical_address(&msg.collateral_token)?,
-        market_contract: deps.api.canonical_address(&msg.market_contract)?,
-        reward_contract: deps.api.canonical_address(&msg.reward_contract)?,
-        liquidation_contract: deps.api.canonical_address(&msg.liquidation_contract)?,
+        owner: deps.api.addr_canonicalize(&msg.owner)?,
+        overseer_contract: deps.api.addr_canonicalize(&msg.overseer_contract)?,
+        collateral_token: deps.api.addr_canonicalize(&msg.collateral_token)?,
+        market_contract: deps.api.addr_canonicalize(&msg.market_contract)?,
+        reward_contract: deps.api.addr_canonicalize(&msg.reward_contract)?,
+        liquidation_contract: deps.api.addr_canonicalize(&msg.liquidation_contract)?,
         stable_denom: msg.stable_denom,
         basset_info: msg.basset_info,
     };
 
-    store_config(&mut deps.storage, &config)?;
+    store_config(deps.storage, &config)?;
 
-    Ok(InitResponse::default())
+    Ok(Response::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(
+    deps: DepsMut,
     env: Env,
-    msg: HandleMsg,
-) -> HandleResult<TerraMsgWrapper> {
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     match msg {
-        HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
-        HandleMsg::UpdateConfig {
+        ExecuteMsg::Receive(msg) => receive_cw20(deps, info, msg),
+        ExecuteMsg::UpdateConfig {
             owner,
             liquidation_contract,
-        } => update_config(deps, env, owner, liquidation_contract),
-        HandleMsg::LockCollateral { borrower, amount } => {
-            lock_collateral(deps, env, borrower, amount)
+        } => {
+            let api = deps.api;
+            update_config(
+                deps,
+                info,
+                optional_addr_validate(api, owner)?,
+                optional_addr_validate(api, liquidation_contract)?,
+            )
         }
-        HandleMsg::UnlockCollateral { borrower, amount } => {
-            unlock_collateral(deps, env, borrower, amount)
+        ExecuteMsg::LockCollateral { borrower, amount } => {
+            let borrower_addr = deps.api.addr_validate(&borrower)?;
+            lock_collateral(deps, info, borrower_addr, amount)
         }
-        HandleMsg::DistributeRewards {} => distribute_rewards(deps, env),
-        HandleMsg::DistributeHook {} => distribute_hook(deps, env),
-        HandleMsg::SwapToStableDenom {} => swap_to_stable_denom(deps, env),
-        HandleMsg::WithdrawCollateral { amount } => withdraw_collateral(deps, env, amount),
-        HandleMsg::LiquidateCollateral {
+        ExecuteMsg::UnlockCollateral { borrower, amount } => {
+            let borrower_addr = deps.api.addr_validate(&borrower)?;
+            unlock_collateral(deps, info, borrower_addr, amount)
+        }
+        ExecuteMsg::DistributeRewards {} => distribute_rewards(deps, env, info),
+        ExecuteMsg::WithdrawCollateral { amount } => withdraw_collateral(deps, info, amount),
+        ExecuteMsg::LiquidateCollateral {
             liquidator,
             borrower,
             amount,
-        } => liquidate_collateral(deps, env, liquidator, borrower, amount),
-    }
-}
-
-pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    cw20_msg: Cw20ReceiveMsg,
-) -> HandleResult<TerraMsgWrapper> {
-    let contract_addr = env.message.sender;
-    if let Some(msg) = cw20_msg.msg {
-        match from_binary(&msg)? {
-            Cw20HookMsg::DepositCollateral {} => {
-                // only asset contract can execute this message
-                let config: Config = read_config(&deps.storage)?;
-                if deps.api.canonical_address(&contract_addr)? != config.collateral_token {
-                    return Err(StdError::unauthorized());
-                }
-
-                deposit_collateral(deps, cw20_msg.sender, cw20_msg.amount.into())
-            }
+        } => {
+            let liquidator_addr = deps.api.addr_validate(&liquidator)?;
+            let borrower_addr = deps.api.addr_validate(&borrower)?;
+            liquidate_collateral(deps, info, liquidator_addr, borrower_addr, amount)
         }
-    } else {
-        Err(StdError::generic_err(
-            "Invalid request: \"deposit collateral\" message not included in request",
-        ))
     }
 }
 
-pub fn update_config<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(
+    deps: DepsMut,
     env: Env,
-    owner: Option<HumanAddr>,
-    liquidation_contract: Option<HumanAddr>,
-) -> HandleResult<TerraMsgWrapper> {
-    let mut config: Config = read_config(&deps.storage)?;
+    msg: Reply,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
+    match msg.id {
+        // ClaimRewards callback
+        CLAIM_REWARDS_OPERATION => swap_to_stable_denom(deps, env),
+        // Swap to stable callback
+        SWAP_TO_STABLE_OPERATION => distribute_hook(deps, env),
+        _ => Err(ContractError::InvalidReplyId {}),
+    }
+}
 
-    if deps.api.canonical_address(&env.message.sender)? != config.owner {
-        return Err(StdError::unauthorized());
+pub fn receive_cw20(
+    deps: DepsMut,
+    info: MessageInfo,
+    cw20_msg: Cw20ReceiveMsg,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
+    let contract_addr = info.sender;
+
+    match from_binary(&cw20_msg.msg) {
+        Ok(Cw20HookMsg::DepositCollateral {}) => {
+            // only asset contract can execute this message
+            let config: Config = read_config(deps.storage)?;
+            if deps.api.addr_canonicalize(contract_addr.as_str())? != config.collateral_token {
+                return Err(ContractError::Unauthorized {});
+            }
+
+            let cw20_sender_addr = deps.api.addr_validate(&cw20_msg.sender)?;
+            deposit_collateral(deps, cw20_sender_addr, cw20_msg.amount.into())
+        }
+        _ => Err(ContractError::MissingDepositCollateralHook {}),
+    }
+}
+
+pub fn update_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    owner: Option<Addr>,
+    liquidation_contract: Option<Addr>,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
+    let mut config: Config = read_config(deps.storage)?;
+
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
+        return Err(ContractError::Unauthorized {});
     }
 
     if let Some(owner) = owner {
-        config.owner = deps.api.canonical_address(&owner)?;
+        config.owner = deps.api.addr_canonicalize(owner.as_str())?;
     }
 
     if let Some(liquidation_contract) = liquidation_contract {
-        config.liquidation_contract = deps.api.canonical_address(&liquidation_contract)?;
+        config.liquidation_contract = deps.api.addr_canonicalize(liquidation_contract.as_str())?;
     }
 
-    store_config(&mut deps.storage, &config)?;
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![log("action", "update_config")],
-        data: None,
-    })
+    store_config(deps.storage, &config)?;
+    Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::Borrower { address } => to_binary(&query_borrower(deps, address)?),
-        QueryMsg::Borrowers { start_after, limit } => {
-            to_binary(&query_borrowers(deps, start_after, limit)?)
+        QueryMsg::Borrower { address } => {
+            let addr = deps.api.addr_validate(&address)?;
+            to_binary(&query_borrower(deps, addr)?)
         }
+        QueryMsg::Borrowers { start_after, limit } => to_binary(&query_borrowers(
+            deps,
+            optional_addr_validate(deps.api, start_after)?,
+            limit,
+        )?),
     }
 }
 
-pub fn query_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let config: Config = read_config(&deps.storage)?;
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let config: Config = read_config(deps.storage)?;
     Ok(ConfigResponse {
-        owner: deps.api.human_address(&config.owner)?,
-        collateral_token: deps.api.human_address(&config.collateral_token)?,
-        overseer_contract: deps.api.human_address(&config.overseer_contract)?,
-        market_contract: deps.api.human_address(&config.market_contract)?,
-        reward_contract: deps.api.human_address(&config.reward_contract)?,
-        liquidation_contract: deps.api.human_address(&config.liquidation_contract)?,
+        owner: deps.api.addr_humanize(&config.owner)?.to_string(),
+        collateral_token: deps
+            .api
+            .addr_humanize(&config.collateral_token)?
+            .to_string(),
+        overseer_contract: deps
+            .api
+            .addr_humanize(&config.overseer_contract)?
+            .to_string(),
+        market_contract: deps.api.addr_humanize(&config.market_contract)?.to_string(),
+        reward_contract: deps.api.addr_humanize(&config.reward_contract)?.to_string(),
+        liquidation_contract: deps
+            .api
+            .addr_humanize(&config.liquidation_contract)?
+            .to_string(),
         stable_denom: config.stable_denom,
         basset_info: config.basset_info,
     })

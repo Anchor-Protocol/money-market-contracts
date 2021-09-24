@@ -12,7 +12,8 @@
         "deposit_collateral": {
           "type": "object"
         }
-      }
+      },
+      "additionalProperties": false
     }
   ]
 }

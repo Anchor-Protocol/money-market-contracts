@@ -15,36 +15,24 @@
           ],
           "properties": {
             "fee_address": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             },
             "liquidator": {
-              "$ref": "#/definitions/HumanAddr"
+              "type": "string"
             },
             "repay_address": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/HumanAddr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     }
-  ],
-  "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    }
-  }
+  ]
 }

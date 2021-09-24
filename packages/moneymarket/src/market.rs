@@ -2,14 +2,13 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::HumanAddr;
 use cw20::Cw20ReceiveMsg;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct InitMsg {
+pub struct InstantiateMsg {
     /// Owner address for config update
-    pub owner_addr: HumanAddr,
+    pub owner_addr: String,
     /// stable coin denom used to borrow & repay
     pub stable_denom: String,
     /// Anchor token code ID used to instantiate
@@ -22,7 +21,7 @@ pub struct InitMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+pub enum ExecuteMsg {
     Receive(Cw20ReceiveMsg),
 
     ////////////////////
@@ -30,29 +29,25 @@ pub enum HandleMsg {
     ////////////////////
     /// Register Contracts contract address
     RegisterContracts {
-        overseer_contract: HumanAddr,
+        overseer_contract: String,
         /// The contract has the logics for
         /// Anchor borrow interest rate
-        interest_model: HumanAddr,
+        interest_model: String,
         /// The contract has the logics for
         /// ANC distribution speed
-        distribution_model: HumanAddr,
+        distribution_model: String,
         /// Collector contract to send all the reserve
-        collector_contract: HumanAddr,
+        collector_contract: String,
         /// Faucet contract to drip ANC token to users
-        distributor_contract: HumanAddr,
+        distributor_contract: String,
     },
-
-    /// (internal) Register A-token contract address
-    /// A-Token will invoke this after init
-    RegisterATerra {},
 
     /// Update config values
     UpdateConfig {
-        owner_addr: Option<HumanAddr>,
+        owner_addr: Option<String>,
         max_borrow_factor: Option<Decimal256>,
-        interest_model: Option<HumanAddr>,
-        distribution_model: Option<HumanAddr>,
+        interest_model: Option<String>,
+        distribution_model: Option<String>,
     },
 
     ////////////////////
@@ -60,7 +55,7 @@ pub enum HandleMsg {
     ////////////////////
     /// Repay stable with liquidated collaterals
     RepayStableFromLiquidation {
-        borrower: HumanAddr,
+        borrower: String,
         prev_balance: Uint256,
     },
 
@@ -83,7 +78,7 @@ pub enum HandleMsg {
     /// Borrow stable asset with collaterals in overseer contract
     BorrowStable {
         borrow_amount: Uint256,
-        to: Option<HumanAddr>,
+        to: Option<String>,
     },
 
     /// Repay stable asset to decrease liability
@@ -91,7 +86,7 @@ pub enum HandleMsg {
 
     /// Claim distributed ANC rewards
     ClaimRewards {
-        to: Option<HumanAddr>,
+        to: Option<String>,
     },
 }
 
@@ -101,12 +96,6 @@ pub enum Cw20HookMsg {
     /// Return stable coins to a user
     /// according to exchange rate
     RedeemStable {},
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct MigrateMsg {
-    pub collector_contract: HumanAddr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -121,11 +110,11 @@ pub enum QueryMsg {
         distributed_interest: Option<Uint256>,
     },
     BorrowerInfo {
-        borrower: HumanAddr,
+        borrower: String,
         block_height: Option<u64>,
     },
     BorrowerInfos {
-        start_after: Option<HumanAddr>,
+        start_after: Option<String>,
         limit: Option<u32>,
     },
 }
@@ -133,13 +122,13 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub owner_addr: HumanAddr,
-    pub aterra_contract: HumanAddr,
-    pub interest_model: HumanAddr,
-    pub distribution_model: HumanAddr,
-    pub overseer_contract: HumanAddr,
-    pub collector_contract: HumanAddr,
-    pub distributor_contract: HumanAddr,
+    pub owner_addr: String,
+    pub aterra_contract: String,
+    pub interest_model: String,
+    pub distribution_model: String,
+    pub overseer_contract: String,
+    pub collector_contract: String,
+    pub distributor_contract: String,
     pub stable_denom: String,
     pub max_borrow_factor: Decimal256,
 }
@@ -168,7 +157,7 @@ pub struct EpochStateResponse {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BorrowerInfoResponse {
-    pub borrower: HumanAddr,
+    pub borrower: String,
     pub interest_index: Decimal256,
     pub reward_index: Decimal256,
     pub loan_amount: Uint256,

@@ -1,12 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Array_of_Tuple_of_and_HumanAddr_and_Uint256",
+  "title": "Array_of_Tuple_of_String_and_Uint256",
   "type": "array",
   "items": {
     "type": "array",
     "items": [
       {
-        "$ref": "#/definitions/HumanAddr"
+        "type": "string"
       },
       {
         "$ref": "#/definitions/Uint256"
@@ -16,9 +16,6 @@
     "minItems": 2
   },
   "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    },
     "Uint256": {
       "type": "string"
     }

@@ -27,10 +27,10 @@
           "$ref": "#/definitions/Uint256"
         },
         "bidder": {
-          "$ref": "#/definitions/HumanAddr"
+          "type": "string"
         },
         "collateral_token": {
-          "$ref": "#/definitions/HumanAddr"
+          "type": "string"
         },
         "premium_rate": {
           "$ref": "#/definitions/Decimal256"
@@ -39,9 +39,6 @@
     },
     "Decimal256": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal256(1_000_000_000_000_000_000) == 1.0 The greatest possible value that can be represented is 115792089237316195423570985008687907853269984665640564039457.584007913129639935 (which is (2^128 - 1) / 10^18)",
-      "type": "string"
-    },
-    "HumanAddr": {
       "type": "string"
     },
     "Uint256": {
