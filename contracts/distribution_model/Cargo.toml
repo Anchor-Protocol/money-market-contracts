@@ -1,6 +1,6 @@
 [package]
 name = "moneymarket-distribution-model"
-version = "0.2.0"
+version = "0.0.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
 description = "A MoneyMarket distribution contract - handles over distribution model for ANC token"
@@ -34,12 +34,13 @@ overflow-checks = true
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.2.0"}
+moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.3.0"}
 cosmwasm-bignumber = "2.2.0"
 cosmwasm-std = "0.16.0"
 cosmwasm-storage = "0.16.0"
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+thiserror = "1.0.2"
 
 [dev-dependencies]
 cosmwasm-schema = "0.16.0"

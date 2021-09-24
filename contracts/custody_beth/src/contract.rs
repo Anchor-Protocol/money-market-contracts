@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdError, StdResult,
+    StdResult,
 };
 
 use crate::collateral::{
@@ -10,6 +10,7 @@ use crate::collateral::{
     unlock_collateral, withdraw_collateral,
 };
 use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
+use crate::error::ContractError;
 use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20ReceiveMsg;
@@ -49,7 +50,7 @@ pub fn execute(
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, info, msg),
         ExecuteMsg::UpdateConfig {
@@ -87,13 +88,17 @@ pub fn execute(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn reply(
+    deps: DepsMut,
+    env: Env,
+    msg: Reply,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     match msg.id {
         // ClaimRewards callback
         CLAIM_REWARDS_OPERATION => swap_to_stable_denom(deps, env),
         // Swap to stable callback
         SWAP_TO_STABLE_OPERATION => distribute_hook(deps, env),
-        _ => Err(StdError::generic_err("reply id does not exist")),
+        _ => Err(ContractError::InvalidReplyId {}),
     }
 }
 
@@ -101,7 +106,7 @@ pub fn receive_cw20(
     deps: DepsMut,
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let contract_addr = info.sender;
 
     match from_binary(&cw20_msg.msg) {
@@ -109,15 +114,13 @@ pub fn receive_cw20(
             // only asset contract can execute this message
             let config: Config = read_config(deps.storage)?;
             if deps.api.addr_canonicalize(contract_addr.as_str())? != config.collateral_token {
-                return Err(StdError::generic_err("unauthorized"));
+                return Err(ContractError::Unauthorized {});
             }
 
             let cw20_sender_addr = deps.api.addr_validate(&cw20_msg.sender)?;
             deposit_collateral(deps, cw20_sender_addr, cw20_msg.amount.into())
         }
-        _ => Err(StdError::generic_err(
-            "Invalid request: \"deposit collateral\" message not included in request",
-        )),
+        _ => Err(ContractError::MissingDepositCollateralHook {}),
     }
 }
 
@@ -126,11 +129,11 @@ pub fn update_config(
     info: MessageInfo,
     owner: Option<Addr>,
     liquidation_contract: Option<Addr>,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
 
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     if let Some(owner) = owner {

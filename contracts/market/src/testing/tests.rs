@@ -1,4 +1,5 @@
 use crate::contract::{execute, instantiate, query, reply, INITIAL_DEPOSIT_AMOUNT};
+use crate::error::ContractError;
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_borrower_infos, read_state, store_state, State};
 use crate::testing::mock_querier::mock_dependencies;
@@ -8,7 +9,7 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, BankMsg, Coin, ContractResult, CosmosMsg, Decimal, Reply,
-    StdError, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
+    SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
 use cw20::{Cw20Coin, Cw20ExecuteMsg, Cw20ReceiveMsg, MinterResponse};
 use moneymarket::market::{
@@ -236,7 +237,7 @@ fn update_config() {
 
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("Must return unauthorized error"),
     }
 }
@@ -301,10 +302,9 @@ fn deposit_stable_huge_amount() {
     );
 
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
+    let _uusd_string = "uusd";
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Deposit amount must be greater than 0 uusd")
-        }
+        Err(ContractError::ZeroDeposit(_uusd_string)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -458,10 +458,9 @@ fn deposit_stable() {
     );
 
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
+    let _uusd_string = "uusd";
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Deposit amount must be greater than 0 uusd")
-        }
+        Err(ContractError::ZeroDeposit(_uusd_string)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -476,9 +475,7 @@ fn deposit_stable() {
 
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Deposit amount must be greater than 0 uusd")
-        }
+        Err(ContractError::ZeroDeposit(_uusd_string)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -733,7 +730,7 @@ fn redeem_stable() {
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -790,10 +787,10 @@ fn redeem_stable() {
     );
 
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone());
+    let _uusd_string = "uusd";
+    println!("{:?}", res);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Not enough uusd available; borrow demand too high")
-        }
+        Err(ContractError::NoStableAvailable(_uusd_string)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -952,7 +949,7 @@ fn borrow_stable() {
         from_binary::<State>(
             &query(
                 deps.as_ref(),
-                mock_env(),
+                env.clone(),
                 QueryMsg::State { block_height: None }
             )
             .unwrap()
@@ -1072,10 +1069,7 @@ fn borrow_stable() {
     };
     let res = execute(deps.as_mut(), env, info, msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(
-            msg,
-            "Borrow amount too high; Loan liability becomes greater than borrow limit: 1000000"
-        ),
+        Err(ContractError::BorrowExceedsLimit(1000000)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 }
@@ -1183,11 +1177,9 @@ fn assert_max_borrow_factor() {
         to: None,
     };
     let res = execute(deps.as_mut(), mock_env(), info, msg);
+    let _uusd_string = "uusd";
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(
-            msg,
-            "Exceeds uusd max borrow factor; borrow demand too high"
-        ),
+        Err(ContractError::MaxBorrowFactorReached(_uusd_string)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 }
@@ -1282,10 +1274,9 @@ fn repay_stable() {
     }];
 
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
+    let _uusd_string = "uusd";
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Repay amount must be greater than 0 uusd")
-        }
+        Err(ContractError::ZeroRepay(_uusd_string)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -1296,9 +1287,7 @@ fn repay_stable() {
 
     let res2 = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     match res2 {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Repay amount must be greater than 0 uusd")
-        }
+        Err(ContractError::ZeroRepay(_uusd_string)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -1483,17 +1472,16 @@ fn repay_stable_from_liquidation() {
 
     let res = execute(deps.as_mut(), env.clone(), info, msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
     let info = mock_info("overseer", &[]);
 
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
+    let _uusd_string = "uusd";
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Repay amount must be greater than 0 uusd")
-        }
+        Err(ContractError::ZeroRepay(__uusd_string)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -1769,7 +1757,7 @@ fn execute_epoch_operations() {
     // only overseer can execute this
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 

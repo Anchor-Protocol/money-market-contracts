@@ -1,7 +1,8 @@
 use crate::contract::{execute, instantiate, query};
+use crate::error::ContractError;
 use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::from_binary;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-use cosmwasm_std::{from_binary, StdError};
 use moneymarket::interest_model::{
     BorrowRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
@@ -91,7 +92,7 @@ fn update_config() {
 
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("Must return unauthorized error"),
     }
 }

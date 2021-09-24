@@ -2,13 +2,14 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    Response, StdError, StdResult, WasmMsg,
+    Response, StdResult, WasmMsg,
 };
 
 use crate::collateral::{
     liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
     query_collaterals, unlock_collateral,
 };
+use crate::error::ContractError;
 use crate::querier::query_epoch_state;
 use crate::state::{
     read_config, read_epoch_state, read_whitelist, read_whitelist_elem, store_config,
@@ -65,7 +66,12 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig {
             owner_addr,
@@ -154,11 +160,11 @@ pub fn update_config(
     anc_purchase_factor: Option<Decimal256>,
     epoch_period: Option<u64>,
     price_timeframe: Option<u64>,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
 
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     if let Some(owner_addr) = owner_addr {
@@ -212,17 +218,15 @@ pub fn register_whitelist(
     collateral_token: Addr,
     custody_contract: Addr,
     max_ltv: Decimal256,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     let collateral_token_raw = deps.api.addr_canonicalize(collateral_token.as_str())?;
     if read_whitelist_elem(deps.storage, &collateral_token_raw).is_ok() {
-        return Err(StdError::generic_err(
-            "Token is already registered as collateral",
-        ));
+        return Err(ContractError::TokenAlreadyRegistered {});
     }
 
     store_whitelist_elem(
@@ -252,10 +256,10 @@ pub fn update_whitelist(
     collateral_token: Addr,
     custody_contract: Option<Addr>,
     max_ltv: Option<Decimal256>,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     let collateral_token_raw = deps.api.addr_canonicalize(collateral_token.as_str())?;
@@ -283,14 +287,11 @@ pub fn update_whitelist(
     ]))
 }
 
-pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> {
+pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     let state: EpochState = read_epoch_state(deps.storage)?;
     if env.block.height < state.last_executed_height + config.epoch_period {
-        return Err(StdError::generic_err(format!(
-            "An epoch has not passed yet; last executed height: {}",
-            state.last_executed_height
-        )));
+        return Err(ContractError::EpochNotPassed(state.last_executed_height));
     }
 
     // # of blocks from the last executed height
@@ -420,11 +421,11 @@ pub fn update_epoch_state(
     // pass interest_buffer from execute_epoch_operations
     interest_buffer: Uint256,
     distributed_interest: Uint256,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     let overseer_epoch_state: EpochState = read_epoch_state(deps.storage)?;
     if info.sender != env.contract.address {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     // # of blocks from the last executed height

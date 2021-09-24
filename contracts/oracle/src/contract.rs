@@ -1,3 +1,4 @@
+use crate::error::ContractError;
 use crate::state::{
     read_config, read_feeder, read_price, read_prices, store_config, store_feeder, store_price,
     Config, PriceInfo,
@@ -5,9 +6,7 @@ use crate::state::{
 use cosmwasm_bignumber::Decimal256;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    attr, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
-};
+use cosmwasm_std::{attr, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use moneymarket::oracle::{
     ConfigResponse, ExecuteMsg, FeederResponse, InstantiateMsg, PriceResponse, PricesResponse,
     PricesResponseElem, QueryMsg,
@@ -32,7 +31,12 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig { owner } => update_config(deps, info, owner),
         ExecuteMsg::RegisterFeeder { asset, feeder } => register_feeder(deps, info, asset, feeder),
@@ -44,10 +48,10 @@ pub fn update_config(
     deps: DepsMut,
     info: MessageInfo,
     owner: Option<String>,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     if let Some(owner) = owner {
@@ -63,10 +67,10 @@ pub fn register_feeder(
     info: MessageInfo,
     asset: String,
     feeder: String,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     store_feeder(deps.storage, &asset, &deps.api.addr_canonicalize(&feeder)?)?;
@@ -83,7 +87,7 @@ pub fn feed_prices(
     env: Env,
     info: MessageInfo,
     prices: Vec<(String, Decimal256)>,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let mut attributes = vec![attr("action", "feed_prices")];
     let sender_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
     for price in prices {
@@ -93,7 +97,7 @@ pub fn feed_prices(
         // Check feeder permission
         let feeder = read_feeder(deps.storage, &asset)?;
         if feeder != sender_raw {
-            return Err(StdError::generic_err("unauthorized"));
+            return Err(ContractError::Unauthorized {});
         }
 
         attributes.push(attr("asset", asset.to_string()));
