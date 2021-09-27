@@ -2,9 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::{
-    Api, CanonicalAddr, Extern, HumanAddr, Order, Querier, StdError, StdResult, Storage,
-};
+use cosmwasm_std::{CanonicalAddr, Deps, Order, StdError, StdResult, Storage};
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
 
 use moneymarket::overseer::{CollateralsResponse, WhitelistResponseElem};
@@ -49,40 +47,40 @@ pub struct WhitelistElem {
     pub custody_contract: CanonicalAddr,
 }
 
-pub fn store_config<S: Storage>(storage: &mut S, data: &Config) -> StdResult<()> {
+pub fn store_config(storage: &mut dyn Storage, data: &Config) -> StdResult<()> {
     Singleton::new(storage, KEY_CONFIG).save(data)
 }
 
-pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
+pub fn read_config(storage: &dyn Storage) -> StdResult<Config> {
     ReadonlySingleton::new(storage, KEY_CONFIG).load()
 }
 
-pub fn store_epoch_state<S: Storage>(storage: &mut S, data: &EpochState) -> StdResult<()> {
+pub fn store_epoch_state(storage: &mut dyn Storage, data: &EpochState) -> StdResult<()> {
     Singleton::new(storage, KEY_EPOCH_STATE).save(data)
 }
 
-pub fn read_epoch_state<S: Storage>(storage: &S) -> StdResult<EpochState> {
+pub fn read_epoch_state(storage: &dyn Storage) -> StdResult<EpochState> {
     ReadonlySingleton::new(storage, KEY_EPOCH_STATE).load()
 }
 
-pub fn store_whitelist_elem<S: Storage>(
-    storage: &mut S,
+pub fn store_whitelist_elem(
+    storage: &mut dyn Storage,
     collateral_token: &CanonicalAddr,
     whitelist_elem: &WhitelistElem,
 ) -> StdResult<()> {
-    let mut whitelist_bucket: Bucket<S, WhitelistElem> = Bucket::new(PREFIX_WHITELIST, storage);
-    whitelist_bucket.save(collateral_token.as_slice(), &whitelist_elem)?;
+    let mut whitelist_bucket: Bucket<WhitelistElem> = Bucket::new(storage, PREFIX_WHITELIST);
+    whitelist_bucket.save(collateral_token.as_slice(), whitelist_elem)?;
 
     Ok(())
 }
 
-pub fn read_whitelist_elem<S: Storage>(
-    storage: &S,
+pub fn read_whitelist_elem(
+    storage: &dyn Storage,
     collateral_token: &CanonicalAddr,
 ) -> StdResult<WhitelistElem> {
-    let whitelist_bucket: ReadonlyBucket<S, WhitelistElem> =
-        ReadonlyBucket::new(PREFIX_WHITELIST, storage);
-    match whitelist_bucket.load(&collateral_token.as_slice()) {
+    let whitelist_bucket: ReadonlyBucket<WhitelistElem> =
+        ReadonlyBucket::new(storage, PREFIX_WHITELIST);
+    match whitelist_bucket.load(collateral_token.as_slice()) {
         Ok(v) => Ok(v),
         _ => Err(StdError::generic_err(
             "Token is not registered as collateral",
@@ -90,13 +88,13 @@ pub fn read_whitelist_elem<S: Storage>(
     }
 }
 
-pub fn read_whitelist<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn read_whitelist(
+    deps: Deps,
     start_after: Option<CanonicalAddr>,
     limit: Option<u32>,
 ) -> StdResult<Vec<WhitelistResponseElem>> {
-    let whitelist_bucket: ReadonlyBucket<S, WhitelistElem> =
-        ReadonlyBucket::new(PREFIX_WHITELIST, &deps.storage);
+    let whitelist_bucket: ReadonlyBucket<WhitelistElem> =
+        ReadonlyBucket::new(deps.storage, PREFIX_WHITELIST);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = calc_range_start(start_after);
@@ -106,8 +104,8 @@ pub fn read_whitelist<S: Storage, A: Api, Q: Querier>(
         .take(limit)
         .map(|elem| {
             let (k, v) = elem?;
-            let collateral_token: HumanAddr = deps.api.human_address(&CanonicalAddr::from(k))?;
-            let custody_contract: HumanAddr = deps.api.human_address(&v.custody_contract)?;
+            let collateral_token = deps.api.addr_humanize(&CanonicalAddr::from(k))?.to_string();
+            let custody_contract = deps.api.addr_humanize(&v.custody_contract)?.to_string();
             Ok(WhitelistResponseElem {
                 name: v.name,
                 symbol: v.symbol,
@@ -120,25 +118,25 @@ pub fn read_whitelist<S: Storage, A: Api, Q: Querier>(
 }
 
 #[allow(clippy::ptr_arg)]
-pub fn store_collaterals<S: Storage>(
-    storage: &mut S,
+pub fn store_collaterals(
+    storage: &mut dyn Storage,
     borrower: &CanonicalAddr,
     collaterals: &Tokens,
 ) -> StdResult<()> {
-    let mut collaterals_bucket: Bucket<S, Tokens> = Bucket::new(PREFIX_COLLATERALS, storage);
-    if collaterals.len() == 0 {
-        collaterals_bucket.remove(&borrower.as_slice());
+    let mut collaterals_bucket: Bucket<Tokens> = Bucket::new(storage, PREFIX_COLLATERALS);
+    if collaterals.is_empty() {
+        collaterals_bucket.remove(borrower.as_slice());
     } else {
-        collaterals_bucket.save(&borrower.as_slice(), &collaterals)?;
+        collaterals_bucket.save(borrower.as_slice(), collaterals)?;
     }
 
     Ok(())
 }
 
-pub fn read_collaterals<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> Tokens {
-    let collaterals_bucket: ReadonlyBucket<S, Tokens> =
-        ReadonlyBucket::new(PREFIX_COLLATERALS, storage);
-    match collaterals_bucket.load(&borrower.as_slice()) {
+pub fn read_collaterals(storage: &dyn Storage, borrower: &CanonicalAddr) -> Tokens {
+    let collaterals_bucket: ReadonlyBucket<Tokens> =
+        ReadonlyBucket::new(storage, PREFIX_COLLATERALS);
+    match collaterals_bucket.load(borrower.as_slice()) {
         Ok(v) => v,
         _ => vec![],
     }
@@ -147,13 +145,13 @@ pub fn read_collaterals<S: Storage>(storage: &S, borrower: &CanonicalAddr) -> To
 // settings for pagination
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
-pub fn read_all_collaterals<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn read_all_collaterals(
+    deps: Deps,
     start_after: Option<CanonicalAddr>,
     limit: Option<u32>,
 ) -> StdResult<Vec<CollateralsResponse>> {
-    let whitelist_bucket: ReadonlyBucket<S, Tokens> =
-        ReadonlyBucket::new(PREFIX_COLLATERALS, &deps.storage);
+    let whitelist_bucket: ReadonlyBucket<Tokens> =
+        ReadonlyBucket::new(deps.storage, PREFIX_COLLATERALS);
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = calc_range_start(start_after);
@@ -163,11 +161,11 @@ pub fn read_all_collaterals<S: Storage, A: Api, Q: Querier>(
         .take(limit)
         .map(|elem| {
             let (k, v) = elem?;
-            let borrower: HumanAddr = deps.api.human_address(&CanonicalAddr::from(k))?;
-            let collaterals: Vec<(HumanAddr, Uint256)> = v
+            let borrower = deps.api.addr_humanize(&CanonicalAddr::from(k))?.to_string();
+            let collaterals: Vec<(String, Uint256)> = v
                 .iter()
-                .map(|c| Ok((deps.api.human_address(&c.0)?, c.1)))
-                .collect::<StdResult<Vec<(HumanAddr, Uint256)>>>()?;
+                .map(|c| Ok((deps.api.addr_humanize(&c.0)?.to_string(), c.1)))
+                .collect::<StdResult<Vec<(String, Uint256)>>>()?;
 
             Ok(CollateralsResponse {
                 borrower,

@@ -3,87 +3,69 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    from_binary, to_binary, AllBalanceResponse, Api, BalanceResponse, BankQuery, Binary, Coin,
-    Extern, HumanAddr, Querier, QueryRequest, StdError, StdResult, Storage, Uint128, WasmQuery,
+    to_binary, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Coin, Deps, QueryRequest,
+    StdError, StdResult, Uint128, WasmQuery,
 };
-use cosmwasm_storage::to_length_prefixed;
-use cw20::TokenInfoResponse;
+use cw20::{Cw20QueryMsg, TokenInfoResponse};
 use terra_cosmwasm::TerraQuerier;
 
 use crate::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};
 
-pub fn query_all_balances<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    account_addr: &HumanAddr,
-) -> StdResult<Vec<Coin>> {
+pub fn query_all_balances(deps: Deps, account_addr: Addr) -> StdResult<Vec<Coin>> {
     // load price form the oracle
     let all_balances: AllBalanceResponse =
         deps.querier
             .query(&QueryRequest::Bank(BankQuery::AllBalances {
-                address: HumanAddr::from(account_addr),
+                address: account_addr.to_string(),
             }))?;
     Ok(all_balances.amount)
 }
 
-pub fn query_balance<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    account_addr: &HumanAddr,
-    denom: String,
-) -> StdResult<Uint256> {
+pub fn query_balance(deps: Deps, account_addr: Addr, denom: String) -> StdResult<Uint256> {
     // load price form the oracle
     let balance: BalanceResponse = deps.querier.query(&QueryRequest::Bank(BankQuery::Balance {
-        address: HumanAddr::from(account_addr),
+        address: account_addr.to_string(),
         denom,
     }))?;
     Ok(balance.amount.amount.into())
 }
 
-pub fn query_token_balance<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
-    account_addr: &HumanAddr,
+pub fn query_token_balance(
+    deps: Deps,
+    contract_addr: Addr,
+    account_addr: Addr,
 ) -> StdResult<Uint256> {
     // load balance form the token contract
-    let res: Binary = deps
+    let balance: Uint128 = deps
         .querier
-        .query(&QueryRequest::Wasm(WasmQuery::Raw {
-            contract_addr: HumanAddr::from(contract_addr),
-            key: Binary::from(concat(
-                &to_length_prefixed(b"balance").to_vec(),
-                (deps.api.canonical_address(&account_addr)?).as_slice(),
-            )),
+        .query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: contract_addr.to_string(),
+            msg: to_binary(&Cw20QueryMsg::Balance {
+                address: account_addr.to_string(),
+            })?,
         }))
-        .unwrap_or_else(|_| to_binary(&Uint128::zero()).unwrap());
+        .unwrap_or_else(|_| Uint128::zero());
 
-    let balance: Uint128 = from_binary(&res)?;
     Ok(balance.into())
 }
 
-pub fn query_supply<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
-) -> StdResult<Uint256> {
+pub fn query_supply(deps: Deps, contract_addr: Addr) -> StdResult<Uint256> {
     // load price form the oracle
-    let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: HumanAddr::from(contract_addr),
-        key: Binary::from(to_length_prefixed(b"token_info")),
-    }))?;
+    let token_info: TokenInfoResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: contract_addr.to_string(),
+            msg: to_binary(&Cw20QueryMsg::TokenInfo {})?,
+        }))?;
 
-    let token_info: TokenInfoResponse = from_binary(&res)?;
     Ok(Uint256::from(token_info.total_supply))
 }
 
-pub fn query_tax_rate<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<Decimal256> {
+pub fn query_tax_rate(deps: Deps) -> StdResult<Decimal256> {
     let terra_querier = TerraQuerier::new(&deps.querier);
     Ok(terra_querier.query_tax_rate()?.rate.into())
 }
 
-pub fn compute_tax<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    coin: &Coin,
-) -> StdResult<Uint256> {
+pub fn compute_tax(deps: Deps, coin: &Coin) -> StdResult<Uint256> {
     let terra_querier = TerraQuerier::new(&deps.querier);
     let tax_rate = Decimal256::from((terra_querier.query_tax_rate()?).rate);
     let tax_cap = Uint256::from((terra_querier.query_tax_cap(coin.denom.to_string())?).cap);
@@ -94,10 +76,7 @@ pub fn compute_tax<S: Storage, A: Api, Q: Querier>(
     ))
 }
 
-pub fn deduct_tax<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    coin: Coin,
-) -> StdResult<Coin> {
+pub fn deduct_tax(deps: Deps, coin: Coin) -> StdResult<Coin> {
     let tax_amount = compute_tax(deps, &coin)?;
     Ok(Coin {
         denom: coin.denom,
@@ -111,16 +90,16 @@ pub struct TimeConstraints {
     pub valid_timeframe: u64,
 }
 
-pub fn query_price<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    oracle_addr: &HumanAddr,
+pub fn query_price(
+    deps: Deps,
+    oracle_addr: Addr,
     base: String,
     quote: String,
     time_contraints: Option<TimeConstraints>,
 ) -> StdResult<PriceResponse> {
     let oracle_price: PriceResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: HumanAddr::from(oracle_addr),
+            contract_addr: oracle_addr.to_string(),
             msg: to_binary(&OracleQueryMsg::Price { base, quote })?,
         }))?;
 
@@ -134,11 +113,4 @@ pub fn query_price<S: Storage, A: Api, Q: Querier>(
     }
 
     Ok(oracle_price)
-}
-
-#[inline]
-fn concat(namespace: &[u8], key: &[u8]) -> Vec<u8> {
-    let mut k = namespace.to_vec();
-    k.extend_from_slice(key);
-    k
 }

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "InitMsg",
+  "title": "InstantiateMsg",
   "type": "object",
   "required": [
     "basset_info",
@@ -18,51 +18,27 @@
     },
     "collateral_token": {
       "description": "bAsset token address",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      ]
+      "type": "string"
     },
     "liquidation_contract": {
       "description": "liquidation contract address",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      ]
+      "type": "string"
     },
     "market_contract": {
       "description": "market contract address",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      ]
+      "type": "string"
     },
     "overseer_contract": {
       "description": "overseer contract address",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      ]
+      "type": "string"
     },
     "owner": {
       "description": "owner address",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      ]
+      "type": "string"
     },
     "reward_contract": {
       "description": "bAsset rewrad contract",
-      "allOf": [
-        {
-          "$ref": "#/definitions/HumanAddr"
-        }
-      ]
+      "type": "string"
     },
     "stable_denom": {
       "description": "Expected reward denom. If bAsset reward is not same with it, we try to convert the reward to the `stable_denom`.",
@@ -90,9 +66,6 @@
           "type": "string"
         }
       }
-    },
-    "HumanAddr": {
-      "type": "string"
     }
   }
 }

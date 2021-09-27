@@ -34,15 +34,16 @@ overflow-checks = true
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.2.0"}
-cosmwasm-bignumber = "1.0"
-cosmwasm-std = "0.10.1"
-cosmwasm-storage = "0.10.1"
-schemars = "0.7"
+moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.3.0"}
+cosmwasm-bignumber = "2.2.0"
+cosmwasm-std = "0.16.0"
+cosmwasm-storage = "0.16.0"
+schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+thiserror = "1.0.2"
 
 [dev-dependencies]
-cosmwasm-schema = "0.10.1"
+cosmwasm-schema = "0.16.0"
 
 [profile.dev]
 overflow-checks = true

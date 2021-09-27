@@ -1,6 +1,6 @@
 [package]
 name = "moneymarket"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
 description = "Common helpers for other moneymarket specs"
@@ -17,16 +17,16 @@ documentation = "https://docs.terra.money"
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cw20 = "0.2" 
-cosmwasm-bignumber = "1.0.0"
-cosmwasm-storage = "0.10.1"
-terra-cosmwasm = "1.2.2" 
-cosmwasm-std = "0.10.1"
-schemars = "0.7"
+cw20 = "0.8.0"
+cosmwasm-bignumber = "2.2.0"
+cosmwasm-storage = "0.16.0"
+terra-cosmwasm = "2.2.0"
+cosmwasm-std = "0.16.0"
+schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-cosmwasm-schema = "0.10.1"
+cosmwasm-schema = "0.16.0"
 
 [profile.dev]
 overflow-checks = true

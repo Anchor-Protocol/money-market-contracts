@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr,
-    Querier, QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Addr, Api, CanonicalAddr, Coin, ContractResult, Decimal,
+    OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
@@ -27,7 +27,7 @@ pub enum QueryMsg {
     },
     /// Query borrow limit to overseer contract
     BorrowLimit {
-        borrower: HumanAddr,
+        borrower: String,
         block_time: Option<u64>,
     },
     /// Query ANC emission rate to distribution model contract
@@ -39,24 +39,21 @@ pub enum QueryMsg {
     },
     /// Query overseer config to get target deposit rate
     Config {},
+    /// Query cw20 Token Info
+    TokenInfo {},
 }
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
 pub fn mock_dependencies(
-    canonical_length: usize,
     contract_balance: &[Coin],
-) -> Extern<MockStorage, MockApi, WasmMockQuerier> {
-    let contract_addr = HumanAddr::from(MOCK_CONTRACT_ADDR);
-    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
-        MockQuerier::new(&[(&contract_addr, contract_balance)]),
-        canonical_length,
-        MockApi::new(canonical_length),
-    );
+) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
+    let custom_querier: WasmMockQuerier =
+        WasmMockQuerier::new(MockQuerier::new(&[(MOCK_CONTRACT_ADDR, contract_balance)]));
 
-    Extern {
+    OwnedDeps {
         storage: MockStorage::default(),
-        api: MockApi::new(canonical_length),
+        api: MockApi::default(),
         querier: custom_querier,
     }
 }
@@ -67,17 +64,16 @@ pub struct WasmMockQuerier {
     tax_querier: TaxQuerier,
     borrow_rate_querier: BorrowRateQuerier,
     borrow_limit_querier: BorrowLimitQuerier,
-    canonical_length: usize,
 }
 
 #[derive(Clone, Default)]
 pub struct TokenQuerier {
     // this lets us iterate over all pairs that match the first string
-    balances: HashMap<HumanAddr, HashMap<HumanAddr, Uint128>>,
+    balances: HashMap<String, HashMap<String, Uint128>>,
 }
 
 impl TokenQuerier {
-    pub fn new(balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])]) -> Self {
+    pub fn new(balances: &[(&String, &[(&String, &Uint128)])]) -> Self {
         TokenQuerier {
             balances: balances_to_map(balances),
         }
@@ -85,16 +81,16 @@ impl TokenQuerier {
 }
 
 pub(crate) fn balances_to_map(
-    balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])],
-) -> HashMap<HumanAddr, HashMap<HumanAddr, Uint128>> {
-    let mut balances_map: HashMap<HumanAddr, HashMap<HumanAddr, Uint128>> = HashMap::new();
+    balances: &[(&String, &[(&String, &Uint128)])],
+) -> HashMap<String, HashMap<String, Uint128>> {
+    let mut balances_map: HashMap<String, HashMap<String, Uint128>> = HashMap::new();
     for (contract_addr, balances) in balances.iter() {
-        let mut contract_balances_map: HashMap<HumanAddr, Uint128> = HashMap::new();
+        let mut contract_balances_map: HashMap<String, Uint128> = HashMap::new();
         for (addr, balance) in balances.iter() {
-            contract_balances_map.insert(HumanAddr::from(addr), **balance);
+            contract_balances_map.insert(addr.to_string(), **balance);
         }
 
-        balances_map.insert(HumanAddr::from(contract_addr), contract_balances_map);
+        balances_map.insert(contract_addr.to_string(), contract_balances_map);
     }
     balances_map
 }
@@ -126,11 +122,11 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 #[derive(Clone, Default)]
 pub struct BorrowRateQuerier {
     // this lets us iterate over all pairs that match the first string
-    borrower_rate: HashMap<HumanAddr, Decimal256>,
+    borrower_rate: HashMap<String, Decimal256>,
 }
 
 impl BorrowRateQuerier {
-    pub fn new(borrower_rate: &[(&HumanAddr, &Decimal256)]) -> Self {
+    pub fn new(borrower_rate: &[(&String, &Decimal256)]) -> Self {
         BorrowRateQuerier {
             borrower_rate: borrower_rate_to_map(borrower_rate),
         }
@@ -138,9 +134,9 @@ impl BorrowRateQuerier {
 }
 
 pub(crate) fn borrower_rate_to_map(
-    borrower_rate: &[(&HumanAddr, &Decimal256)],
-) -> HashMap<HumanAddr, Decimal256> {
-    let mut borrower_rate_map: HashMap<HumanAddr, Decimal256> = HashMap::new();
+    borrower_rate: &[(&String, &Decimal256)],
+) -> HashMap<String, Decimal256> {
+    let mut borrower_rate_map: HashMap<String, Decimal256> = HashMap::new();
     for (market_contract, borrower_rate) in borrower_rate.iter() {
         borrower_rate_map.insert((*market_contract).clone(), **borrower_rate);
     }
@@ -150,11 +146,11 @@ pub(crate) fn borrower_rate_to_map(
 #[derive(Clone, Default)]
 pub struct BorrowLimitQuerier {
     // this lets us iterate over all pairs that match the first string
-    borrow_limit: HashMap<HumanAddr, Uint256>,
+    borrow_limit: HashMap<String, Uint256>,
 }
 
 impl BorrowLimitQuerier {
-    pub fn new(borrow_limit: &[(&HumanAddr, &Uint256)]) -> Self {
+    pub fn new(borrow_limit: &[(&String, &Uint256)]) -> Self {
         BorrowLimitQuerier {
             borrow_limit: borrow_limit_to_map(borrow_limit),
         }
@@ -162,9 +158,9 @@ impl BorrowLimitQuerier {
 }
 
 pub(crate) fn borrow_limit_to_map(
-    borrow_limit: &[(&HumanAddr, &Uint256)],
-) -> HashMap<HumanAddr, Uint256> {
-    let mut borrow_limit_map: HashMap<HumanAddr, Uint256> = HashMap::new();
+    borrow_limit: &[(&String, &Uint256)],
+) -> HashMap<String, Uint256> {
+    let mut borrow_limit_map: HashMap<String, Uint256> = HashMap::new();
     for (market_contract, borrow_limit) in borrow_limit.iter() {
         borrow_limit_map.insert((*market_contract).clone(), **borrow_limit);
     }
@@ -177,7 +173,7 @@ impl Querier for WasmMockQuerier {
         let request: QueryRequest<TerraQueryWrapper> = match from_slice(bin_request) {
             Ok(v) => v,
             Err(e) => {
-                return Err(SystemError::InvalidRequest {
+                return SystemResult::Err(SystemError::InvalidRequest {
                     error: format!("Parsing query request: {}", e),
                     request: bin_request.into(),
                 })
@@ -197,7 +193,7 @@ impl WasmMockQuerier {
                             let res = TaxRateResponse {
                                 rate: self.tax_querier.rate,
                             };
-                            Ok(to_binary(&res))
+                            SystemResult::Ok(ContractResult::from(to_binary(&res)))
                         }
                         TerraQuery::TaxCap { denom } => {
                             let cap = self
@@ -207,7 +203,7 @@ impl WasmMockQuerier {
                                 .copied()
                                 .unwrap_or_default();
                             let res = TaxCapResponse { cap };
-                            Ok(to_binary(&res))
+                            SystemResult::Ok(ContractResult::from(to_binary(&res)))
                         }
                         _ => panic!("DO NOT ENTER HERE"),
                     }
@@ -216,27 +212,33 @@ impl WasmMockQuerier {
                 }
             }
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
-                match from_binary(&msg).unwrap() {
+                match from_binary(msg).unwrap() {
                     QueryMsg::BorrowRate {
                         market_balance: _,
                         total_liabilities: _,
                         total_reserves: _,
-                    } => match self.borrow_rate_querier.borrower_rate.get(&contract_addr) {
-                        Some(v) => Ok(to_binary(&BorrowRateResponse { rate: *v })),
-                        None => Err(SystemError::InvalidRequest {
-                            error: "No borrow rate exists".to_string(),
-                            request: msg.as_slice().into(),
-                        }),
-                    },
+                    } => {
+                        match self.borrow_rate_querier.borrower_rate.get(contract_addr) {
+                            Some(v) => SystemResult::Ok(ContractResult::from(to_binary(
+                                &BorrowRateResponse { rate: *v },
+                            ))),
+                            None => SystemResult::Err(SystemError::InvalidRequest {
+                                error: "No borrow rate exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
+                        }
+                    }
                     QueryMsg::BorrowLimit {
                         borrower,
                         block_time: _,
                     } => match self.borrow_limit_querier.borrow_limit.get(&borrower) {
-                        Some(v) => Ok(to_binary(&BorrowLimitResponse {
-                            borrower,
-                            borrow_limit: *v,
-                        })),
-                        None => Err(SystemError::InvalidRequest {
+                        Some(v) => SystemResult::Ok(ContractResult::from(to_binary(
+                            &BorrowLimitResponse {
+                                borrower,
+                                borrow_limit: *v,
+                            },
+                        ))),
+                        None => SystemResult::Err(SystemError::InvalidRequest {
                             error: "No borrow limit exists".to_string(),
                             request: msg.as_slice().into(),
                         }),
@@ -246,76 +248,83 @@ impl WasmMockQuerier {
                         target_deposit_rate: _,
                         threshold_deposit_rate: _,
                         current_emission_rate: _,
-                    } => Ok(to_binary(&AncEmissionRateResponse {
-                        emission_rate: Decimal256::from_uint256(5u64),
-                    })),
-                    QueryMsg::Config {} => Ok(to_binary(&ConfigResponse {
-                        owner_addr: HumanAddr::default(),
-                        oracle_contract: HumanAddr::default(),
-                        market_contract: HumanAddr::default(),
-                        liquidation_contract: HumanAddr::default(),
-                        collector_contract: HumanAddr::default(),
-                        threshold_deposit_rate: Decimal256::one(),
-                        target_deposit_rate: Decimal256::from_ratio(1, 100),
-                        buffer_distribution_factor: Decimal256::one(),
-                        anc_purchase_factor: Decimal256::one(),
-                        stable_denom: "uusd".to_string(),
-                        epoch_period: 100u64,
-                        price_timeframe: 100u64,
-                    })),
+                    } => SystemResult::Ok(ContractResult::from(to_binary(
+                        &AncEmissionRateResponse {
+                            emission_rate: Decimal256::from_uint256(5u64),
+                        },
+                    ))),
+                    QueryMsg::Config {} => {
+                        SystemResult::Ok(ContractResult::from(to_binary(&ConfigResponse {
+                            owner_addr: "".to_string(),
+                            oracle_contract: "".to_string(),
+                            market_contract: "".to_string(),
+                            liquidation_contract: "".to_string(),
+                            collector_contract: "".to_string(),
+                            threshold_deposit_rate: Decimal256::one(),
+                            target_deposit_rate: Decimal256::from_ratio(1, 100),
+                            buffer_distribution_factor: Decimal256::one(),
+                            anc_purchase_factor: Decimal256::one(),
+                            stable_denom: "uusd".to_string(),
+                            epoch_period: 100u64,
+                            price_timeframe: 100u64,
+                        })))
+                    }
+                    QueryMsg::TokenInfo {} => {
+                        let balances: HashMap<String, Uint128> =
+                            match self.token_querier.balances.get(contract_addr) {
+                                Some(balances) => balances.clone(),
+                                None => HashMap::new(),
+                            };
+
+                        let mut total_supply = Uint128::zero();
+
+                        for balance in balances {
+                            total_supply += balance.1;
+                        }
+
+                        SystemResult::Ok(ContractResult::from(to_binary(&TokenInfoResponse {
+                            name: "mAPPL".to_string(),
+                            symbol: "mAPPL".to_string(),
+                            decimals: 6,
+                            total_supply,
+                        })))
+                    }
                 }
             }
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
 
-                let prefix_token_info = to_length_prefixed(b"token_info").to_vec();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
 
-                let balances: HashMap<HumanAddr, Uint128> =
+                let balances: HashMap<String, Uint128> =
                     match self.token_querier.balances.get(contract_addr) {
                         Some(balances) => balances.clone(),
                         None => HashMap::new(),
                     };
 
-                if key.to_vec() == prefix_token_info {
-                    let mut total_supply = Uint128::zero();
-
-                    for balance in balances {
-                        total_supply += balance.1;
-                    }
-
-                    Ok(to_binary(
-                        &to_binary(&TokenInfoResponse {
-                            name: "mAPPL".to_string(),
-                            symbol: "mAPPL".to_string(),
-                            decimals: 6,
-                            total_supply: total_supply,
-                        })
-                        .unwrap(),
-                    ))
-                } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
+                if key[..prefix_balance.len()].to_vec() == prefix_balance {
                     let key_address: &[u8] = &key[prefix_balance.len()..];
                     let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
-                    let api: MockApi = MockApi::new(self.canonical_length);
-                    let address: HumanAddr = match api.human_address(&address_raw) {
+                    let api: MockApi = MockApi::default();
+                    let address: Addr = match api.addr_humanize(&address_raw) {
                         Ok(v) => v,
                         Err(e) => {
-                            return Err(SystemError::InvalidRequest {
+                            return SystemResult::Err(SystemError::InvalidRequest {
                                 error: format!("Parsing query request: {}", e),
                                 request: key.into(),
                             })
                         }
                     };
-                    let balance = match balances.get(&address) {
+                    let balance = match balances.get(address.as_str()) {
                         Some(v) => v,
                         None => {
-                            return Err(SystemError::InvalidRequest {
+                            return SystemResult::Err(SystemError::InvalidRequest {
                                 error: "Balance not found".to_string(),
                                 request: key.into(),
                             })
                         }
                     };
-                    Ok(to_binary(&to_binary(&balance).unwrap()))
+                    SystemResult::Ok(ContractResult::from(to_binary(&balance)))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }
@@ -326,23 +335,18 @@ impl WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn new<A: Api>(
-        base: MockQuerier<TerraQueryWrapper>,
-        canonical_length: usize,
-        _api: A,
-    ) -> Self {
+    pub fn new(base: MockQuerier<TerraQueryWrapper>) -> Self {
         WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
             borrow_rate_querier: BorrowRateQuerier::default(),
             borrow_limit_querier: BorrowLimitQuerier::default(),
-            canonical_length,
         }
     }
 
     // set a new balance for the given address and return the old balance
-    pub fn update_balance<U: Into<HumanAddr>>(
+    pub fn update_balance<U: Into<String>>(
         &mut self,
         addr: U,
         balance: Vec<Coin>,
@@ -351,7 +355,7 @@ impl WasmMockQuerier {
     }
 
     // configure the mint whitelist mock querier
-    pub fn with_token_balances(&mut self, balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])]) {
+    pub fn with_token_balances(&mut self, balances: &[(&String, &[(&String, &Uint128)])]) {
         self.token_querier = TokenQuerier::new(balances);
     }
 
@@ -360,11 +364,11 @@ impl WasmMockQuerier {
         self.tax_querier = TaxQuerier::new(rate, caps);
     }
 
-    pub fn with_borrow_rate(&mut self, borrow_rate: &[(&HumanAddr, &Decimal256)]) {
+    pub fn with_borrow_rate(&mut self, borrow_rate: &[(&String, &Decimal256)]) {
         self.borrow_rate_querier = BorrowRateQuerier::new(borrow_rate);
     }
 
-    pub fn with_borrow_limit(&mut self, borrow_limit: &[(&HumanAddr, &Uint256)]) {
+    pub fn with_borrow_limit(&mut self, borrow_limit: &[(&String, &Uint256)]) {
         self.borrow_limit_querier = BorrowLimitQuerier::new(borrow_limit);
     }
 }

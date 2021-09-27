@@ -2,11 +2,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::Decimal256;
-use cosmwasm_std::HumanAddr;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {
-    pub owner: HumanAddr,
+pub struct InstantiateMsg {
+    pub owner: String,
     pub emission_cap: Decimal256,
     pub emission_floor: Decimal256,
     pub increment_multiplier: Decimal256,
@@ -15,9 +14,9 @@ pub struct InitMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+pub enum ExecuteMsg {
     UpdateConfig {
-        owner: Option<HumanAddr>,
+        owner: Option<String>,
         emission_cap: Option<Decimal256>,
         emission_floor: Option<Decimal256>,
         increment_multiplier: Option<Decimal256>,
@@ -40,7 +39,7 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub owner: HumanAddr,
+    pub owner: String,
     pub emission_cap: Decimal256,
     pub emission_floor: Decimal256,
     pub increment_multiplier: Decimal256,
@@ -52,7 +51,3 @@ pub struct ConfigResponse {
 pub struct AncEmissionRateResponse {
     pub emission_rate: Decimal256,
 }
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct MigrateMsg {}

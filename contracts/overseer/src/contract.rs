@@ -1,42 +1,46 @@
-use cosmwasm_bignumber::{Decimal256, Uint256};
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    log, to_binary, Api, BankMsg, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse, MigrateResult, Querier,
-    StdError, StdResult, Storage, WasmMsg,
+    attr, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
+    Response, StdResult, WasmMsg,
 };
 
 use crate::collateral::{
     liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
     query_collaterals, unlock_collateral,
 };
+use crate::error::ContractError;
 use crate::querier::query_epoch_state;
 use crate::state::{
     read_config, read_epoch_state, read_whitelist, read_whitelist_elem, store_config,
     store_epoch_state, store_whitelist_elem, Config, EpochState, WhitelistElem,
 };
 
-use moneymarket::custody::HandleMsg as CustodyHandleMsg;
+use cosmwasm_bignumber::{Decimal256, Uint256};
+use moneymarket::common::optional_addr_validate;
+use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
 use moneymarket::market::EpochStateResponse;
-use moneymarket::market::HandleMsg as MarketHandleMsg;
+use moneymarket::market::ExecuteMsg as MarketExecuteMsg;
 use moneymarket::overseer::{
-    ConfigResponse, HandleMsg, InitMsg, MigrateMsg, QueryMsg, WhitelistResponse,
-    WhitelistResponseElem,
+    ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
 use moneymarket::querier::{deduct_tax, query_balance};
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     env: Env,
-    msg: InitMsg,
-) -> InitResult {
+    _info: MessageInfo,
+    msg: InstantiateMsg,
+) -> StdResult<Response> {
     store_config(
-        &mut deps.storage,
+        deps.storage,
         &Config {
-            owner_addr: deps.api.canonical_address(&msg.owner_addr)?,
-            oracle_contract: deps.api.canonical_address(&msg.oracle_contract)?,
-            market_contract: deps.api.canonical_address(&msg.market_contract)?,
-            liquidation_contract: deps.api.canonical_address(&msg.liquidation_contract)?,
-            collector_contract: deps.api.canonical_address(&msg.collector_contract)?,
+            owner_addr: deps.api.addr_canonicalize(&msg.owner_addr)?,
+            oracle_contract: deps.api.addr_canonicalize(&msg.oracle_contract)?,
+            market_contract: deps.api.addr_canonicalize(&msg.market_contract)?,
+            liquidation_contract: deps.api.addr_canonicalize(&msg.liquidation_contract)?,
+            collector_contract: deps.api.addr_canonicalize(&msg.collector_contract)?,
             stable_denom: msg.stable_denom,
             epoch_period: msg.epoch_period,
             threshold_deposit_rate: msg.threshold_deposit_rate,
@@ -48,7 +52,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     )?;
 
     store_epoch_state(
-        &mut deps.storage,
+        deps.storage,
         &EpochState {
             deposit_rate: Decimal256::zero(),
             prev_aterra_supply: Uint256::zero(),
@@ -58,16 +62,18 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
-    Ok(InitResponse::default())
+    Ok(Response::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(
+    deps: DepsMut,
     env: Env,
-    msg: HandleMsg,
-) -> HandleResult {
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
     match msg {
-        HandleMsg::UpdateConfig {
+        ExecuteMsg::UpdateConfig {
             owner_addr,
             oracle_contract,
             liquidation_contract,
@@ -77,80 +83,102 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             anc_purchase_factor,
             epoch_period,
             price_timeframe,
-        } => update_config(
-            deps,
-            env,
-            owner_addr,
-            oracle_contract,
-            liquidation_contract,
-            threshold_deposit_rate,
-            target_deposit_rate,
-            buffer_distribution_factor,
-            anc_purchase_factor,
-            epoch_period,
-            price_timeframe,
-        ),
-        HandleMsg::Whitelist {
+        } => {
+            let api = deps.api;
+            update_config(
+                deps,
+                info,
+                optional_addr_validate(api, owner_addr)?,
+                optional_addr_validate(api, oracle_contract)?,
+                optional_addr_validate(api, liquidation_contract)?,
+                threshold_deposit_rate,
+                target_deposit_rate,
+                buffer_distribution_factor,
+                anc_purchase_factor,
+                epoch_period,
+                price_timeframe,
+            )
+        }
+        ExecuteMsg::Whitelist {
             name,
             symbol,
             collateral_token,
             custody_contract,
             max_ltv,
-        } => register_whitelist(
-            deps,
-            env,
-            name,
-            symbol,
+        } => {
+            let api = deps.api;
+            register_whitelist(
+                deps,
+                info,
+                name,
+                symbol,
+                api.addr_validate(&collateral_token)?,
+                api.addr_validate(&custody_contract)?,
+                max_ltv,
+            )
+        }
+        ExecuteMsg::UpdateWhitelist {
             collateral_token,
             custody_contract,
             max_ltv,
-        ),
-        HandleMsg::UpdateWhitelist {
-            collateral_token,
-            custody_contract,
-            max_ltv,
-        } => update_whitelist(deps, env, collateral_token, custody_contract, max_ltv),
-        HandleMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
-        HandleMsg::UpdateEpochState {
+        } => {
+            let api = deps.api;
+            update_whitelist(
+                deps,
+                info,
+                api.addr_validate(&collateral_token)?,
+                optional_addr_validate(api, custody_contract)?,
+                max_ltv,
+            )
+        }
+        ExecuteMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
+        ExecuteMsg::UpdateEpochState {
             interest_buffer,
             distributed_interest,
-        } => update_epoch_state(deps, env, interest_buffer, distributed_interest),
-        HandleMsg::LockCollateral { collaterals } => lock_collateral(deps, env, collaterals),
-        HandleMsg::UnlockCollateral { collaterals } => unlock_collateral(deps, env, collaterals),
-        HandleMsg::LiquidateCollateral { borrower } => liquidate_collateral(deps, env, borrower),
+        } => update_epoch_state(deps, env, info, interest_buffer, distributed_interest),
+        ExecuteMsg::LockCollateral { collaterals } => lock_collateral(deps, info, collaterals),
+        ExecuteMsg::UnlockCollateral { collaterals } => {
+            unlock_collateral(deps, env, info, collaterals)
+        }
+        ExecuteMsg::LiquidateCollateral { borrower } => {
+            let api = deps.api;
+            liquidate_collateral(deps, env, info, api.addr_validate(&borrower)?)
+        }
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn update_config<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    owner_addr: Option<HumanAddr>,
-    oracle_contract: Option<HumanAddr>,
-    liquidation_contract: Option<HumanAddr>,
+pub fn update_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    owner_addr: Option<Addr>,
+    oracle_contract: Option<Addr>,
+    liquidation_contract: Option<Addr>,
     threshold_deposit_rate: Option<Decimal256>,
     target_deposit_rate: Option<Decimal256>,
     buffer_distribution_factor: Option<Decimal256>,
     anc_purchase_factor: Option<Decimal256>,
     epoch_period: Option<u64>,
     price_timeframe: Option<u64>,
-) -> HandleResult {
-    let mut config: Config = read_config(&deps.storage)?;
+) -> Result<Response, ContractError> {
+    let mut config: Config = read_config(deps.storage)?;
 
-    if deps.api.canonical_address(&env.message.sender)? != config.owner_addr {
-        return Err(StdError::unauthorized());
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
     }
 
     if let Some(owner_addr) = owner_addr {
-        config.owner_addr = deps.api.canonical_address(&owner_addr)?;
+        config.owner_addr = deps.api.addr_canonicalize(&owner_addr.to_string())?;
     }
 
     if let Some(oracle_contract) = oracle_contract {
-        config.oracle_contract = deps.api.canonical_address(&oracle_contract)?;
+        config.oracle_contract = deps.api.addr_canonicalize(&oracle_contract.to_string())?;
     }
 
     if let Some(liquidation_contract) = liquidation_contract {
-        config.liquidation_contract = deps.api.canonical_address(&liquidation_contract)?;
+        config.liquidation_contract = deps
+            .api
+            .addr_canonicalize(&liquidation_contract.to_string())?;
     }
 
     if let Some(threshold_deposit_rate) = threshold_deposit_rate {
@@ -177,122 +205,106 @@ pub fn update_config<S: Storage, A: Api, Q: Querier>(
         config.price_timeframe = price_timeframe;
     }
 
-    store_config(&mut deps.storage, &config)?;
+    store_config(deps.storage, &config)?;
 
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![log("action", "update_config")],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
 }
 
-pub fn register_whitelist<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
+pub fn register_whitelist(
+    deps: DepsMut,
+    info: MessageInfo,
     name: String,
     symbol: String,
-    collateral_token: HumanAddr,
-    custody_contract: HumanAddr,
+    collateral_token: Addr,
+    custody_contract: Addr,
     max_ltv: Decimal256,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    if deps.api.canonical_address(&env.message.sender)? != config.owner_addr {
-        return Err(StdError::unauthorized());
+) -> Result<Response, ContractError> {
+    let config: Config = read_config(deps.storage)?;
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
     }
 
-    let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
-    if read_whitelist_elem(&deps.storage, &collateral_token_raw).is_ok() {
-        return Err(StdError::generic_err(
-            "Token is already registered as collateral",
-        ));
+    let collateral_token_raw = deps.api.addr_canonicalize(collateral_token.as_str())?;
+    if read_whitelist_elem(deps.storage, &collateral_token_raw).is_ok() {
+        return Err(ContractError::TokenAlreadyRegistered {});
     }
 
     store_whitelist_elem(
-        &mut deps.storage,
+        deps.storage,
         &collateral_token_raw,
         &WhitelistElem {
             name: name.to_string(),
             symbol: symbol.to_string(),
-            custody_contract: deps.api.canonical_address(&custody_contract)?,
+            custody_contract: deps.api.addr_canonicalize(custody_contract.as_str())?,
             max_ltv,
         },
     )?;
 
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![
-            log("action", "register_whitelist"),
-            log("name", name),
-            log("symbol", symbol),
-            log("collateral_token", collateral_token),
-            log("custody_contract", custody_contract),
-            log("LTV", max_ltv),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "register_whitelist"),
+        attr("name", name),
+        attr("symbol", symbol),
+        attr("collateral_token", collateral_token),
+        attr("custody_contract", custody_contract),
+        attr("LTV", max_ltv.to_string()),
+    ]))
 }
 
-pub fn update_whitelist<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    collateral_token: HumanAddr,
-    custody_contract: Option<HumanAddr>,
+pub fn update_whitelist(
+    deps: DepsMut,
+    info: MessageInfo,
+    collateral_token: Addr,
+    custody_contract: Option<Addr>,
     max_ltv: Option<Decimal256>,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    if deps.api.canonical_address(&env.message.sender)? != config.owner_addr {
-        return Err(StdError::unauthorized());
+) -> Result<Response, ContractError> {
+    let config: Config = read_config(deps.storage)?;
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
     }
 
-    let collateral_token_raw = deps.api.canonical_address(&collateral_token)?;
+    let collateral_token_raw = deps.api.addr_canonicalize(collateral_token.as_str())?;
     let mut whitelist_elem: WhitelistElem =
-        read_whitelist_elem(&deps.storage, &collateral_token_raw)?;
+        read_whitelist_elem(deps.storage, &collateral_token_raw)?;
 
     if let Some(custody_contract) = custody_contract {
-        whitelist_elem.custody_contract = deps.api.canonical_address(&custody_contract)?;
+        whitelist_elem.custody_contract = deps.api.addr_canonicalize(custody_contract.as_str())?;
     }
 
     if let Some(max_ltv) = max_ltv {
         whitelist_elem.max_ltv = max_ltv;
     }
 
-    store_whitelist_elem(&mut deps.storage, &collateral_token_raw, &whitelist_elem)?;
+    store_whitelist_elem(deps.storage, &collateral_token_raw, &whitelist_elem)?;
 
-    Ok(HandleResponse {
-        messages: vec![],
-        log: vec![
-            log("action", "update_whitelist"),
-            log("collateral_token", collateral_token),
-            log(
-                "custody_contract",
-                deps.api.human_address(&whitelist_elem.custody_contract)?,
-            ),
-            log("LTV", whitelist_elem.max_ltv),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "update_whitelist"),
+        attr("collateral_token", collateral_token),
+        attr(
+            "custody_contract",
+            deps.api.addr_humanize(&whitelist_elem.custody_contract)?,
+        ),
+        attr("LTV", whitelist_elem.max_ltv.to_string()),
+    ]))
 }
 
-pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let state: EpochState = read_epoch_state(&deps.storage)?;
+pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> Result<Response, ContractError> {
+    let config: Config = read_config(deps.storage)?;
+    let state: EpochState = read_epoch_state(deps.storage)?;
     if env.block.height < state.last_executed_height + config.epoch_period {
-        return Err(StdError::generic_err(format!(
-            "An epoch has not passed yet; last executed height: {}",
-            state.last_executed_height
-        )));
+        return Err(ContractError::EpochNotPassed(state.last_executed_height));
     }
 
     // # of blocks from the last executed height
     let blocks = Uint256::from(env.block.height - state.last_executed_height);
 
     // Compute next epoch state
-    let market_contract: HumanAddr = deps.api.human_address(&config.market_contract)?;
-    let epoch_state: EpochStateResponse =
-        query_epoch_state(&deps, &market_contract, env.block.height, None)?;
+    let market_contract = deps.api.addr_humanize(&config.market_contract)?;
+    let epoch_state: EpochStateResponse = query_epoch_state(
+        deps.as_ref(),
+        market_contract.clone(),
+        env.block.height,
+        None,
+    )?;
 
     // effective_deposit_rate = cur_exchange_rate / prev_exchange_rate
     // deposit_rate = (effective_deposit_rate - 1) / blocks
@@ -302,8 +314,8 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
 
     let mut messages: Vec<CosmosMsg> = vec![];
     let mut interest_buffer = query_balance(
-        &deps,
-        &env.contract.address,
+        deps.as_ref(),
+        env.contract.address.clone(),
         config.stable_denom.to_string(),
     )?;
 
@@ -312,10 +324,12 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     let anc_purchase_amount = accrued_buffer * config.anc_purchase_factor;
     if !anc_purchase_amount.is_zero() {
         messages.push(CosmosMsg::Bank(BankMsg::Send {
-            from_address: env.contract.address.clone(),
-            to_address: deps.api.human_address(&config.collector_contract)?,
+            to_address: deps
+                .api
+                .addr_humanize(&config.collector_contract)?
+                .to_string(),
             amount: vec![deduct_tax(
-                &deps,
+                deps.as_ref(),
                 Coin {
                     denom: config.stable_denom.to_string(),
                     amount: anc_purchase_amount.into(),
@@ -348,7 +362,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
             // deduct tax
             distributed_interest = Uint256::from(
                 deduct_tax(
-                    &deps,
+                    deps.as_ref(),
                     Coin {
                         denom: config.stable_denom.to_string(),
                         amount: distributed_interest.into(),
@@ -359,8 +373,7 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
 
             // Send some portion of interest buffer to Market contract
             messages.push(CosmosMsg::Bank(BankMsg::Send {
-                from_address: env.contract.address.clone(),
-                to_address: market_contract,
+                to_address: market_contract.to_string(),
                 amount: vec![Coin {
                     denom: config.stable_denom,
                     amount: distributed_interest.into(),
@@ -370,61 +383,59 @@ pub fn execute_epoch_operations<S: Storage, A: Api, Q: Querier>(
     }
 
     // Execute DistributeRewards
-    let whitelist: Vec<WhitelistResponseElem> = read_whitelist(&deps, None, None)?;
+    let whitelist: Vec<WhitelistResponseElem> = read_whitelist(deps.as_ref(), None, None)?;
     for elem in whitelist.iter() {
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: elem.custody_contract.clone(),
-            send: vec![],
-            msg: to_binary(&CustodyHandleMsg::DistributeRewards {})?,
+            funds: vec![],
+            msg: to_binary(&CustodyExecuteMsg::DistributeRewards {})?,
         }));
     }
 
+    // TODO: Should this become a reply? If so which SubMsg to make reply_on?
     // Execute store epoch state operation
     messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: env.contract.address,
-        send: vec![],
-        msg: to_binary(&HandleMsg::UpdateEpochState {
+        contract_addr: env.contract.address.to_string(),
+        funds: vec![],
+        msg: to_binary(&ExecuteMsg::UpdateEpochState {
             interest_buffer,
             distributed_interest,
         })?,
     }));
 
-    Ok(HandleResponse {
-        messages,
-        log: vec![
-            log("action", "epoch_operations"),
-            log("deposit_rate", deposit_rate),
-            log("exchange_rate", epoch_state.exchange_rate),
-            log("aterra_supply", epoch_state.aterra_supply),
-            log("distributed_interest", distributed_interest),
-            log("anc_purchase_amount", anc_purchase_amount),
-        ],
-        data: None,
-    })
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "epoch_operations"),
+        attr("deposit_rate", deposit_rate.to_string()),
+        attr("exchange_rate", epoch_state.exchange_rate.to_string()),
+        attr("aterra_supply", epoch_state.aterra_supply),
+        attr("distributed_interest", distributed_interest),
+        attr("anc_purchase_amount", anc_purchase_amount),
+    ]))
 }
 
-pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn update_epoch_state(
+    deps: DepsMut,
     env: Env,
+    info: MessageInfo,
     // To store interest buffer before receiving epoch staking rewards,
     // pass interest_buffer from execute_epoch_operations
     interest_buffer: Uint256,
     distributed_interest: Uint256,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
-    let overseer_epoch_state: EpochState = read_epoch_state(&deps.storage)?;
-    if env.message.sender != env.contract.address {
-        return Err(StdError::unauthorized());
+) -> Result<Response, ContractError> {
+    let config: Config = read_config(deps.storage)?;
+    let overseer_epoch_state: EpochState = read_epoch_state(deps.storage)?;
+    if info.sender != env.contract.address {
+        return Err(ContractError::Unauthorized {});
     }
 
     // # of blocks from the last executed height
     let blocks = Uint256::from(env.block.height - overseer_epoch_state.last_executed_height);
 
     // Compute next epoch state
-    let market_contract: HumanAddr = deps.api.human_address(&config.market_contract)?;
+    let market_contract = deps.api.addr_humanize(&config.market_contract)?;
     let market_epoch_state: EpochStateResponse = query_epoch_state(
-        &deps,
-        &market_contract,
+        deps.as_ref(),
+        market_contract.clone(),
         env.block.height,
         Some(distributed_interest),
     )?;
@@ -438,7 +449,7 @@ pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
 
     // store updated epoch state
     store_epoch_state(
-        &mut deps.storage,
+        deps.storage,
         &EpochState {
             last_executed_height: env.block.height,
             prev_aterra_supply: market_epoch_state.aterra_supply,
@@ -448,32 +459,31 @@ pub fn update_epoch_state<S: Storage, A: Api, Q: Querier>(
         },
     )?;
 
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: market_contract,
-            send: vec![],
-            msg: to_binary(&MarketHandleMsg::ExecuteEpochOperations {
+    Ok(Response::new()
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: market_contract.to_string(),
+            funds: vec![],
+            msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
                 deposit_rate,
                 target_deposit_rate: config.target_deposit_rate,
                 threshold_deposit_rate: config.threshold_deposit_rate,
                 distributed_interest,
             })?,
-        })],
-        log: vec![
-            log("action", "update_epoch_state"),
-            log("deposit_rate", deposit_rate),
-            log("aterra_supply", market_epoch_state.aterra_supply),
-            log("exchange_rate", market_epoch_state.exchange_rate),
-            log("interest_buffer", interest_buffer),
-        ],
-        data: None,
-    })
+        }))
+        .add_attributes(vec![
+            attr("action", "update_epoch_state"),
+            attr("deposit_rate", deposit_rate.to_string()),
+            attr("aterra_supply", market_epoch_state.aterra_supply),
+            attr(
+                "exchange_rate",
+                market_epoch_state.exchange_rate.to_string(),
+            ),
+            attr("interest_buffer", interest_buffer),
+        ]))
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::EpochState {} => to_binary(&query_state(deps)?),
@@ -483,31 +493,44 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             limit,
         } => to_binary(&query_whitelist(
             deps,
-            collateral_token,
-            start_after,
+            optional_addr_validate(deps.api, collateral_token)?,
+            optional_addr_validate(deps.api, start_after)?,
             limit,
         )?),
-        QueryMsg::Collaterals { borrower } => to_binary(&query_collaterals(deps, borrower)?),
-        QueryMsg::AllCollaterals { start_after, limit } => {
-            to_binary(&query_all_collaterals(deps, start_after, limit)?)
-        }
+        QueryMsg::Collaterals { borrower } => to_binary(&query_collaterals(
+            deps,
+            deps.api.addr_validate(&borrower)?,
+        )?),
+        QueryMsg::AllCollaterals { start_after, limit } => to_binary(&query_all_collaterals(
+            deps,
+            optional_addr_validate(deps.api, start_after)?,
+            limit,
+        )?),
         QueryMsg::BorrowLimit {
             borrower,
             block_time,
-        } => to_binary(&query_borrow_limit(deps, borrower, block_time)?),
+        } => to_binary(&query_borrow_limit(
+            deps,
+            deps.api.addr_validate(&borrower)?,
+            block_time,
+        )?),
     }
 }
 
-pub fn query_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let config: Config = read_config(&deps.storage)?;
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let config: Config = read_config(deps.storage)?;
     Ok(ConfigResponse {
-        owner_addr: deps.api.human_address(&config.owner_addr)?,
-        oracle_contract: deps.api.human_address(&config.oracle_contract)?,
-        market_contract: deps.api.human_address(&config.market_contract)?,
-        liquidation_contract: deps.api.human_address(&config.liquidation_contract)?,
-        collector_contract: deps.api.human_address(&config.collector_contract)?,
+        owner_addr: deps.api.addr_humanize(&config.owner_addr)?.to_string(),
+        oracle_contract: deps.api.addr_humanize(&config.oracle_contract)?.to_string(),
+        market_contract: deps.api.addr_humanize(&config.market_contract)?.to_string(),
+        liquidation_contract: deps
+            .api
+            .addr_humanize(&config.liquidation_contract)?
+            .to_string(),
+        collector_contract: deps
+            .api
+            .addr_humanize(&config.collector_contract)?
+            .to_string(),
         stable_denom: config.stable_denom,
         epoch_period: config.epoch_period,
         threshold_deposit_rate: config.threshold_deposit_rate,
@@ -518,58 +541,41 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn query_state<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<EpochState> {
-    read_epoch_state(&deps.storage)
+pub fn query_state(deps: Deps) -> StdResult<EpochState> {
+    read_epoch_state(deps.storage)
 }
 
-pub fn query_whitelist<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    collateral_token: Option<HumanAddr>,
-    start_after: Option<HumanAddr>,
+pub fn query_whitelist(
+    deps: Deps,
+    collateral_token: Option<Addr>,
+    start_after: Option<Addr>,
     limit: Option<u32>,
 ) -> StdResult<WhitelistResponse> {
     if let Some(collateral_token) = collateral_token {
         let whitelist_elem: WhitelistElem = read_whitelist_elem(
-            &deps.storage,
-            &deps.api.canonical_address(&collateral_token)?,
+            deps.storage,
+            &deps.api.addr_canonicalize(collateral_token.as_str())?,
         )?;
         Ok(WhitelistResponse {
             elems: vec![WhitelistResponseElem {
                 name: whitelist_elem.name,
                 symbol: whitelist_elem.symbol,
                 max_ltv: whitelist_elem.max_ltv,
-                custody_contract: deps.api.human_address(&whitelist_elem.custody_contract)?,
-                collateral_token,
+                custody_contract: deps
+                    .api
+                    .addr_humanize(&whitelist_elem.custody_contract)?
+                    .to_string(),
+                collateral_token: collateral_token.to_string(),
             }],
         })
     } else {
         let start_after = if let Some(start_after) = start_after {
-            Some(deps.api.canonical_address(&start_after)?)
+            Some(deps.api.addr_canonicalize(start_after.as_str())?)
         } else {
             None
         };
 
-        let whitelist: Vec<WhitelistResponseElem> = read_whitelist(&deps, start_after, limit)?;
+        let whitelist: Vec<WhitelistResponseElem> = read_whitelist(deps, start_after, limit)?;
         Ok(WhitelistResponse { elems: whitelist })
     }
-}
-
-pub fn migrate<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    msg: MigrateMsg,
-) -> MigrateResult {
-    let config: Config = read_config(&deps.storage)?;
-    store_config(
-        &mut deps.storage,
-        &Config {
-            target_deposit_rate: msg.target_deposit_rate,
-            threshold_deposit_rate: msg.threshold_deposit_rate,
-            ..config
-        },
-    )?;
-
-    Ok(MigrateResponse::default())
 }
