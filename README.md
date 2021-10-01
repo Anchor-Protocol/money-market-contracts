@@ -77,4 +77,4 @@ This performs several optimizations which can significantly reduce the final siz
 
 This repository is licensed under the Apache 2.0 license. See [LICENSE](./LICENSE) for full disclosure.
 
-© 2020 Anchor Protocol.
+© 2021 Anchor Protocol.
