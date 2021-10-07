@@ -1,8 +1,9 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
-use crate::asserts::assert_max_slot;
+use crate::asserts::{assert_fee, assert_max_slot, assert_max_slot_premium};
 use crate::bid::{activate_bids, claim_liquidations, execute_liquidation, retract_bid, submit_bid};
+use crate::querier::query_collateral_whitelist_info;
 use crate::query::{
     query_bid, query_bid_pool, query_bid_pools, query_bids_by_user, query_collateral_info,
     query_config, query_liquidation_amount,
@@ -33,6 +34,7 @@ pub fn instantiate(
             stable_denom: msg.stable_denom,
             safe_ratio: msg.safe_ratio,
             bid_fee: msg.bid_fee,
+            liquidator_fee: msg.liquidator_fee,
             liquidation_threshold: msg.liquidation_threshold,
             price_timeframe: msg.price_timeframe,
             waiting_period: msg.waiting_period,
@@ -50,9 +52,9 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::UpdateConfig {
             owner,
             oracle_contract,
-            stable_denom,
             safe_ratio,
             bid_fee,
+            liquidator_fee,
             liquidation_threshold,
             price_timeframe,
             waiting_period,
@@ -62,9 +64,9 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             info,
             owner,
             oracle_contract,
-            stable_denom,
             safe_ratio,
             bid_fee,
+            liquidator_fee,
             liquidation_threshold,
             price_timeframe,
             waiting_period,
@@ -113,7 +115,7 @@ pub fn receive_cw20(
     let contract_addr = info.sender;
     match from_binary(&cw20_msg.msg)? {
         Cw20HookMsg::ExecuteBid {
-            liquidator: _, // ignored to not change legacy liquidation contract interface
+            liquidator,
             repay_address,
             fee_address,
         } => {
@@ -124,6 +126,8 @@ pub fn receive_cw20(
             execute_liquidation(
                 deps,
                 env,
+                cw20_msg.sender,
+                liquidator,
                 repay_address,
                 fee_address,
                 collateral_token,
@@ -139,9 +143,9 @@ pub fn update_config(
     info: MessageInfo,
     owner: Option<String>,
     oracle_contract: Option<String>,
-    stable_denom: Option<String>,
     safe_ratio: Option<Decimal256>,
     bid_fee: Option<Decimal256>,
+    liquidator_fee: Option<Decimal256>,
     liquidation_threshold: Option<Uint256>,
     price_timeframe: Option<u64>,
     waiting_period: Option<u64>,
@@ -160,16 +164,18 @@ pub fn update_config(
         config.oracle_contract = deps.api.addr_canonicalize(&oracle_contract)?;
     }
 
-    if let Some(stable_denom) = stable_denom {
-        config.stable_denom = stable_denom;
-    }
-
     if let Some(safe_ratio) = safe_ratio {
         config.safe_ratio = safe_ratio;
     }
 
     if let Some(bid_fee) = bid_fee {
+        assert_fee(bid_fee)?;
         config.bid_fee = bid_fee;
+    }
+
+    if let Some(liquidator_fee) = liquidator_fee {
+        assert_fee(liquidator_fee)?;
+        config.liquidator_fee = liquidator_fee;
     }
 
     if let Some(liquidation_threshold) = liquidation_threshold {
@@ -211,8 +217,16 @@ pub fn whitelist_collateral(
         return Err(StdError::generic_err("Collateral is already whitelisted"));
     }
 
-    // assert max slot does not exceed cap
+    // check if the colalteral is whitelisted in overseer
+    let overseer = deps.api.addr_humanize(&config.overseer)?;
+    query_collateral_whitelist_info(&deps.querier, overseer.to_string(), collateral_token)
+        .map_err(|_| {
+            StdError::generic_err("This collateral is not whitelisted in Anchor overseer")
+        })?;
+
+    // assert max slot does not exceed cap and max premium rate does not exceed 1
     assert_max_slot(max_slot)?;
+    assert_max_slot_premium(max_slot, premium_rate_per_slot)?;
 
     // save collateral info
     store_collateral_info(
@@ -251,8 +265,9 @@ pub fn update_collateral_info(
     }
 
     if let Some(max_slot) = max_slot {
-        // assert max slot does note exceed cap
+        // assert max slot does not exceed cap and max premium rate does not exceed 1
         assert_max_slot(max_slot)?;
+        assert_max_slot_premium(max_slot, collateral_info.premium_rate_per_slot)?;
         collateral_info.max_slot = max_slot;
     }
 

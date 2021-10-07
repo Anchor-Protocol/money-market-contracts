@@ -79,12 +79,6 @@
                 }
               ]
             },
-            "stable_denom": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
             "waiting_period": {
               "type": [
                 "integer",

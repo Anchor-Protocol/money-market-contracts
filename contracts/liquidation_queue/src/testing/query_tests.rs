@@ -27,6 +27,7 @@ fn query_liquidation_amount() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -154,6 +155,8 @@ fn query_bids() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"token0000".to_string(), &Decimal256::percent(90))]);
 
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
@@ -161,6 +164,7 @@ fn query_bids() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -332,6 +336,8 @@ fn query_bid_pools() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"token0000".to_string(), &Decimal256::percent(90))]);
 
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
@@ -339,6 +345,7 @@ fn query_bid_pools() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -484,6 +491,8 @@ fn query_collateral_info() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"token0000".to_string(), &Decimal256::percent(90))]);
 
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
@@ -491,6 +500,7 @@ fn query_collateral_info() {
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,

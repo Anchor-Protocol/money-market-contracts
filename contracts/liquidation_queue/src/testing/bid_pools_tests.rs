@@ -16,12 +16,15 @@ fn one_bidder_distribution() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -78,7 +81,7 @@ fn one_bidder_distribution() {
     // EXECUTE 2 COL AT  30UST/COL
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(2u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -128,12 +131,15 @@ fn two_bidder_distribution() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
@@ -190,7 +196,7 @@ fn two_bidder_distribution() {
     // EXECUTE 4 COL AT  10UST/COL
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(4u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -238,7 +244,7 @@ fn two_bidder_distribution() {
 
     // EXECUTE 6 COL AT 20 UST/COL
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(6u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -311,12 +317,15 @@ fn two_bidder_distribution_big_numbers() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
@@ -373,7 +382,7 @@ fn two_bidder_distribution_big_numbers() {
     // EXECUTE 400 COL AT  10UST/COL
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(400u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -421,7 +430,7 @@ fn two_bidder_distribution_big_numbers() {
 
     // EXECUTE 600 COL AT 20 UST/COL
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(600u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -494,12 +503,15 @@ fn one_user_two_bid_slots() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 10u64,
         waiting_period: 60u64,
@@ -570,7 +582,7 @@ fn one_user_two_bid_slots() {
     // EXECUTE 5 COL AT  10UST/COL
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(5000000u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -600,7 +612,7 @@ fn one_user_two_bid_slots() {
     // EXECUTE 10 COL AT  10UST/COL
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(10000000u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -657,12 +669,15 @@ fn partial_withdraw_after_execution() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
@@ -719,7 +734,7 @@ fn partial_withdraw_after_execution() {
     // EXECUTE 10 COL AT  50UST/COL
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(10u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -763,7 +778,7 @@ fn partial_withdraw_after_execution() {
 
     // EXECUTE 4 COL AT 50 UST/COL
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(4u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -855,12 +870,15 @@ fn completely_empty_pool() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
@@ -906,7 +924,7 @@ fn completely_empty_pool() {
     // EXECUTE 20 COL AT  50UST/COL
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(20u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -973,7 +991,7 @@ fn completely_empty_pool() {
     // EXECUTE 20 COL AT  50UST/COL
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(20u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -1030,12 +1048,15 @@ fn product_truncated_to_zero() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
@@ -1085,7 +1106,7 @@ fn product_truncated_to_zero() {
         // EXECUTE 999999999 COL AT  1 UST/COL
         let info = mock_info("col0000", &[]);
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-            sender: "addr0001".to_string(),
+            sender: "custody0000".to_string(),
             amount: Uint128::from(999999999u128),
             msg: to_binary(&Cw20HookMsg::ExecuteBid {
                 liquidator: "liquidator00000".to_string(),
@@ -1153,12 +1174,15 @@ fn two_bidder_reward_distribution_common_slot() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
@@ -1243,7 +1267,7 @@ fn two_bidder_reward_distribution_common_slot() {
     //  Spent: 95 ust
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(10u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -1327,12 +1351,15 @@ fn two_bidder_distribution_multiple_common_slots() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -1472,7 +1499,7 @@ fn two_bidder_distribution_multiple_common_slots() {
     //  Total spent: 95 ust
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(10u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -1487,7 +1514,7 @@ fn two_bidder_distribution_multiple_common_slots() {
     //  Executed Collateral: 22
     //  Total Spent: 198 ust
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(22u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -1639,12 +1666,15 @@ fn two_bidder_unequal_deposit_reward_distribution() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
@@ -1729,7 +1759,7 @@ fn two_bidder_unequal_deposit_reward_distribution() {
     //  Spent: 99.96
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(51u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -1820,12 +1850,15 @@ fn scalable_reward_distribution_after_multiple_liquidations() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 60u64,
         waiting_period: 60u64,
@@ -1941,7 +1974,7 @@ fn scalable_reward_distribution_after_multiple_liquidations() {
     let mut env = mock_env();
     env.block.time = wait_end;
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(100u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -2014,7 +2047,7 @@ fn scalable_reward_distribution_after_multiple_liquidations() {
     //      Executed collaterals: 50
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(50u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -2072,12 +2105,15 @@ fn not_enough_bid_for_collateral() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
@@ -2160,7 +2196,7 @@ fn not_enough_bid_for_collateral() {
     // SHOULD RETURN AN ERROR
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(100u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),
@@ -2185,12 +2221,15 @@ fn two_bidder_reward_distribution_common_slot_large_numbers() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"col0000".to_string(), &Decimal256::percent(90))]);
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
         oracle_contract: "oracle0000".to_string(),
         stable_denom: "uusd".to_string(),
         safe_ratio: Decimal256::percent(10),
         bid_fee: Decimal256::percent(1),
+        liquidator_fee: Decimal256::percent(0),
         liquidation_threshold: Uint256::from(100000000u64),
         price_timeframe: 101u64,
         waiting_period: 60u64,
@@ -2273,7 +2312,7 @@ fn two_bidder_reward_distribution_common_slot_large_numbers() {
     //  Spent: 950 BILLION ust
     let info = mock_info("col0000", &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0001".to_string(),
+        sender: "custody0000".to_string(),
         amount: Uint128::from(1000000000u128),
         msg: to_binary(&Cw20HookMsg::ExecuteBid {
             liquidator: "liquidator00000".to_string(),

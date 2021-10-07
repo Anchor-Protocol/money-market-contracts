@@ -25,6 +25,7 @@ pub struct Config {
     pub stable_denom: String,
     pub safe_ratio: Decimal256,
     pub bid_fee: Decimal256,
+    pub liquidator_fee: Decimal256,
     pub liquidation_threshold: Uint256,
     pub price_timeframe: u64,
     pub waiting_period: u64,

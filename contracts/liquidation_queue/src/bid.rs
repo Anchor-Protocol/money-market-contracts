@@ -1,4 +1,5 @@
 use crate::asserts::{assert_activate_status, assert_withdraw_amount};
+use crate::querier::query_collateral_whitelist_info;
 use crate::state::{
     pop_bid_idx, read_bid, read_bid_pool, read_bids_by_user, read_collateral_info, read_config,
     read_epoch_scale_sum, read_or_create_bid_pool, read_total_bids, remove_bid, store_bid,
@@ -28,18 +29,27 @@ pub fn submit_bid(
         read_collateral_info(deps.storage, &collateral_token_raw)?;
     let bidder_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
 
-    let amount: Uint256 = Uint256::from(
-        info.funds
-            .iter()
-            .find(|c| c.denom == config.stable_denom)
-            .map(|c| c.amount)
-            .ok_or_else(|| {
-                StdError::generic_err(format!(
-                    "No {} assets have been provided",
+    let amount: Uint256 = info
+        .funds
+        .iter()
+        .map(|item| {
+            if item.denom != config.stable_denom {
+                Err(StdError::generic_err(format!(
+                    "Invalid asset provided, only {} allowed",
                     config.stable_denom
-                ))
-            })?,
-    );
+                )))
+            } else {
+                Ok(item.amount)
+            }
+        })
+        .last()
+        .ok_or_else(|| {
+            StdError::generic_err(format!(
+                "No {} assets have been provided",
+                config.stable_denom
+            ))
+        })??
+        .into();
 
     // read or create bid_pool, make sure slot is valid
     let mut bid_pool: BidPool =
@@ -101,7 +111,7 @@ pub fn activate_bids(
     let collateral_token_raw: CanonicalAddr = deps.api.addr_canonicalize(&collateral_token)?;
     let collateral_info: CollateralInfo =
         read_collateral_info(deps.storage, &collateral_token_raw)?;
-    let available_bids: Uint256 =
+    let mut available_bids: Uint256 =
         read_total_bids(deps.storage, &collateral_token_raw).unwrap_or_default();
 
     let bids: Vec<Bid> = if let Some(bids_idx) = bids_idx {
@@ -145,13 +155,10 @@ pub fn activate_bids(
         )?;
 
         total_activated_amount += amount_to_activate;
+        available_bids += amount_to_activate;
     }
 
-    store_total_bids(
-        deps.storage,
-        &collateral_token_raw,
-        available_bids + total_activated_amount,
-    )?;
+    store_total_bids(deps.storage, &collateral_token_raw, available_bids)?;
 
     Ok(Response::new().add_attributes(vec![
         attr("action", "activate_bids"),
@@ -270,9 +277,12 @@ pub fn retract_bid(
 /// Overseer executes the liquidation providing a whitelisted collateral.
 /// This operation returns a repay_amount based on the available bids on each
 /// premium slot, consuming bids from lowest to higher premium slots
+#[allow(clippy::too_many_arguments)]
 pub fn execute_liquidation(
     deps: DepsMut,
     env: Env,
+    sender: String,
+    liquidator: String,
     repay_address: String,
     fee_address: String,
     collateral_token: String,
@@ -283,6 +293,20 @@ pub fn execute_liquidation(
     let collateral_info: CollateralInfo =
         read_collateral_info(deps.storage, &collateral_token_raw)?;
     let available_bids: Uint256 = read_total_bids(deps.storage, &collateral_token_raw)?;
+
+    // only collateral token custody can execute liquidations
+    let overseer = deps.api.addr_humanize(&config.overseer)?;
+    let custody_contract = query_collateral_whitelist_info(
+        &deps.querier,
+        overseer.to_string(),
+        collateral_token.to_string(),
+    )?
+    .custody_contract;
+    if sender != custody_contract {
+        return Err(StdError::generic_err(
+            "Unauthorized: only custody contract can execute liquidations",
+        ));
+    }
 
     let oracle_contract = deps.api.addr_humanize(&config.oracle_contract)?;
     let price: PriceResponse = query_price(
@@ -344,7 +368,8 @@ pub fn execute_liquidation(
     )?;
 
     let bid_fee = repay_amount * config.bid_fee;
-    let repay_amount = repay_amount - bid_fee;
+    let liquidator_fee = repay_amount * config.liquidator_fee;
+    let repay_amount = repay_amount - bid_fee - liquidator_fee;
 
     let mut messages: Vec<CosmosMsg> = vec![CosmosMsg::Bank(BankMsg::Send {
         to_address: repay_address,
@@ -369,12 +394,25 @@ pub fn execute_liquidation(
             )?],
         }));
     }
+    if !liquidator_fee.is_zero() {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: liquidator,
+            amount: vec![deduct_tax(
+                deps.as_ref(),
+                Coin {
+                    denom: config.stable_denom.clone(),
+                    amount: liquidator_fee.into(),
+                },
+            )?],
+        }));
+    }
 
     Ok(Response::new().add_messages(messages).add_attributes(vec![
         attr("action", "execute_bid"),
         attr("stable_denom", config.stable_denom),
         attr("repay_amount", repay_amount),
         attr("bid_fee", bid_fee),
+        attr("liquidator_fee", liquidator_fee),
         attr("collateral_token", collateral_token),
         attr("collateral_amount", amount),
     ]))
@@ -408,6 +446,10 @@ pub fn claim_liquidations(
         }
         if bid.collateral_token != collateral_token_raw {
             return Err(StdError::generic_err("Bid collateral token doesn't match"));
+        }
+        if bid.wait_end.is_some() {
+            // bid not activated
+            continue;
         }
 
         let mut bid_pool: BidPool =
@@ -551,6 +593,14 @@ fn execute_pool_liquidation(
         // check if scale needs to be increased (in case product truncates to zero)
         let new_product = bid_pool.product_snapshot * product;
         bid_pool.product_snapshot = if new_product.is_zero() {
+            store_epoch_scale_sum(
+                storage,
+                collateral_token,
+                premium_slot,
+                bid_pool.current_epoch,
+                bid_pool.current_scale + Uint128::from(1u128),
+                bid_pool.sum_snapshot,
+            )?;
             bid_pool.current_scale += Uint128::from(1u128);
             Decimal256(bid_pool.product_snapshot.0 * Decimal256::DECIMAL_FRACTIONAL) * product
         } else {
@@ -572,11 +622,11 @@ pub(crate) fn calculate_remaining_bid(
         // pool was emptied, return 0
         Decimal256::zero()
     } else if scale_diff.is_zero() {
-        Decimal256::from_uint256(bid.amount) * (bid_pool.product_snapshot / bid.product_snapshot)
+        Decimal256::from_uint256(bid.amount) * bid_pool.product_snapshot / bid.product_snapshot
     } else if scale_diff == Uint128::from(1u128) {
         // product has been scaled
-        let scaled_remaining_bid = Decimal256::from_uint256(bid.amount)
-            * (bid_pool.product_snapshot / bid.product_snapshot);
+        let scaled_remaining_bid =
+            Decimal256::from_uint256(bid.amount) * bid_pool.product_snapshot / bid.product_snapshot;
         Decimal256(scaled_remaining_bid.0 / Decimal256::DECIMAL_FRACTIONAL)
     } else {
         Decimal256::zero()
@@ -603,6 +653,12 @@ pub(crate) fn calculate_liquidated_collateral(
     .unwrap_or_default();
 
     // reward = reward from first scale + reward from second scale (if any)
+    println!(
+        "sum snapshot: {} - reference: {} (diff: {})",
+        bid.sum_snapshot,
+        reference_sum_snapshot,
+        reference_sum_snapshot - bid.sum_snapshot
+    );
     let first_portion = reference_sum_snapshot - bid.sum_snapshot;
     let second_portion = if let Ok(second_scale_sum_snapshot) = read_epoch_scale_sum(
         storage,
@@ -615,9 +671,17 @@ pub(crate) fn calculate_liquidated_collateral(
     } else {
         Decimal256::zero()
     };
-
+    let first = Decimal256::from_uint256(bid.amount) * first_portion / bid.product_snapshot;
+    let second = Decimal256::from_uint256(bid.amount) * second_portion / bid.product_snapshot;
+    println!(
+        "First: {}, second: {}, sum: {}",
+        first,
+        second,
+        first + second
+    );
     let liquidated_collateral_dec = Decimal256::from_uint256(bid.amount)
-        * ((first_portion + second_portion) / bid.product_snapshot);
+        * (first_portion + second_portion)
+        / bid.product_snapshot;
     let liquidated_collateral = liquidated_collateral_dec * Uint256::one();
     // stacks the residue when converting to integer
     let residue_collateral =

@@ -1,5 +1,5 @@
 use crate::state::Bid;
-use cosmwasm_bignumber::Uint256;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{Env, StdError, StdResult};
 
 const MAX_SLOT_CAP: u8 = 30u8;
@@ -49,6 +49,22 @@ pub fn assert_withdraw_amount(
 pub fn assert_max_slot(max_slot: u8) -> StdResult<()> {
     if max_slot.gt(&MAX_SLOT_CAP) {
         return Err(StdError::generic_err("Max slot exceeds limit"));
+    }
+    Ok(())
+}
+
+pub fn assert_fee(fee: Decimal256) -> StdResult<()> {
+    if fee > Decimal256::one() {
+        return Err(StdError::generic_err("Fee can not be greater than one"));
+    }
+    Ok(())
+}
+
+pub fn assert_max_slot_premium(max_slot: u8, premium_rate_per_slot: Decimal256) -> StdResult<()> {
+    let max_slot_premium =
+        premium_rate_per_slot * Decimal256::from_uint256(Uint256::from(max_slot as u128));
+    if max_slot_premium >= Decimal256::one() {
+        return Err(StdError::generic_err("Max slot premium rate exceeds limit"));
     }
     Ok(())
 }
