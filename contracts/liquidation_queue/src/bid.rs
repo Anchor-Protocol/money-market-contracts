@@ -653,12 +653,6 @@ pub(crate) fn calculate_liquidated_collateral(
     .unwrap_or_default();
 
     // reward = reward from first scale + reward from second scale (if any)
-    println!(
-        "sum snapshot: {} - reference: {} (diff: {})",
-        bid.sum_snapshot,
-        reference_sum_snapshot,
-        reference_sum_snapshot - bid.sum_snapshot
-    );
     let first_portion = reference_sum_snapshot - bid.sum_snapshot;
     let second_portion = if let Ok(second_scale_sum_snapshot) = read_epoch_scale_sum(
         storage,
@@ -671,14 +665,7 @@ pub(crate) fn calculate_liquidated_collateral(
     } else {
         Decimal256::zero()
     };
-    let first = Decimal256::from_uint256(bid.amount) * first_portion / bid.product_snapshot;
-    let second = Decimal256::from_uint256(bid.amount) * second_portion / bid.product_snapshot;
-    println!(
-        "First: {}, second: {}, sum: {}",
-        first,
-        second,
-        first + second
-    );
+
     let liquidated_collateral_dec = Decimal256::from_uint256(bid.amount)
         * (first_portion + second_portion)
         / bid.product_snapshot;
