@@ -155,6 +155,8 @@ fn query_bids() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"token0000".to_string(), &Decimal256::percent(90))]);
 
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
@@ -334,6 +336,8 @@ fn query_bid_pools() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"token0000".to_string(), &Decimal256::percent(90))]);
 
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
@@ -487,6 +491,8 @@ fn query_collateral_info() {
         Decimal::percent(1),
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
+    deps.querier
+        .with_collateral_max_ltv(&[(&"token0000".to_string(), &Decimal256::percent(90))]);
 
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),

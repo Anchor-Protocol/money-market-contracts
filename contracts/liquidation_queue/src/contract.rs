@@ -3,6 +3,7 @@ use cosmwasm_std::entry_point;
 
 use crate::asserts::{assert_fee, assert_max_slot, assert_max_slot_premium};
 use crate::bid::{activate_bids, claim_liquidations, execute_liquidation, retract_bid, submit_bid};
+use crate::querier::query_collateral_whitelist_info;
 use crate::query::{
     query_bid, query_bid_pool, query_bid_pools, query_bids_by_user, query_collateral_info,
     query_config, query_liquidation_amount,
@@ -215,6 +216,13 @@ pub fn whitelist_collateral(
     if read_collateral_info(deps.storage, &collateral_token_raw).is_ok() {
         return Err(StdError::generic_err("Collateral is already whitelisted"));
     }
+
+    // check if the colalteral is whitelisted in overseer
+    let overseer = deps.api.addr_humanize(&config.overseer)?;
+    query_collateral_whitelist_info(&deps.querier, overseer.to_string(), collateral_token)
+        .map_err(|_| {
+            StdError::generic_err("This collateral is not whitelisted in Anchor overseer")
+        })?;
 
     // assert max slot does not exceed cap and max premium rate does not exceed 1
     assert_max_slot(max_slot)?;

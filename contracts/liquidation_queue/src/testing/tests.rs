@@ -168,6 +168,8 @@ fn update_config() {
 #[test]
 fn submit_bid() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_collateral_max_ltv(&[(&"asset0000".to_string(), &Decimal256::percent(90))]);
 
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
@@ -280,6 +282,8 @@ fn submit_bid() {
 #[test]
 fn activate_bid() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_collateral_max_ltv(&[(&"asset0000".to_string(), &Decimal256::percent(90))]);
 
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
@@ -377,6 +381,8 @@ fn activate_bid() {
 #[test]
 fn retract_bid() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_collateral_max_ltv(&[(&"asset0000".to_string(), &Decimal256::percent(90))]);
 
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
@@ -448,6 +454,8 @@ fn retract_bid() {
 #[test]
 fn retract_unactive_bid() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_collateral_max_ltv(&[(&"asset0000".to_string(), &Decimal256::percent(90))]);
 
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
@@ -807,6 +815,8 @@ fn claim_liquidations() {
 #[test]
 fn update_collateral_info() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .with_collateral_max_ltv(&[(&"token0000".to_string(), &Decimal256::percent(90))]);
 
     let msg = InstantiateMsg {
         owner: "owner0000".to_string(),
