@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
-use crate::asserts::assert_max_slot;
+use crate::asserts::{assert_fee, assert_max_slot, assert_max_slot_premium};
 use crate::bid::{activate_bids, claim_liquidations, execute_liquidation, retract_bid, submit_bid};
 use crate::query::{
     query_bid, query_bid_pool, query_bid_pools, query_bids_by_user, query_collateral_info,
@@ -168,10 +168,12 @@ pub fn update_config(
     }
 
     if let Some(bid_fee) = bid_fee {
+        assert_fee(bid_fee)?;
         config.bid_fee = bid_fee;
     }
 
     if let Some(liquidator_fee) = liquidator_fee {
+        assert_fee(liquidator_fee)?;
         config.liquidator_fee = liquidator_fee;
     }
 
@@ -214,8 +216,9 @@ pub fn whitelist_collateral(
         return Err(StdError::generic_err("Collateral is already whitelisted"));
     }
 
-    // assert max slot does not exceed cap
+    // assert max slot does not exceed cap and max premium rate does not exceed 1
     assert_max_slot(max_slot)?;
+    assert_max_slot_premium(max_slot, premium_rate_per_slot)?;
 
     // save collateral info
     store_collateral_info(
@@ -254,8 +257,9 @@ pub fn update_collateral_info(
     }
 
     if let Some(max_slot) = max_slot {
-        // assert max slot does note exceed cap
+        // assert max slot does not exceed cap and max premium rate does not exceed 1
         assert_max_slot(max_slot)?;
+        assert_max_slot_premium(max_slot, collateral_info.premium_rate_per_slot)?;
         collateral_info.max_slot = max_slot;
     }
 
