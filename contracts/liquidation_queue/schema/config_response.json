@@ -5,6 +5,7 @@
   "required": [
     "bid_fee",
     "liquidation_threshold",
+    "liquidator_fee",
     "oracle_contract",
     "overseer",
     "owner",
@@ -19,6 +20,9 @@
     },
     "liquidation_threshold": {
       "$ref": "#/definitions/Uint256"
+    },
+    "liquidator_fee": {
+      "$ref": "#/definitions/Decimal256"
     },
     "oracle_contract": {
       "type": "string"

@@ -43,6 +43,16 @@
                 }
               ]
             },
+            "liquidator_fee": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "oracle_contract": {
               "type": [
                 "string",

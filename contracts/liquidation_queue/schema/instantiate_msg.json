@@ -5,6 +5,7 @@
   "required": [
     "bid_fee",
     "liquidation_threshold",
+    "liquidator_fee",
     "oracle_contract",
     "overseer",
     "owner",
@@ -27,6 +28,14 @@
       "allOf": [
         {
           "$ref": "#/definitions/Uint256"
+        }
+      ]
+    },
+    "liquidator_fee": {
+      "description": "Fee applied to executed bids Sent to the address executing the liquidation",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal256"
         }
       ]
     },
