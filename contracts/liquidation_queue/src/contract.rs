@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
-use crate::asserts::{assert_fee, assert_max_slot, assert_max_slot_premium};
+use crate::asserts::{assert_fees, assert_max_slot, assert_max_slot_premium};
 use crate::bid::{activate_bids, claim_liquidations, execute_liquidation, retract_bid, submit_bid};
 use crate::querier::query_collateral_whitelist_info;
 use crate::query::{
@@ -26,6 +26,8 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
+    assert_fees(msg.liquidator_fee + msg.bid_fee)?;
+
     store_config(
         deps.storage,
         &Config {
@@ -169,12 +171,12 @@ pub fn update_config(
     }
 
     if let Some(bid_fee) = bid_fee {
-        assert_fee(bid_fee)?;
+        assert_fees(bid_fee + config.liquidator_fee)?;
         config.bid_fee = bid_fee;
     }
 
     if let Some(liquidator_fee) = liquidator_fee {
-        assert_fee(liquidator_fee)?;
+        assert_fees(liquidator_fee + config.bid_fee)?;
         config.liquidator_fee = liquidator_fee;
     }
 

@@ -53,9 +53,11 @@ pub fn assert_max_slot(max_slot: u8) -> StdResult<()> {
     Ok(())
 }
 
-pub fn assert_fee(fee: Decimal256) -> StdResult<()> {
-    if fee > Decimal256::one() {
-        return Err(StdError::generic_err("Fee can not be greater than one"));
+pub fn assert_fees(fees: Decimal256) -> StdResult<()> {
+    if fees > Decimal256::one() {
+        return Err(StdError::generic_err(
+            "The sum of bid_fee and liquidator_fee can not be greater than one",
+        ));
     }
     Ok(())
 }
