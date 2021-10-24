@@ -4,12 +4,12 @@ use cosmwasm_std::entry_point;
 use crate::bid::{
     execute_bid, query_bid, query_bids_by_collateral, query_bids_by_user, retract_bid, submit_bid,
 };
+use crate::error::ContractError;
 use crate::state::{read_config, store_config, Config};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult,
+    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
 use cw20::Cw20ReceiveMsg;
 use moneymarket::common::optional_addr_validate;
@@ -44,7 +44,12 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
         ExecuteMsg::UpdateConfig {
@@ -98,7 +103,7 @@ pub fn receive_cw20(
     env: Env,
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let contract_addr = info.sender;
     match from_binary(&cw20_msg.msg) {
         Ok(Cw20HookMsg::ExecuteBid {
@@ -122,9 +127,7 @@ pub fn receive_cw20(
                 cw20_msg.amount.into(),
             )
         }
-        _ => Err(StdError::generic_err(
-            "Invalid request: \"execute bid\" message not included in request",
-        )),
+        _ => Err(ContractError::MissingExecuteBidHook {}),
     }
 }
 
@@ -140,10 +143,10 @@ pub fn update_config(
     max_premium_rate: Option<Decimal256>,
     liquidation_threshold: Option<Uint256>,
     price_timeframe: Option<u64>,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     if let Some(owner) = owner {

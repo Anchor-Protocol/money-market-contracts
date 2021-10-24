@@ -1,12 +1,12 @@
+use crate::error::ContractError;
 use crate::state::{read_config, store_config, Config};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
 use cosmwasm_bignumber::Decimal256;
 use cosmwasm_bignumber::Uint256;
-use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
-};
+use cosmwasm_std::{to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::{
     BorrowRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
@@ -36,30 +36,39 @@ pub fn execute(
     _env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig {
             owner,
             base_rate,
             interest_multiplier,
-        } => update_config(deps, info, owner, base_rate, interest_multiplier),
+        } => {
+            let api = deps.api;
+            update_config(
+                deps,
+                info,
+                optional_addr_validate(api, owner)?,
+                base_rate,
+                interest_multiplier,
+            )
+        }
     }
 }
 
 pub fn update_config(
     deps: DepsMut,
     info: MessageInfo,
-    owner: Option<String>,
+    owner: Option<Addr>,
     base_rate: Option<Decimal256>,
     interest_multiplier: Option<Decimal256>,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     if let Some(owner) = owner {
-        config.owner = deps.api.addr_canonicalize(&owner)?;
+        config.owner = deps.api.addr_canonicalize(owner.as_str())?;
     }
 
     if let Some(base_rate) = base_rate {

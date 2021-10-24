@@ -1,14 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
-};
+use cosmwasm_std::{to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 
+use crate::error::ContractError;
 use crate::state::{read_config, store_config, Config};
 
 use cosmwasm_bignumber::Decimal256;
+use moneymarket::common::optional_addr_validate;
 use moneymarket::distribution_model::{
-    AncEmissionRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+    AncEmissionRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -38,7 +38,7 @@ pub fn execute(
     _env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig {
             owner,
@@ -46,34 +46,37 @@ pub fn execute(
             emission_floor,
             increment_multiplier,
             decrement_multiplier,
-        } => update_config(
-            deps,
-            info,
-            owner,
-            emission_cap,
-            emission_floor,
-            increment_multiplier,
-            decrement_multiplier,
-        ),
+        } => {
+            let api = deps.api;
+            update_config(
+                deps,
+                info,
+                optional_addr_validate(api, owner)?,
+                emission_cap,
+                emission_floor,
+                increment_multiplier,
+                decrement_multiplier,
+            )
+        }
     }
 }
 
 pub fn update_config(
     deps: DepsMut,
     info: MessageInfo,
-    owner: Option<String>,
+    owner: Option<Addr>,
     emission_cap: Option<Decimal256>,
     emission_floor: Option<Decimal256>,
     increment_multiplier: Option<Decimal256>,
     decrement_multiplier: Option<Decimal256>,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     if let Some(owner) = owner {
-        config.owner = deps.api.addr_canonicalize(&owner)?;
+        config.owner = deps.api.addr_canonicalize(owner.as_str())?;
     }
 
     if let Some(emission_cap) = emission_cap {
@@ -159,9 +162,4 @@ fn query_anc_emission_rate(
     };
 
     Ok(AncEmissionRateResponse { emission_rate })
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    Ok(Response::default())
 }

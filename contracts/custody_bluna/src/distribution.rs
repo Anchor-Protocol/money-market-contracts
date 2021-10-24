@@ -1,19 +1,20 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, QueryRequest,
-    ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg, WasmQuery,
+    ReplyOn, Response, StdResult, SubMsg, Uint128, WasmMsg, WasmQuery,
 };
 
 use crate::contract::{CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION};
+use crate::error::ContractError;
 use crate::external::handle::{RewardContractExecuteMsg, RewardContractQueryMsg};
 use crate::state::{read_config, BLunaAccruedRewardsResponse, Config};
 
 use moneymarket::querier::{deduct_tax, query_all_balances, query_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
 
-// REWARD_THRESHOLD is there to make sure that
-// if there is some reward and it is not above 1 UST
-// do not send the ClaimRewards
+// REWARD_THRESHOLD
+// This value is used as the minimum reward claim amount
+// thus if a user's reward is less than 1 ust do not send the ClaimRewards msg
 const REWARDS_THRESHOLD: Uint128 = Uint128::new(1000000);
 
 /// Request withdraw reward operation to
@@ -23,10 +24,10 @@ pub fn distribute_rewards(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let config: Config = read_config(deps.storage)?;
     if config.overseer_contract != deps.api.addr_canonicalize(info.sender.as_str())? {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     let contract_addr = env.contract.address;
@@ -53,7 +54,10 @@ pub fn distribute_rewards(
 
 /// Apply swapped reward to global index
 /// Executor: itself
-pub fn distribute_hook(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn distribute_hook(
+    deps: DepsMut,
+    env: Env,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let contract_addr = env.contract.address;
     let config: Config = read_config(deps.storage)?;
     let overseer_contract = deps.api.addr_humanize(&config.overseer_contract)?;
@@ -65,9 +69,9 @@ pub fn distribute_hook(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWr
         contract_addr,
         config.stable_denom.to_string(),
     )?;
-    let mut messages: Vec<SubMsg<TerraMsgWrapper>> = vec![];
+    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
     if !reward_amount.is_zero() {
-        messages.push(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
             to_address: overseer_contract.to_string(),
             amount: vec![deduct_tax(
                 deps.as_ref(),
@@ -76,21 +80,22 @@ pub fn distribute_hook(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWr
                     amount: reward_amount.into(),
                 },
             )?],
-        })));
+        }));
     }
 
-    Ok(Response::new()
-        .add_submessages(messages)
-        .add_attributes(vec![
-            attr("action", "distribute_rewards"),
-            attr("buffer_rewards", reward_amount),
-        ]))
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "distribute_rewards"),
+        attr("buffer_rewards", reward_amount),
+    ]))
 }
 
 /// Swap all coins to stable_denom
 /// and execute `swap_hook`
 /// Executor: itself
-pub fn swap_to_stable_denom(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn swap_to_stable_denom(
+    deps: DepsMut,
+    env: Env,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let config: Config = read_config(deps.storage)?;
 
     let contract_addr = env.contract.address;

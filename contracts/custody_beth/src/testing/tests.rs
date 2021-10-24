@@ -1,12 +1,13 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
     attr, from_binary, to_binary, Api, Attribute, BankMsg, Coin, ContractResult, CosmosMsg,
-    Decimal, Reply, Response, StdError, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
+    Decimal, Reply, Response, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
 
 use crate::contract::{
     execute, instantiate, query, reply, CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION,
 };
+use crate::error::ContractError;
 use crate::external::handle::RewardContractExecuteMsg;
 use crate::state::{read_borrower_info, BETHAccruedRewardsResponse};
 use crate::testing::mock_querier::mock_dependencies;
@@ -98,7 +99,7 @@ fn update_config() {
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 }
@@ -135,7 +136,7 @@ fn deposit_collateral() {
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -147,10 +148,7 @@ fn deposit_collateral() {
     });
     let res2 = execute(deps.as_mut(), mock_env(), info, msg2);
     match res2 {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(
-            msg,
-            "Invalid request: \"deposit collateral\" message not included in request"
-        ),
+        Err(ContractError::MissingDepositCollateralHook {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -260,12 +258,7 @@ fn withdraw_collateral() {
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(
-                msg,
-                "Withdraw amount cannot exceed the user's spendable amount: 100"
-            )
-        }
+        Err(ContractError::WithdrawAmountExceedsSpendable(100)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -402,7 +395,7 @@ fn lock_collateral() {
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -414,10 +407,7 @@ fn lock_collateral() {
     };
     let res2 = execute(deps.as_mut(), mock_env(), info2, msg2).unwrap_err();
 
-    assert_eq!(
-        res2,
-        StdError::generic_err("Lock amount cannot excceed the user's spendable amount: 100")
-    );
+    assert_eq!(res2, ContractError::LockAmountExceedsSpendable(100));
 
     let info = mock_info("overseer", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -444,12 +434,7 @@ fn lock_collateral() {
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(
-                msg,
-                "Withdraw amount cannot exceed the user's spendable amount: 50"
-            )
-        }
+        Err(ContractError::WithdrawAmountExceedsSpendable(50)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -494,7 +479,7 @@ fn lock_collateral() {
     let info2 = mock_info("addr0000", &[]);
     let res2 = execute(deps.as_mut(), mock_env(), info2, msg.clone());
     match res2 {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -507,9 +492,7 @@ fn lock_collateral() {
     let info3 = mock_info("overseer", &[]);
     let res3 = execute(deps.as_mut(), mock_env(), info3, msg3);
     match res3 {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Unlock amount cannot exceed locked amount: 50")
-        }
+        Err(ContractError::UnlockAmountExceedsLocked(50)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -593,7 +576,7 @@ fn distribute_rewards() {
     let msg = ExecuteMsg::DistributeRewards {};
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -864,16 +847,14 @@ fn liquidate_collateral() {
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
     let info = mock_info("overseer", &[]);
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Liquidation amount cannot exceed locked amount: 50")
-        }
+        Err(ContractError::LiquidationAmountExceedsLocked(50)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
     let msg = ExecuteMsg::LiquidateCollateral {
@@ -940,7 +921,7 @@ fn proper_distribute_rewards_with_no_rewards() {
     let msg = ExecuteMsg::DistributeRewards {};
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
+        Err(ContractError::Unauthorized {}) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 

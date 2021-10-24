@@ -2,13 +2,14 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    Response, StdError, StdResult, SubMsg, WasmMsg,
+    Response, StdResult, WasmMsg,
 };
 
 use crate::collateral::{
     liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
     query_collaterals, unlock_collateral,
 };
+use crate::error::ContractError;
 use crate::querier::query_epoch_state;
 use crate::state::{
     read_config, read_epoch_state, read_whitelist, read_whitelist_elem, store_config,
@@ -21,8 +22,7 @@ use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
 use moneymarket::market::EpochStateResponse;
 use moneymarket::market::ExecuteMsg as MarketExecuteMsg;
 use moneymarket::overseer::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, WhitelistResponse,
-    WhitelistResponseElem,
+    ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
 use moneymarket::querier::{deduct_tax, query_balance};
 
@@ -66,7 +66,12 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig {
             owner_addr,
@@ -155,11 +160,11 @@ pub fn update_config(
     anc_purchase_factor: Option<Decimal256>,
     epoch_period: Option<u64>,
     price_timeframe: Option<u64>,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
 
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     if let Some(owner_addr) = owner_addr {
@@ -213,17 +218,15 @@ pub fn register_whitelist(
     collateral_token: Addr,
     custody_contract: Addr,
     max_ltv: Decimal256,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     let collateral_token_raw = deps.api.addr_canonicalize(collateral_token.as_str())?;
     if read_whitelist_elem(deps.storage, &collateral_token_raw).is_ok() {
-        return Err(StdError::generic_err(
-            "Token is already registered as collateral",
-        ));
+        return Err(ContractError::TokenAlreadyRegistered {});
     }
 
     store_whitelist_elem(
@@ -253,10 +256,10 @@ pub fn update_whitelist(
     collateral_token: Addr,
     custody_contract: Option<Addr>,
     max_ltv: Option<Decimal256>,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     let collateral_token_raw = deps.api.addr_canonicalize(collateral_token.as_str())?;
@@ -284,14 +287,11 @@ pub fn update_whitelist(
     ]))
 }
 
-pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> {
+pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     let state: EpochState = read_epoch_state(deps.storage)?;
     if env.block.height < state.last_executed_height + config.epoch_period {
-        return Err(StdError::generic_err(format!(
-            "An epoch has not passed yet; last executed height: {}",
-            state.last_executed_height
-        )));
+        return Err(ContractError::EpochNotPassed(state.last_executed_height));
     }
 
     // # of blocks from the last executed height
@@ -312,7 +312,7 @@ pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> 
     let deposit_rate =
         (effective_deposit_rate - Decimal256::one()) / Decimal256::from_uint256(blocks);
 
-    let mut messages: Vec<SubMsg> = vec![];
+    let mut messages: Vec<CosmosMsg> = vec![];
     let mut interest_buffer = query_balance(
         deps.as_ref(),
         env.contract.address.clone(),
@@ -323,7 +323,7 @@ pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> 
     let accrued_buffer = interest_buffer - state.prev_interest_buffer;
     let anc_purchase_amount = accrued_buffer * config.anc_purchase_factor;
     if !anc_purchase_amount.is_zero() {
-        messages.push(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
             to_address: deps
                 .api
                 .addr_humanize(&config.collector_contract)?
@@ -335,7 +335,7 @@ pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> 
                     amount: anc_purchase_amount.into(),
                 },
             )?],
-        })));
+        }));
     }
 
     // Deduct anc_purchase_amount from the interest_buffer
@@ -372,47 +372,45 @@ pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> StdResult<Response> 
             );
 
             // Send some portion of interest buffer to Market contract
-            messages.push(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            messages.push(CosmosMsg::Bank(BankMsg::Send {
                 to_address: market_contract.to_string(),
                 amount: vec![Coin {
                     denom: config.stable_denom,
                     amount: distributed_interest.into(),
                 }],
-            })));
+            }));
         }
     }
 
     // Execute DistributeRewards
     let whitelist: Vec<WhitelistResponseElem> = read_whitelist(deps.as_ref(), None, None)?;
     for elem in whitelist.iter() {
-        messages.push(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: elem.custody_contract.clone(),
             funds: vec![],
             msg: to_binary(&CustodyExecuteMsg::DistributeRewards {})?,
-        })));
+        }));
     }
 
     // TODO: Should this become a reply? If so which SubMsg to make reply_on?
     // Execute store epoch state operation
-    messages.push(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: env.contract.address.to_string(),
         funds: vec![],
         msg: to_binary(&ExecuteMsg::UpdateEpochState {
             interest_buffer,
             distributed_interest,
         })?,
-    })));
+    }));
 
-    Ok(Response::new()
-        .add_submessages(messages)
-        .add_attributes(vec![
-            attr("action", "epoch_operations"),
-            attr("deposit_rate", deposit_rate.to_string()),
-            attr("exchange_rate", epoch_state.exchange_rate.to_string()),
-            attr("aterra_supply", epoch_state.aterra_supply),
-            attr("distributed_interest", distributed_interest),
-            attr("anc_purchase_amount", anc_purchase_amount),
-        ]))
+    Ok(Response::new().add_messages(messages).add_attributes(vec![
+        attr("action", "epoch_operations"),
+        attr("deposit_rate", deposit_rate.to_string()),
+        attr("exchange_rate", epoch_state.exchange_rate.to_string()),
+        attr("aterra_supply", epoch_state.aterra_supply),
+        attr("distributed_interest", distributed_interest),
+        attr("anc_purchase_amount", anc_purchase_amount),
+    ]))
 }
 
 pub fn update_epoch_state(
@@ -423,11 +421,11 @@ pub fn update_epoch_state(
     // pass interest_buffer from execute_epoch_operations
     interest_buffer: Uint256,
     distributed_interest: Uint256,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     let overseer_epoch_state: EpochState = read_epoch_state(deps.storage)?;
     if info.sender != env.contract.address {
-        return Err(StdError::generic_err("unauthorized"));
+        return Err(ContractError::Unauthorized {});
     }
 
     // # of blocks from the last executed height
@@ -462,7 +460,7 @@ pub fn update_epoch_state(
     )?;
 
     Ok(Response::new()
-        .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: market_contract.to_string(),
             funds: vec![],
             msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
@@ -471,7 +469,7 @@ pub fn update_epoch_state(
                 threshold_deposit_rate: config.threshold_deposit_rate,
                 distributed_interest,
             })?,
-        }))])
+        }))
         .add_attributes(vec![
             attr("action", "update_epoch_state"),
             attr("deposit_rate", deposit_rate.to_string()),
@@ -580,19 +578,4 @@ pub fn query_whitelist(
         let whitelist: Vec<WhitelistResponseElem> = read_whitelist(deps, start_after, limit)?;
         Ok(WhitelistResponse { elems: whitelist })
     }
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
-    let config: Config = read_config(deps.storage)?;
-    store_config(
-        deps.storage,
-        &Config {
-            target_deposit_rate: msg.target_deposit_rate,
-            threshold_deposit_rate: msg.threshold_deposit_rate,
-            ..config
-        },
-    )?;
-
-    Ok(Response::default())
 }

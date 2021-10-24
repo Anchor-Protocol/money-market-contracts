@@ -1,16 +1,21 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
-    StdError, StdResult, SubMsg, Uint128, WasmMsg,
+    StdResult, Uint128, WasmMsg,
 };
 
 use crate::borrow::{compute_interest, compute_reward};
+use crate::error::ContractError;
 use crate::state::{read_config, read_state, store_state, Config, State};
 
 use cw20::Cw20ExecuteMsg;
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
 
-pub fn deposit_stable(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Response> {
+pub fn deposit_stable(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
 
     // Check base denom deposit
@@ -23,10 +28,7 @@ pub fn deposit_stable(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<R
 
     // Cannot deposit zero amount
     if deposit_amount.is_zero() {
-        return Err(StdError::generic_err(format!(
-            "Deposit amount must be greater than 0 {}",
-            config.stable_denom,
-        )));
+        return Err(ContractError::ZeroDeposit(config.stable_denom));
     }
 
     // Update interest related state
@@ -48,14 +50,14 @@ pub fn deposit_stable(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<R
     state.prev_aterra_supply += mint_amount;
     store_state(deps.storage, &state)?;
     Ok(Response::new()
-        .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Mint {
                 recipient: info.sender.to_string(),
                 amount: mint_amount.into(),
             })?,
-        }))])
+        }))
         .add_attributes(vec![
             attr("action", "deposit_stable"),
             attr("depositor", info.sender),
@@ -69,7 +71,7 @@ pub fn redeem_stable(
     env: Env,
     sender: Addr,
     burn_amount: Uint128,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
 
     // Update interest related state
@@ -93,15 +95,15 @@ pub fn redeem_stable(
     state.prev_aterra_supply = state.prev_aterra_supply - Uint256::from(burn_amount);
     store_state(deps.storage, &state)?;
     Ok(Response::new()
-        .add_submessages(vec![
-            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+        .add_messages(vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Burn {
                     amount: burn_amount,
                 })?,
-            })),
-            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
                 to_address: sender.to_string(),
                 amount: vec![deduct_tax(
                     deps.as_ref(),
@@ -110,7 +112,7 @@ pub fn redeem_stable(
                         amount: redeem_amount.into(),
                     },
                 )?],
-            })),
+            }),
         ])
         .add_attributes(vec![
             attr("action", "redeem_stable"),
@@ -124,14 +126,13 @@ fn assert_redeem_amount(
     state: &State,
     current_balance: Uint256,
     redeem_amount: Uint256,
-) -> StdResult<()> {
+) -> Result<(), ContractError> {
     let current_balance = Decimal256::from_uint256(current_balance);
     let redeem_amount = Decimal256::from_uint256(redeem_amount);
     if redeem_amount + state.total_reserves > current_balance {
-        return Err(StdError::generic_err(format!(
-            "Not enough {} available; borrow demand too high",
-            config.stable_denom
-        )));
+        return Err(ContractError::NoStableAvailable(
+            config.stable_denom.clone(),
+        ));
     }
 
     Ok(())
