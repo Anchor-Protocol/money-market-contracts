@@ -1086,8 +1086,6 @@ fn product_truncated_to_zero() {
     execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // force product to become zero
-    let mut total_liquidated = Uint256::zero();
-    let mut remaining_bid = Uint256::zero();
     for _ in 0..8 {
         // ALICE BIDS 1000000000 uUST
         let msg = ExecuteMsg::SubmitBid {
@@ -1103,11 +1101,11 @@ fn product_truncated_to_zero() {
         );
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        // EXECUTE 999999999 COL AT  1 UST/COL
+        // EXECUTE 999999995 COL AT  1 UST/COL
         let info = mock_info("col0000", &[]);
         let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
             sender: "custody0000".to_string(),
-            amount: Uint128::from(999999999u128),
+            amount: Uint128::from(999999995u128), // 5 uusd residue
             msg: to_binary(&Cw20HookMsg::ExecuteBid {
                 liquidator: "liquidator00000".to_string(),
                 fee_address: Some("fee0000".to_string()),
@@ -1116,8 +1114,6 @@ fn product_truncated_to_zero() {
             .unwrap(),
         });
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        total_liquidated += Uint256::from(999999999u128);
-        remaining_bid += Uint256::one(); // 1000000000 - 999999999
     }
 
     // alice can claim everything
@@ -1132,7 +1128,7 @@ fn product_truncated_to_zero() {
         vec![
             attr("action", "claim_liquidations"),
             attr("collateral_token", "col0000"),
-            attr("collateral_amount", "7999999990"), // 999999999 * 8 = 7,999,999,992 missing 2ucol due to product resolution
+            attr("collateral_amount", "7999999959"), // 999999995 * 8 = 7,999,999,960 missing 1ucol due to rounding and product resolution
         ]
     );
 
@@ -1148,7 +1144,7 @@ fn product_truncated_to_zero() {
         .unwrap(),
     )
     .unwrap();
-    assert_eq!(bid_pool.total_bid_amount, remaining_bid);
+    assert_eq!(bid_pool.total_bid_amount, Uint256::from(40u128)); // 5 * 8 = 40
 
     let msg = ExecuteMsg::RetractBid {
         bid_idx: Uint128::from(8u128), // only last bid is active, others are consumed
@@ -1160,7 +1156,7 @@ fn product_truncated_to_zero() {
         vec![
             attr("action", "retract_bid"),
             attr("bid_idx", "8"),
-            attr("amount", "7"), // system favors later bids, but never bigger than actual bid amount
+            attr("amount", "39"), // 5 * 8 = 40 missing 1ucol due to rounding
         ]
     );
 }

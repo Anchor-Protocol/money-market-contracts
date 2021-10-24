@@ -5,6 +5,7 @@ use crate::state::{
     read_epoch_scale_sum, read_or_create_bid_pool, read_total_bids, remove_bid, store_bid,
     store_bid_pool, store_epoch_scale_sum, store_total_bids, Bid, BidPool, CollateralInfo, Config,
 };
+use bigint::U256;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     attr, to_binary, BankMsg, CanonicalAddr, Coin, CosmosMsg, DepsMut, Env, MessageInfo, Response,
@@ -592,22 +593,15 @@ fn execute_pool_liquidation(
 
         // check if scale needs to be increased (in case product truncates to zero)
         let new_product = bid_pool.product_snapshot * product;
-        bid_pool.product_snapshot = if new_product.is_zero() {
-            store_epoch_scale_sum(
-                storage,
-                collateral_token,
-                premium_slot,
-                bid_pool.current_epoch,
-                bid_pool.current_scale + Uint128::from(1u128),
-                bid_pool.sum_snapshot,
-            )?;
+        bid_pool.product_snapshot = if new_product < Decimal256(U256::from(1_000_000_000u64)) {
             bid_pool.current_scale += Uint128::from(1u128);
-            Decimal256(bid_pool.product_snapshot.0 * Decimal256::DECIMAL_FRACTIONAL) * product
+
+            Decimal256(bid_pool.product_snapshot.0 * U256::from(1_000_000_000u64)) * product
         } else {
             new_product
         };
     }
-
+    println!("product: {}", bid_pool.product_snapshot);
     Ok((pool_required_stable, pool_collateral_to_liquidate))
 }
 
@@ -627,7 +621,8 @@ pub(crate) fn calculate_remaining_bid(
         // product has been scaled
         let scaled_remaining_bid =
             Decimal256::from_uint256(bid.amount) * bid_pool.product_snapshot / bid.product_snapshot;
-        Decimal256(scaled_remaining_bid.0 / Decimal256::DECIMAL_FRACTIONAL)
+
+        Decimal256(scaled_remaining_bid.0 / U256::from(1_000_000_000u64))
     } else {
         Decimal256::zero()
     };
@@ -661,7 +656,9 @@ pub(crate) fn calculate_liquidated_collateral(
         bid.epoch_snapshot,
         bid.scale_snapshot + Uint128::from(1u128),
     ) {
-        Decimal256(second_scale_sum_snapshot.0 / Decimal256::DECIMAL_FRACTIONAL)
+        Decimal256(
+            (second_scale_sum_snapshot.0 - reference_sum_snapshot.0) / U256::from(1_000_000_000u64),
+        )
     } else {
         Decimal256::zero()
     };
