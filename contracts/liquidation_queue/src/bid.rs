@@ -115,7 +115,7 @@ pub fn activate_bids(
     let mut available_bids: Uint256 =
         read_total_bids(deps.storage, &collateral_token_raw).unwrap_or_default();
 
-    let bids: Vec<Bid> = if let Some(bids_idx) = bids_idx {
+    let bids: Vec<Bid> = if let Some(bids_idx) = &bids_idx {
         bids_idx
             .iter()
             .map(|idx| read_bid(deps.storage, *idx))
@@ -141,7 +141,17 @@ pub fn activate_bids(
         let amount_to_activate = bid.amount;
 
         // assert that the bid is inactive and wait period has expired
-        assert_activate_status(&bid, &env, available_bids, collateral_info.bid_threshold)?;
+        if let Err(err) =
+            assert_activate_status(&bid, &env, available_bids, collateral_info.bid_threshold)
+        {
+            if bids_idx.is_some() {
+                // if the user provided the idx to activate, we should return error to notify the user
+                return Err(err);
+            } else {
+                // otherwise just skip this bid
+                continue;
+            }
+        }
 
         // update bid and bid pool, add new share and pool indexes to bid
         process_bid_activation(&mut bid, &mut bid_pool, amount_to_activate);

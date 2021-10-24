@@ -338,16 +338,32 @@ fn activate_bid() {
     let info = mock_info("addr0000", &[]);
     let mut env = mock_env();
     env.block.time = wait_end.minus_seconds(2u64);
-    let err = execute(deps.as_mut(), env, info, msg.clone()).unwrap_err();
+    let err = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap_err();
     assert_eq!(
         err,
         StdError::generic_err(format!("Wait period expires at {}", wait_end.seconds()))
     );
 
+    // graceful return when idx is not specified
+    let msg2 = ExecuteMsg::ActivateBids {
+        collateral_token: "asset0000".to_string(),
+        bids_idx: None,
+    };
+    let res = execute(deps.as_mut(), env, info, msg2).unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![attr("action", "activate_bids"), attr("amount", "0"),]
+    );
+
     let info = mock_info("addr0000", &[]);
     let mut env = mock_env();
     env.block.time = wait_end;
-    execute(deps.as_mut(), env, info, msg).unwrap();
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![attr("action", "activate_bids"), attr("amount", "1000000"),]
+    );
+    assert!(res.messages.is_empty());
 
     let bid_response: BidResponse = from_binary(
         &query(
