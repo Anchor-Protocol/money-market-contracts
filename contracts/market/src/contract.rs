@@ -535,7 +535,7 @@ pub fn query_epoch_state(
         config.stable_denom.to_string(),
     )? - distributed_interest;
 
-    let exchange_rate = if let Some(block_height) = block_height {
+    if let Some(block_height) = block_height {
         if block_height < state.last_interest_updated {
             return Err(StdError::generic_err(
                 "block_height must bigger than last_interest_updated",
@@ -562,13 +562,12 @@ pub fn query_epoch_state(
             borrow_rate_res.rate,
             target_deposit_rate,
         );
+    }
 
-        // compute_interest_raw store current exchange rate
-        // as prev_exchange_rate, so just return prev_exchange_rate
-        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest)
-    } else {
-        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest)
-    };
+    // compute_interest_raw store current exchange rate
+    // as prev_exchange_rate, so just return prev_exchange_rate
+    let exchange_rate =
+        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest);
 
     Ok(EpochStateResponse {
         exchange_rate,
