@@ -1,0 +1,19 @@
+source-dir: ./contracts
+binary-path: ./target/debug/
+branch: true
+ignore-not-existing: true
+llvm: true
+filter: covered
+output-type: lcov
+output-path: ./lcov.info
+prefix-dir: /home/user/build/
+excl-start: '#[test]'
+excl-br-start: '#[test]'
+ignore:
+ - "./packages/**"
+ - "./**/lib.rs"
+ - "./**/examples/schema.rs"
+ - "./**/testing/**/*"
+ - "./**/tests.rs"
+ - "./**/querier.rs"
+ - "./**/mock_querier.rs"

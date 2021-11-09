@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/Anchor-Protocol/money-market-contracts/branch/main/graph/badge.svg?token=B4B2YUSXEU)](https://codecov.io/gh/Anchor-Protocol/money-market-contracts)
+
 # Anchor Money Market Contracts
 A Rust and [CosmWasm](https://cosmwasm.com/) implementation of the Anchor Protocol money market on the [Terra blockchain](https://terra.money).
 
@@ -75,4 +77,4 @@ This performs several optimizations which can significantly reduce the final siz
 
 This repository is licensed under the Apache 2.0 license. See [LICENSE](./LICENSE) for full disclosure.
 
-© 2020 Anchor Protocol.
+© 2021 Anchor Protocol.

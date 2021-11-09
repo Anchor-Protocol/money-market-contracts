@@ -1,6 +1,6 @@
 [package]
 name = "moneymarket"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
 description = "Common helpers for other moneymarket specs"
