@@ -35,7 +35,7 @@ backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
 moneymarket = { path = "../../packages/moneymarket", default-features = false, version = "0.3.1"}
-anchor-token = { git = "https://github.com/Anchor-Protocol/anchor-token-contracts", branch = "dev/col5" }
+anchor-token = "0.2.0"
 cw20 = "0.8.0"
 protobuf = { version = "2", features = ["with-bytes"] }
 terraswap = "2.3.0"
