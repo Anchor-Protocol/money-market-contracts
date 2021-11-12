@@ -125,13 +125,16 @@ fn proper_initialization() {
     let query_res = query(
         deps.as_ref(),
         mock_env(),
-        QueryMsg::State { block_height: None },
+        QueryMsg::State { block_time: None },
     )
     .unwrap();
     let state: StateResponse = from_binary(&query_res).unwrap();
     assert_eq!(Decimal256::zero(), state.total_liabilities);
     assert_eq!(Decimal256::zero(), state.total_reserves);
-    assert_eq!(mock_env().block.height, state.last_interest_updated);
+    assert_eq!(
+        mock_env().block.time.seconds(),
+        state.last_interest_updated_time
+    );
     assert_eq!(Decimal256::one(), state.global_interest_index);
     assert_eq!(Decimal256::one(), state.anc_emission_rate);
     assert_eq!(Uint256::zero(), state.prev_aterra_supply);
@@ -516,8 +519,8 @@ fn deposit_stable() {
             global_reward_index: Decimal256::zero(),
             total_liabilities: Decimal256::zero(),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: mock_env().block.height,
-            last_reward_updated: mock_env().block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: mock_env().block.time.seconds(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(1000000u64),
             prev_exchange_rate: Decimal256::one(),
@@ -553,8 +556,8 @@ fn deposit_stable() {
         &State {
             total_liabilities: Decimal256::from_uint256(50000u128),
             total_reserves: Decimal256::from_uint256(550000u128),
-            last_interest_updated: mock_env().block.height,
-            last_reward_updated: mock_env().block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: mock_env().block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -603,8 +606,8 @@ fn deposit_stable() {
         &State {
             total_liabilities: Decimal256::from_uint256(50000u128),
             total_reserves: Decimal256::from_uint256(550000u128),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -614,7 +617,7 @@ fn deposit_stable() {
     )
     .unwrap();
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
     let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     // State: global_interest_index: 1
@@ -632,8 +635,8 @@ fn deposit_stable() {
             global_reward_index: Decimal256::from_str("0.002").unwrap(),
             total_liabilities: Decimal256::from_uint256(100000u128),
             total_reserves: Decimal256::from_uint256(550000u128),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT + 1818181),
             prev_exchange_rate: Decimal256::from_ratio(55u64, 100u64),
@@ -767,8 +770,8 @@ fn redeem_stable() {
         &State {
             total_liabilities: Decimal256::from_uint256(500000u128),
             total_reserves: Decimal256::from_uint256(100000u128),
-            last_interest_updated: mock_env().block.height,
-            last_reward_updated: mock_env().block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: mock_env().block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -893,8 +896,8 @@ fn borrow_stable() {
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -909,7 +912,7 @@ fn borrow_stable() {
         to: None,
     };
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     // interest_factor = 1% * 100blocks = 1
@@ -950,7 +953,7 @@ fn borrow_stable() {
             &query(
                 deps.as_ref(),
                 env.clone(),
-                QueryMsg::State { block_height: None }
+                QueryMsg::State { block_time: None }
             )
             .unwrap()
         )
@@ -958,8 +961,8 @@ fn borrow_stable() {
         State {
             total_liabilities: Decimal256::from_uint256(2500000u128),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::from_uint256(2u128),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::one(),
@@ -975,7 +978,7 @@ fn borrow_stable() {
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::State {
-                    block_height: Some(env.block.height + 1u64)
+                    block_time: Some(env.block.time.plus_seconds(1).seconds())
                 }
             )
             .unwrap()
@@ -984,8 +987,8 @@ fn borrow_stable() {
         State {
             total_liabilities: Decimal256::from_uint256(2525000u128),
             total_reserves: Decimal256::from_uint256(0u128),
-            last_interest_updated: env.block.height + 1u64,
-            last_reward_updated: env.block.height + 1u64,
+            last_interest_updated_time: env.block.time.seconds() + 1u64,
+            last_reward_updated_time: env.block.time.seconds() + 1u64,
             global_interest_index: Decimal256::from_str("2.02").unwrap(),
             global_reward_index: Decimal256::from_str("0.0001008").unwrap(),
             anc_emission_rate: Decimal256::one(),
@@ -999,7 +1002,7 @@ fn borrow_stable() {
         mock_env(),
         QueryMsg::BorrowerInfo {
             borrower: "addr0000".to_string(),
-            block_height: None,
+            block_time: None,
         },
     )
     .unwrap();
@@ -1021,7 +1024,7 @@ fn borrow_stable() {
         mock_env(),
         QueryMsg::BorrowerInfo {
             borrower: "addr0000".to_string(),
-            block_height: Some(env.block.height),
+            block_time: Some(env.block.height),
         },
     )
     .unwrap();
@@ -1045,7 +1048,7 @@ fn borrow_stable() {
         mock_env(),
         QueryMsg::BorrowerInfo {
             borrower: "addr0000".to_string(),
-            block_height: Some(env.block.height + 100),
+            block_time: Some(env.block.time.plus_seconds(100).seconds()),
         },
     )
     .unwrap();
@@ -1137,8 +1140,8 @@ fn assert_max_borrow_factor() {
         &State {
             total_liabilities: Decimal256::zero(),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: mock_env().block.height,
-            last_reward_updated: mock_env().block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: mock_env().block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -1248,8 +1251,8 @@ fn repay_stable() {
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -1264,7 +1267,7 @@ fn repay_stable() {
         to: None,
     };
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     let msg = ExecuteMsg::RepayStable {};
@@ -1431,8 +1434,8 @@ fn repay_stable_from_liquidation() {
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -1602,8 +1605,8 @@ fn claim_rewards() {
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -1631,8 +1634,8 @@ fn claim_rewards() {
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
     assert_eq!(res.messages.len(), 0);
 
-    // 100 blocks passed
-    env.block.height += 100;
+    // 100 seconds is passed
+    env.block.time = env.block.time.plus_seconds(100);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -1653,7 +1656,7 @@ fn claim_rewards() {
             mock_env(),
             QueryMsg::BorrowerInfo {
                 borrower: "addr0000".to_string(),
-                block_height: None,
+                block_time: None,
             },
         )
         .unwrap(),
@@ -1733,8 +1736,8 @@ fn execute_epoch_operations() {
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::from_uint256(3000u128),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -1744,7 +1747,7 @@ fn execute_epoch_operations() {
     )
     .unwrap();
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
 
     // reserve == 3000
     let msg = ExecuteMsg::ExecuteEpochOperations {
@@ -1780,8 +1783,8 @@ fn execute_epoch_operations() {
         State {
             total_liabilities: Decimal256::from_uint256(2000000u128),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::from_uint256(2u64),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
@@ -1807,8 +1810,8 @@ fn execute_epoch_operations() {
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::from_uint256(3000u128),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -1818,7 +1821,7 @@ fn execute_epoch_operations() {
     )
     .unwrap();
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
 
     // reserve == 3000
     let msg = ExecuteMsg::ExecuteEpochOperations {
@@ -1837,8 +1840,8 @@ fn execute_epoch_operations() {
         State {
             total_liabilities: Decimal256::from_uint256(2000000u128),
             total_reserves: Decimal256::from_uint256(3000u128),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::from_uint256(2u64),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),

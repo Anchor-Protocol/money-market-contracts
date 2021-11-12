@@ -33,8 +33,8 @@ fn proper_compute_exchange_rate() {
     let mock_state = State {
         total_liabilities: Decimal256::from_uint256(50000u128),
         total_reserves: Decimal256::from_uint256(550000u128),
-        last_interest_updated: env.block.height,
-        last_reward_updated: env.block.height,
+        last_interest_updated_time: env.block.time.seconds(),
+        last_reward_updated_time: env.block.time.seconds(),
         global_interest_index: Decimal256::one(),
         global_reward_index: Decimal256::zero(),
         anc_emission_rate: Decimal256::one(),

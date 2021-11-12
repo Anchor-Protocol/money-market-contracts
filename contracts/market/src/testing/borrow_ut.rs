@@ -11,8 +11,8 @@ fn proper_compute_borrower_interest() {
     let mock_state = State {
         total_liabilities: Decimal256::from_uint256(1000000u128),
         total_reserves: Decimal256::from_uint256(0u128),
-        last_interest_updated: env.block.height,
-        last_reward_updated: env.block.height,
+        last_interest_updated_time: env.block.time.seconds(),
+        last_reward_updated_time: env.block.time.seconds(),
         global_interest_index: Decimal256::one(),
         global_reward_index: Decimal256::zero(),
         anc_emission_rate: Decimal256::one(),
@@ -37,8 +37,8 @@ fn proper_compute_borrower_interest() {
     let mock_state2 = State {
         total_liabilities: Decimal256::from_uint256(300000u128),
         total_reserves: Decimal256::from_uint256(1000u128),
-        last_interest_updated: env.block.height,
-        last_reward_updated: env.block.height,
+        last_interest_updated_time: env.block.time.seconds(),
+        last_reward_updated_time: env.block.time.seconds(),
         global_interest_index: Decimal256::from_uint256(2u128),
         global_reward_index: Decimal256::zero(),
         anc_emission_rate: Decimal256::zero(),
@@ -94,8 +94,8 @@ fn proper_compute_interest() {
     let mut mock_state = State {
         total_liabilities: Decimal256::from_uint256(1000000u128),
         total_reserves: Decimal256::zero(),
-        last_interest_updated: env.block.height,
-        last_reward_updated: env.block.height,
+        last_interest_updated_time: env.block.time.seconds(),
+        last_reward_updated_time: env.block.time.seconds(),
         global_interest_index: Decimal256::one(),
         global_reward_index: Decimal256::zero(),
         anc_emission_rate: Decimal256::one(),
@@ -110,7 +110,7 @@ fn proper_compute_interest() {
         deps.as_ref(),
         &mock_config,
         &mut mock_state,
-        env.block.height,
+        env.block.time.seconds(),
         mock_deposit_amount,
     )
     .unwrap();
@@ -119,8 +119,8 @@ fn proper_compute_interest() {
         State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -129,13 +129,13 @@ fn proper_compute_interest() {
         }
     );
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
 
     compute_interest(
         deps.as_ref(),
         &mock_config,
         &mut mock_state,
-        env.block.height,
+        env.block.time.seconds(),
         mock_deposit_amount,
     )
     .unwrap();
@@ -144,8 +144,8 @@ fn proper_compute_interest() {
         State {
             total_liabilities: Decimal256::from_uint256(2000000u128),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height - 100,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds() - 100,
             global_interest_index: Decimal256::from_uint256(2u128),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
@@ -158,8 +158,8 @@ fn proper_compute_interest() {
     let mut mock_state = State {
         total_liabilities: Decimal256::zero(),
         total_reserves: Decimal256::zero(),
-        last_interest_updated: env.block.height,
-        last_reward_updated: env.block.height,
+        last_interest_updated_time: env.block.time.seconds(),
+        last_reward_updated_time: env.block.time.seconds(),
         global_interest_index: Decimal256::one(),
         global_reward_index: Decimal256::zero(),
         anc_emission_rate: Decimal256::one(),
@@ -176,7 +176,7 @@ fn proper_compute_interest() {
         }],
     );
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
 
     // deposit_rate: 0.02
     // target_deposit_rate: 0.01
@@ -184,7 +184,7 @@ fn proper_compute_interest() {
         deps.as_ref(),
         &mock_config,
         &mut mock_state,
-        env.block.height,
+        env.block.time.seconds(),
         None,
     )
     .unwrap();
@@ -193,8 +193,8 @@ fn proper_compute_interest() {
         State {
             total_liabilities: Decimal256::zero(),
             total_reserves: Decimal256::from_uint256(2000000u64),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height - 100,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds() - 100,
             global_interest_index: Decimal256::from_uint256(2u128),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),

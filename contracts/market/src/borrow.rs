@@ -33,11 +33,17 @@ pub fn borrow_stable(
     let mut liability: BorrowerInfo = read_borrower_info(deps.storage, &borrower_raw);
 
     // Compute interest
-    compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
+    compute_interest(
+        deps.as_ref(),
+        &config,
+        &mut state,
+        env.block.time.seconds(),
+        None,
+    )?;
     compute_borrower_interest(&state, &mut liability);
 
     // Compute ANC reward
-    compute_reward(&mut state, env.block.height);
+    compute_reward(&mut state, env.block.time.seconds());
     compute_borrower_reward(&state, &mut liability);
 
     let overseer = deps.api.addr_humanize(&config.overseer_contract)?;
@@ -143,13 +149,13 @@ pub fn repay_stable(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Respon
         deps.as_ref(),
         &config,
         &mut state,
-        env.block.height,
+        env.block.time.seconds(),
         Some(amount),
     )?;
     compute_borrower_interest(&state, &mut liability);
 
     // Compute ANC reward
-    compute_reward(&mut state, env.block.height);
+    compute_reward(&mut state, env.block.time.seconds());
     compute_borrower_reward(&state, &mut liability);
 
     let repay_amount: Uint256;
@@ -200,11 +206,17 @@ pub fn claim_rewards(
     let mut liability: BorrowerInfo = read_borrower_info(deps.storage, &borrower_raw);
 
     // Compute interest
-    compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
+    compute_interest(
+        deps.as_ref(),
+        &config,
+        &mut state,
+        env.block.time.seconds(),
+        None,
+    )?;
     compute_borrower_interest(&state, &mut liability);
 
     // Compute ANC reward
-    compute_reward(&mut state, env.block.height);
+    compute_reward(&mut state, env.block.time.seconds());
     compute_borrower_reward(&state, &mut liability);
 
     let claim_amount = liability.pending_rewards * Uint256::one();
@@ -213,6 +225,7 @@ pub fn claim_rewards(
     store_state(deps.storage, &state)?;
     store_borrower_info(deps.storage, &borrower_raw, &liability)?;
 
+    println!("{}", claim_amount);
     let messages: Vec<CosmosMsg> = if !claim_amount.is_zero() {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
@@ -245,10 +258,10 @@ pub fn compute_interest(
     deps: Deps,
     config: &Config,
     state: &mut State,
-    block_height: u64,
+    block_time: u64,
     deposit_amount: Option<Uint256>,
 ) -> StdResult<()> {
-    if state.last_interest_updated >= block_height {
+    if state.last_interest_updated_time >= block_time {
         return Ok(());
     }
 
@@ -272,7 +285,7 @@ pub fn compute_interest(
 
     compute_interest_raw(
         state,
-        block_height,
+        block_time,
         balance,
         aterra_supply,
         borrow_rate_res.rate,
@@ -289,19 +302,22 @@ pub fn compute_interest(
 // * state.last_interest_updated
 pub fn compute_interest_raw(
     state: &mut State,
-    block_height: u64,
+    block_time: u64,
     balance: Uint256,
     aterra_supply: Uint256,
     borrow_rate: Decimal256,
     target_deposit_rate: Decimal256,
 ) {
-    if state.last_interest_updated >= block_height {
+    // Todo: should we have a minimum time for block_height
+    if state.last_interest_updated_time >= block_time {
         return;
     }
 
-    let passed_blocks = Decimal256::from_uint256(block_height - state.last_interest_updated);
+    //Todo: shouldn't the borrow rate be changed based on the time?
+    // passed time
+    let passed_time = Decimal256::from_uint256(block_time - state.last_interest_updated_time);
 
-    let interest_factor = passed_blocks * borrow_rate;
+    let interest_factor = passed_time * borrow_rate;
     let interest_accrued = state.total_liabilities * interest_factor;
 
     state.global_interest_index =
@@ -310,7 +326,7 @@ pub fn compute_interest_raw(
 
     let mut exchange_rate = compute_exchange_rate_raw(state, aterra_supply, balance);
     let effective_deposit_rate = exchange_rate / state.prev_exchange_rate;
-    let deposit_rate = (effective_deposit_rate - Decimal256::one()) / passed_blocks;
+    let deposit_rate = (effective_deposit_rate - Decimal256::one()) / passed_time;
 
     if deposit_rate > target_deposit_rate {
         // excess_deposit_rate(_per_block)
@@ -319,7 +335,7 @@ pub fn compute_interest_raw(
             Decimal256::from_uint256(state.prev_aterra_supply * state.prev_exchange_rate);
 
         // excess_yield = prev_deposits * excess_deposit_rate(_per_block) * blocks
-        let excess_yield = prev_deposits * passed_blocks * excess_deposit_rate;
+        let excess_yield = prev_deposits * passed_time * excess_deposit_rate;
 
         state.total_reserves += excess_yield;
         exchange_rate = compute_exchange_rate_raw(state, aterra_supply, balance);
@@ -327,7 +343,7 @@ pub fn compute_interest_raw(
 
     state.prev_aterra_supply = aterra_supply;
     state.prev_exchange_rate = exchange_rate;
-    state.last_interest_updated = block_height;
+    state.last_interest_updated_time = block_time;
 }
 
 /// Compute new interest and apply to liability
@@ -338,20 +354,21 @@ pub(crate) fn compute_borrower_interest(state: &State, liability: &mut BorrowerI
 }
 
 /// Compute distributed reward and update global index
-pub fn compute_reward(state: &mut State, block_height: u64) {
-    if state.last_reward_updated >= block_height {
+pub fn compute_reward(state: &mut State, block_time: u64) {
+    // todo: should not we have a minimum block time for this?
+    if state.last_reward_updated_time >= block_time {
         return;
     }
 
-    let passed_blocks = Decimal256::from_uint256(block_height - state.last_reward_updated);
-    let reward_accrued = passed_blocks * state.anc_emission_rate;
+    let passed_time = Decimal256::from_uint256(block_time - state.last_reward_updated_time);
+    let reward_accrued = passed_time * state.anc_emission_rate;
     let borrow_amount = state.total_liabilities / state.global_interest_index;
 
     if !reward_accrued.is_zero() && !borrow_amount.is_zero() {
         state.global_reward_index += reward_accrued / borrow_amount;
     }
 
-    state.last_reward_updated = block_height;
+    state.last_reward_updated_time = block_time;
 }
 
 /// Compute reward amount a borrower received
@@ -366,26 +383,26 @@ pub fn query_borrower_info(
     deps: Deps,
     env: Env,
     borrower: Addr,
-    block_height: Option<u64>,
+    block_time: Option<u64>,
 ) -> StdResult<BorrowerInfoResponse> {
     let mut borrower_info: BorrowerInfo = read_borrower_info(
         deps.storage,
         &deps.api.addr_canonicalize(borrower.as_str())?,
     );
 
-    let block_height = if let Some(block_height) = block_height {
-        block_height
+    let block_time = if let Some(block_time) = block_time {
+        block_time
     } else {
-        env.block.height
+        env.block.time.seconds()
     };
 
     let config: Config = read_config(deps.storage)?;
     let mut state: State = read_state(deps.storage)?;
 
-    compute_interest(deps, &config, &mut state, block_height, None)?;
+    compute_interest(deps, &config, &mut state, block_time, None)?;
     compute_borrower_interest(&state, &mut borrower_info);
 
-    compute_reward(&mut state, block_height);
+    compute_reward(&mut state, block_time);
     compute_borrower_reward(&state, &mut borrower_info);
 
     Ok(BorrowerInfoResponse {

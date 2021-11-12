@@ -37,10 +37,10 @@ pub fn deposit_stable(
         deps.as_ref(),
         &config,
         &mut state,
-        env.block.height,
+        env.block.time.seconds(),
         Some(deposit_amount),
     )?;
-    compute_reward(&mut state, env.block.height);
+    compute_reward(&mut state, env.block.time.seconds());
 
     // Load anchor token exchange rate with updated state
     let exchange_rate =
@@ -76,8 +76,14 @@ pub fn redeem_stable(
 
     // Update interest related state
     let mut state: State = read_state(deps.storage)?;
-    compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
-    compute_reward(&mut state, env.block.height);
+    compute_interest(
+        deps.as_ref(),
+        &config,
+        &mut state,
+        env.block.time.seconds(),
+        None,
+    )?;
+    compute_reward(&mut state, env.block.time.seconds());
 
     // Load anchor token exchange rate with updated state
     let exchange_rate = compute_exchange_rate(deps.as_ref(), &config, &state, None)?;

@@ -21,8 +21,8 @@ use cw20::{Cw20Coin, Cw20ReceiveMsg, MinterResponse};
 use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{
-    ConfigResponse, Cw20HookMsg, EpochStateResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-    StateResponse,
+    ConfigResponse, Cw20HookMsg, EpochStateResponse, ExecuteMsg, InstantiateMsg, MigrateMsg,
+    QueryMsg, StateResponse,
 };
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
 use protobuf::Message;
@@ -72,8 +72,8 @@ pub fn instantiate(
         &State {
             total_liabilities: Decimal256::zero(),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: msg.anc_emission_rate,
@@ -306,7 +306,13 @@ pub fn update_config(
 
     if interest_model.is_some() {
         let mut state: State = read_state(deps.storage)?;
-        compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
+        compute_interest(
+            deps.as_ref(),
+            &config,
+            &mut state,
+            env.block.time.seconds(),
+            None,
+        )?;
         store_state(deps.storage, &state)?;
 
         if let Some(interest_model) = interest_model {
@@ -363,7 +369,7 @@ pub fn execute_epoch_operations(
 
     compute_interest_raw(
         &mut state,
-        env.block.height,
+        env.block.time.seconds(),
         balance,
         aterra_supply,
         borrow_rate_res.rate,
@@ -374,7 +380,7 @@ pub fn execute_epoch_operations(
     state.prev_exchange_rate =
         compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest);
 
-    compute_reward(&mut state, env.block.height);
+    compute_reward(&mut state, env.block.time.seconds());
 
     // Compute total_reserves to fund collector contract
     // Update total_reserves and send it to collector contract
@@ -424,23 +430,19 @@ pub fn execute_epoch_operations(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::State { block_height } => to_binary(&query_state(deps, env, block_height)?),
+        QueryMsg::State { block_time } => to_binary(&query_state(deps, env, block_time)?),
         QueryMsg::EpochState {
-            block_height,
+            block_time,
             distributed_interest,
-        } => to_binary(&query_epoch_state(
-            deps,
-            block_height,
-            distributed_interest,
-        )?),
+        } => to_binary(&query_epoch_state(deps, block_time, distributed_interest)?),
         QueryMsg::BorrowerInfo {
             borrower,
-            block_height,
+            block_time,
         } => to_binary(&query_borrower_info(
             deps,
             env,
             deps.api.addr_validate(&borrower)?,
-            block_height,
+            block_time,
         )?),
         QueryMsg::BorrowerInfos { start_after, limit } => to_binary(&query_borrower_infos(
             deps,
@@ -477,22 +479,22 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     })
 }
 
-pub fn query_state(deps: Deps, env: Env, block_height: Option<u64>) -> StdResult<StateResponse> {
+pub fn query_state(deps: Deps, env: Env, block_time: Option<u64>) -> StdResult<StateResponse> {
     let mut state: State = read_state(deps.storage)?;
 
-    let block_height = if let Some(block_height) = block_height {
-        block_height
+    let block_time = if let Some(block_time) = block_time {
+        block_time
     } else {
-        env.block.height
+        env.block.time.seconds()
     };
 
-    if block_height < state.last_interest_updated {
+    if block_time < state.last_interest_updated_time {
         return Err(StdError::generic_err(
             "block_height must bigger than last_interest_updated",
         ));
     }
 
-    if block_height < state.last_reward_updated {
+    if block_time < state.last_reward_updated_time {
         return Err(StdError::generic_err(
             "block_height must bigger than last_reward_updated",
         ));
@@ -501,16 +503,16 @@ pub fn query_state(deps: Deps, env: Env, block_height: Option<u64>) -> StdResult
     let config: Config = read_config(deps.storage)?;
 
     // Compute interest rate with given block height
-    compute_interest(deps, &config, &mut state, block_height, None)?;
+    compute_interest(deps, &config, &mut state, block_time, None)?;
 
     // Compute reward rate with given block height
-    compute_reward(&mut state, block_height);
+    compute_reward(&mut state, block_time);
 
     Ok(StateResponse {
         total_liabilities: state.total_liabilities,
         total_reserves: state.total_reserves,
-        last_interest_updated: state.last_interest_updated,
-        last_reward_updated: state.last_reward_updated,
+        last_interest_updated_time: state.last_interest_updated_time,
+        last_reward_updated_time: state.last_reward_updated_time,
         global_interest_index: state.global_interest_index,
         global_reward_index: state.global_reward_index,
         anc_emission_rate: state.anc_emission_rate,
@@ -521,7 +523,7 @@ pub fn query_state(deps: Deps, env: Env, block_height: Option<u64>) -> StdResult
 
 pub fn query_epoch_state(
     deps: Deps,
-    block_height: Option<u64>,
+    block_time: Option<u64>,
     distributed_interest: Option<Uint256>,
 ) -> StdResult<EpochStateResponse> {
     let config: Config = read_config(deps.storage)?;
@@ -535,8 +537,8 @@ pub fn query_epoch_state(
         config.stable_denom.to_string(),
     )? - distributed_interest;
 
-    if let Some(block_height) = block_height {
-        if block_height < state.last_interest_updated {
+    if let Some(block_time) = block_time {
+        if block_time < state.last_interest_updated_time {
             return Err(StdError::generic_err(
                 "block_height must bigger than last_interest_updated",
             ));
@@ -556,7 +558,7 @@ pub fn query_epoch_state(
         // Compute interest rate to return latest epoch state
         compute_interest_raw(
             &mut state,
-            block_height,
+            block_time,
             balance,
             aterra_supply,
             borrow_rate_res.rate,
@@ -573,4 +575,58 @@ pub fn query_epoch_state(
         exchange_rate,
         aterra_supply,
     })
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    //read and store  the state and replace the prev anc emission rate
+    // with the new value based on time
+    // prev value was based on block
+    let mut state = read_state(deps.storage)?;
+    state.anc_emission_rate = msg.anc_emission_rate;
+
+    store_state(deps.storage, &state)?;
+
+    Ok(Response::default())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use std::str::FromStr;
+
+    #[test]
+    fn proper_migrate() {
+        let mut deps = mock_dependencies(&[]);
+
+        let legacy_anc_emssion_rate = Decimal256::from_str("1").unwrap();
+        let new_anc_emission_rate = Decimal256::from_str("1.1").unwrap();
+
+        // init the contract
+        let init_msg = InstantiateMsg {
+            owner_addr: "owner".to_string(),
+            stable_denom: "uusd".to_string(),
+            aterra_code_id: 0,
+            anc_emission_rate: Decimal256::from_str("1").unwrap(),
+            max_borrow_factor: Default::default(),
+        };
+
+        let info = mock_info("sender", &[Coin::new(1000000, "uusd")]);
+        let res = instantiate(deps.as_mut(), mock_env(), info, init_msg).unwrap();
+        assert_eq!(1, res.messages.len());
+
+        let state = read_state(&deps.storage).unwrap();
+        assert_eq!(state.anc_emission_rate, legacy_anc_emssion_rate);
+
+        // migrate
+        let migrate_msg = MigrateMsg {
+            anc_emission_rate: new_anc_emission_rate,
+        };
+        let res = migrate(deps.as_mut(), mock_env(), migrate_msg).unwrap();
+        assert_eq!(res, Response::default());
+
+        let state = read_state(&deps.storage).unwrap();
+        assert_eq!(state.anc_emission_rate, new_anc_emission_rate)
+    }
 }

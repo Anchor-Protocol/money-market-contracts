@@ -30,8 +30,8 @@ pub struct Config {
 pub struct State {
     pub total_liabilities: Decimal256,
     pub total_reserves: Decimal256,
-    pub last_interest_updated: u64,
-    pub last_reward_updated: u64,
+    pub last_interest_updated_time: u64,
+    pub last_reward_updated_time: u64,
     pub global_interest_index: Decimal256,
     pub global_reward_index: Decimal256,
     pub anc_emission_rate: Decimal256,

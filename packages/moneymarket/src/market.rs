@@ -103,15 +103,15 @@ pub enum Cw20HookMsg {
 pub enum QueryMsg {
     Config {},
     State {
-        block_height: Option<u64>,
+        block_time: Option<u64>,
     },
     EpochState {
-        block_height: Option<u64>,
+        block_time: Option<u64>,
         distributed_interest: Option<Uint256>,
     },
     BorrowerInfo {
         borrower: String,
-        block_height: Option<u64>,
+        block_time: Option<u64>,
     },
     BorrowerInfos {
         start_after: Option<String>,
@@ -138,8 +138,8 @@ pub struct ConfigResponse {
 pub struct StateResponse {
     pub total_liabilities: Decimal256,
     pub total_reserves: Decimal256,
-    pub last_interest_updated: u64,
-    pub last_reward_updated: u64,
+    pub last_interest_updated_time: u64,
+    pub last_reward_updated_time: u64,
     pub global_interest_index: Decimal256,
     pub global_reward_index: Decimal256,
     pub anc_emission_rate: Decimal256,
@@ -168,4 +168,10 @@ pub struct BorrowerInfoResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BorrowerInfosResponse {
     pub borrower_infos: Vec<BorrowerInfoResponse>,
+}
+
+// a struct for migration
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {
+    pub anc_emission_rate: Decimal256,
 }
