@@ -22,7 +22,8 @@ use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
 use moneymarket::market::EpochStateResponse;
 use moneymarket::market::ExecuteMsg as MarketExecuteMsg;
 use moneymarket::overseer::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
+    ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, WhitelistResponse,
+    WhitelistResponseElem,
 };
 use moneymarket::querier::{deduct_tax, query_balance};
 
@@ -58,7 +59,7 @@ pub fn instantiate(
             prev_aterra_supply: Uint256::zero(),
             prev_interest_buffer: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
-            last_executed_height: env.block.height,
+            last_executed_time: env.block.time.seconds(),
         },
     )?;
 
@@ -290,27 +291,31 @@ pub fn update_whitelist(
 pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     let state: EpochState = read_epoch_state(deps.storage)?;
-    if env.block.height < state.last_executed_height + config.epoch_period {
-        return Err(ContractError::EpochNotPassed(state.last_executed_height));
+    if env.block.time.seconds() < state.last_executed_time + config.epoch_period {
+        return Err(ContractError::EpochNotPassed(state.last_executed_time));
     }
 
-    // # of blocks from the last executed height
-    let blocks = Uint256::from(env.block.height - state.last_executed_height);
+    // passed time from the last executed time
+    let passed_time = Uint256::from(env.block.time.seconds() - state.last_executed_time);
 
     // Compute next epoch state
     let market_contract = deps.api.addr_humanize(&config.market_contract)?;
     let epoch_state: EpochStateResponse = query_epoch_state(
         deps.as_ref(),
         market_contract.clone(),
-        env.block.height,
+        env.block.time.seconds(),
         None,
     )?;
 
     // effective_deposit_rate = cur_exchange_rate / prev_exchange_rate
-    // deposit_rate = (effective_deposit_rate - 1) / blocks
+    // deposit_rate = (effective_deposit_rate - 1) / passed_time
+
+    //todo: effective deposit rate is based on blocks for the first time after migration
+    // how should we maintain this?
+    // passed_time * minimum_block_time
     let effective_deposit_rate = epoch_state.exchange_rate / state.prev_exchange_rate;
     let deposit_rate =
-        (effective_deposit_rate - Decimal256::one()) / Decimal256::from_uint256(blocks);
+        (effective_deposit_rate - Decimal256::one()) / Decimal256::from_uint256(passed_time);
 
     let mut messages: Vec<CosmosMsg> = vec![];
     let mut interest_buffer = query_balance(
@@ -345,12 +350,12 @@ pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> Result<Response, Con
     // Only executed when deposit rate < threshold_deposit_rate
     let mut distributed_interest: Uint256 = Uint256::zero();
     if deposit_rate < config.threshold_deposit_rate {
-        // missing_deposit_rate(_per_block)
+        // missing_deposit_rate(_per_second)
         let missing_deposit_rate = config.threshold_deposit_rate - deposit_rate;
         let prev_deposits = state.prev_aterra_supply * state.prev_exchange_rate;
 
-        // missing_deposits = prev_deposits * missing_deposit_rate(_per_block) * blocks
-        let missing_deposits = prev_deposits * blocks * missing_deposit_rate;
+        // missing_deposits = prev_deposits * missing_deposit_rate(per_second) * blocks
+        let missing_deposits = prev_deposits * passed_time * missing_deposit_rate;
         let distribution_buffer = interest_buffer * config.buffer_distribution_factor;
 
         // When there was not enough deposits happens,
@@ -428,30 +433,31 @@ pub fn update_epoch_state(
         return Err(ContractError::Unauthorized {});
     }
 
-    // # of blocks from the last executed height
-    let blocks = Uint256::from(env.block.height - overseer_epoch_state.last_executed_height);
+    // passed time from the last executed time
+    let passed_time =
+        Uint256::from(env.block.time.seconds() - overseer_epoch_state.last_executed_time);
 
     // Compute next epoch state
     let market_contract = deps.api.addr_humanize(&config.market_contract)?;
     let market_epoch_state: EpochStateResponse = query_epoch_state(
         deps.as_ref(),
         market_contract.clone(),
-        env.block.height,
+        env.block.time.seconds(),
         Some(distributed_interest),
     )?;
 
     // effective_deposit_rate = cur_exchange_rate / prev_exchange_rate
-    // deposit_rate = (effective_deposit_rate - 1) / blocks
+    // deposit_rate = (effective_deposit_rate - 1) / passed_time
     let effective_deposit_rate =
         market_epoch_state.exchange_rate / overseer_epoch_state.prev_exchange_rate;
     let deposit_rate =
-        (effective_deposit_rate - Decimal256::one()) / Decimal256::from_uint256(blocks);
+        (effective_deposit_rate - Decimal256::one()) / Decimal256::from_uint256(passed_time);
 
     // store updated epoch state
     store_epoch_state(
         deps.storage,
         &EpochState {
-            last_executed_height: env.block.height,
+            last_executed_time: env.block.time.seconds(),
             prev_aterra_supply: market_epoch_state.aterra_supply,
             prev_exchange_rate: market_epoch_state.exchange_rate,
             prev_interest_buffer: interest_buffer,
@@ -577,5 +583,78 @@ pub fn query_whitelist(
 
         let whitelist: Vec<WhitelistResponseElem> = read_whitelist(deps, start_after, limit)?;
         Ok(WhitelistResponse { elems: whitelist })
+    }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    // read the state and store the new value for deposite_rate
+    let mut state = read_epoch_state(deps.storage)?;
+    state.deposit_rate = msg.deposit_rate;
+    store_epoch_state(deps.storage, &state)?;
+
+    // read and store the new config values
+    let mut config = read_config(deps.storage)?;
+    config.epoch_period = msg.epoch_period;
+    config.target_deposit_rate = msg.target_deposit_rate;
+    config.threshold_deposit_rate = msg.threshold_deposit_rate;
+    store_config(deps.storage, &config)?;
+
+    Ok(Response::default())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use std::str::FromStr;
+
+    #[test]
+    fn proper_migrate() {
+        let mut deps = mock_dependencies(&[]);
+
+        // init the contract
+        let init_msg = InstantiateMsg {
+            owner_addr: "owner".to_string(),
+            oracle_contract: "oracle".to_string(),
+            market_contract: "market".to_string(),
+            liquidation_contract: "liquidation".to_string(),
+            collector_contract: "collector".to_string(),
+            stable_denom: "uusd".to_string(),
+            epoch_period: 0,
+            threshold_deposit_rate: Default::default(),
+            target_deposit_rate: Default::default(),
+            buffer_distribution_factor: Default::default(),
+            anc_purchase_factor: Default::default(),
+            price_timeframe: 0,
+        };
+
+        let info = mock_info("sender", &[Coin::new(1000000, "uusd")]);
+        let res = instantiate(deps.as_mut(), mock_env(), info, init_msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let deposit_rate = Decimal256::from_str("1000").unwrap();
+
+        let epoch_period = 1000;
+        let threshold_deposit_rate = Decimal256::from_str("100").unwrap();
+        let target_deposit_rate = Decimal256::from_str("1000").unwrap();
+
+        // migrate
+        let migrate_msg = MigrateMsg {
+            deposit_rate,
+            epoch_period,
+            threshold_deposit_rate,
+            target_deposit_rate,
+        };
+        let res = migrate(deps.as_mut(), mock_env(), migrate_msg).unwrap();
+        assert_eq!(res, Response::default());
+
+        let state = read_epoch_state(&deps.storage).unwrap();
+        assert_eq!(state.deposit_rate, deposit_rate);
+
+        let config = read_config(&deps.storage).unwrap();
+        assert_eq!(config.epoch_period, epoch_period);
+        assert_eq!(config.target_deposit_rate, target_deposit_rate);
+        assert_eq!(config.threshold_deposit_rate, threshold_deposit_rate);
     }
 }

@@ -8,14 +8,14 @@ use moneymarket::tokens::TokensHuman;
 pub fn query_epoch_state(
     deps: Deps,
     market_addr: Addr,
-    block_height: u64,
+    block_time: u64,
     distributed_interest: Option<Uint256>,
 ) -> StdResult<EpochStateResponse> {
     let epoch_state: EpochStateResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: market_addr.to_string(),
             msg: to_binary(&MarketQueryMsg::EpochState {
-                block_time: Some(block_height),
+                block_time: Some(block_time),
                 distributed_interest,
             })?,
         }))?;
