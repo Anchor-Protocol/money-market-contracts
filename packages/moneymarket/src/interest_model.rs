@@ -44,3 +44,11 @@ pub struct ConfigResponse {
 pub struct BorrowRateResponse {
     pub rate: Decimal256,
 }
+
+// struct for migration
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {
+    // change to the time-based value
+    pub base_rate: Decimal256,
+    pub interest_multiplier: Decimal256
+}
