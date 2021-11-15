@@ -8,7 +8,7 @@ use crate::state::{read_config, store_config, Config};
 use cosmwasm_bignumber::Decimal256;
 use moneymarket::common::optional_addr_validate;
 use moneymarket::distribution_model::{
-    AncEmissionRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
+    AncEmissionRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -162,4 +162,56 @@ fn query_anc_emission_rate(
     };
 
     Ok(AncEmissionRateResponse { emission_rate })
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    // read and store the new config values
+    let mut config = read_config(deps.storage)?;
+    config.emission_floor = msg.emission_floor;
+    config.emission_cap = msg.emission_cap;
+    store_config(deps.storage, &config)?;
+
+    Ok(Response::default())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use moneymarket::distribution_model::MigrateMsg;
+    use std::str::FromStr;
+
+    #[test]
+    fn proper_migrate() {
+        let mut deps = mock_dependencies(&[]);
+
+        // init the contract
+        let init_msg = InstantiateMsg {
+            owner: "owner".to_string(),
+            emission_cap: Default::default(),
+            emission_floor: Default::default(),
+            increment_multiplier: Default::default(),
+            decrement_multiplier: Default::default(),
+        };
+
+        let info = mock_info("sender", &[]);
+        let res = instantiate(deps.as_mut(), mock_env(), info, init_msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let emission_cap = Decimal256::from_str("2").unwrap();
+        let emission_floor = Decimal256::from_str("1").unwrap();
+
+        // migrate
+        let migrate_msg = MigrateMsg {
+            emission_cap,
+            emission_floor,
+        };
+        let res = migrate(deps.as_mut(), mock_env(), migrate_msg).unwrap();
+        assert_eq!(res, Response::default());
+
+        let config = read_config(&deps.storage).unwrap();
+        assert_eq!(config.emission_floor, emission_floor);
+        assert_eq!(config.emission_cap, emission_cap);
+    }
 }

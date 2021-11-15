@@ -50,5 +50,5 @@ pub struct BorrowRateResponse {
 pub struct MigrateMsg {
     // change to the time-based value
     pub base_rate: Decimal256,
-    pub interest_multiplier: Decimal256
+    pub interest_multiplier: Decimal256,
 }

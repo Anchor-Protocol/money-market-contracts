@@ -8,7 +8,7 @@ use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::{
-    BorrowRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, MigrateMsg
+    BorrowRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -159,7 +159,7 @@ mod test {
         let init_msg = InstantiateMsg {
             owner: "owner".to_string(),
             base_rate: Default::default(),
-            interest_multiplier: Default::default()
+            interest_multiplier: Default::default(),
         };
 
         let info = mock_info("sender", &[]);
@@ -172,7 +172,7 @@ mod test {
         // migrate
         let migrate_msg = MigrateMsg {
             base_rate,
-            interest_multiplier
+            interest_multiplier,
         };
         let res = migrate(deps.as_mut(), mock_env(), migrate_msg).unwrap();
         assert_eq!(res, Response::default());

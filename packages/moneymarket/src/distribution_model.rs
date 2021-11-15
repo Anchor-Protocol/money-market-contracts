@@ -51,3 +51,11 @@ pub struct ConfigResponse {
 pub struct AncEmissionRateResponse {
     pub emission_rate: Decimal256,
 }
+
+// struct for migration
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {
+    // change to the time-based value
+    pub emission_cap: Decimal256,
+    pub emission_floor: Decimal256,
+}
