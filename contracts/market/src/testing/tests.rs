@@ -1270,12 +1270,199 @@ fn repay_stable() {
     env.block.time = env.block.time.plus_seconds(100);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
-    let msg = ExecuteMsg::RepayStable {};
+    let msg = ExecuteMsg::RepayStable { borrower: None };
     info.funds = vec![Coin {
         denom: "ukrw".to_string(),
         amount: Uint128::from(100000u128),
     }];
 
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
+    let _uusd_string = "uusd";
+    match res {
+        Err(ContractError::ZeroRepay(_uusd_string)) => (),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    info.funds = vec![Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::zero(),
+    }];
+
+    let res2 = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
+    match res2 {
+        Err(ContractError::ZeroRepay(_uusd_string)) => (),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    deps.querier.update_balance(
+        MOCK_CONTRACT_ADDR.to_string(),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 100000u128),
+        }],
+    );
+
+    info.funds = vec![Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(100000u128),
+    }];
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "repay_stable"),
+            attr("borrower", "addr0000"),
+            attr("repay_amount", "100000"),
+        ]
+    );
+
+    //Loan amount and Total liability have decreased according to the repayment
+    let res_loan = read_borrower_infos(deps.as_ref(), None, None)
+        .unwrap()
+        .get(0)
+        .unwrap()
+        .loan_amount;
+    assert_eq!(res_loan, Uint256::from(400000u128));
+    assert_eq!(
+        read_state(deps.as_ref().storage).unwrap().total_liabilities,
+        Decimal256::from_uint256(2400000u128)
+    );
+
+    info.funds = vec![Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(500000u128),
+    }];
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "repay_stable"),
+            attr("borrower", "addr0000"),
+            attr("repay_amount", "400000"),
+        ]
+    );
+
+    //Loan amount and Total liability have decreased according to the repayment
+    let res_loan = read_borrower_infos(deps.as_ref(), None, None)
+        .unwrap()
+        .get(0)
+        .unwrap()
+        .loan_amount;
+    assert_eq!(res_loan, Uint256::zero());
+    assert_eq!(
+        read_state(deps.as_ref().storage).unwrap().total_liabilities,
+        Decimal256::from_uint256(2000000u128)
+    );
+
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: "addr0000".to_string(),
+            amount: vec![deduct_tax(
+                deps.as_ref(),
+                Coin {
+                    denom: "uusd".to_string(),
+                    amount: Uint128::from(100000u128),
+                }
+            )
+            .unwrap()]
+        }))]
+    );
+}
+
+#[test]
+fn repay_stable_for_others() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+    }]);
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        stable_denom: "uusd".to_string(),
+        aterra_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
+    };
+
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // Register anchor token contract
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("AT-uusd".to_string());
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubMsgExecutionResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
+    };
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    // Register overseer contract
+    let msg = ExecuteMsg::RegisterContracts {
+        overseer_contract: "overseer".to_string(),
+        interest_model: "interest".to_string(),
+        distribution_model: "distribution".to_string(),
+        collector_contract: "collector".to_string(),
+        distributor_contract: "distributor".to_string(),
+    };
+    let mut env = mock_env();
+    let mut info = mock_info("addr0000", &[]);
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    deps.querier
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+    deps.querier
+        .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
+
+    store_state(
+        deps.as_mut().storage,
+        &State {
+            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_reserves: Decimal256::zero(),
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
+            global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
+        },
+    )
+    .unwrap();
+
+    let msg = ExecuteMsg::BorrowStable {
+        borrow_amount: Uint256::from(500000u64),
+        to: None,
+    };
+
+    env.block.time = env.block.time.plus_seconds(100);
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    let msg = ExecuteMsg::RepayStable {
+        borrower: Some(info.sender.to_string()),
+    };
+    info.funds = vec![Coin {
+        denom: "ukrw".to_string(),
+        amount: Uint128::from(100000u128),
+    }];
+
+    //send by a different address
+    let mut info = mock_info("addr0001", &[]);
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     let _uusd_string = "uusd";
     match res {

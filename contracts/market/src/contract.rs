@@ -179,7 +179,7 @@ pub fn execute(
                 optional_addr_validate(api, to)?,
             )
         }
-        ExecuteMsg::RepayStable {} => repay_stable(deps, env, info),
+        ExecuteMsg::RepayStable { borrower } => repay_stable(deps, env, info, borrower),
         ExecuteMsg::RepayStableFromLiquidation {
             borrower,
             prev_balance,

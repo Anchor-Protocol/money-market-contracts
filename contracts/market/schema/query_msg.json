@@ -23,7 +23,7 @@
         "state": {
           "type": "object",
           "properties": {
-            "block_height": {
+            "block_time": {
               "type": [
                 "integer",
                 "null"
@@ -45,7 +45,7 @@
         "epoch_state": {
           "type": "object",
           "properties": {
-            "block_height": {
+            "block_time": {
               "type": [
                 "integer",
                 "null"
@@ -80,7 +80,7 @@
             "borrower"
           ],
           "properties": {
-            "block_height": {
+            "block_time": {
               "type": [
                 "integer",
                 "null"

@@ -82,7 +82,9 @@ pub enum ExecuteMsg {
     },
 
     /// Repay stable asset to decrease liability
-    RepayStable {},
+    RepayStable {
+        borrower: Option<String>,
+    },
 
     /// Claim distributed ANC rewards
     ClaimRewards {
