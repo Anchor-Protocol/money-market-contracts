@@ -18,7 +18,10 @@ use crate::state::{
     read_borrower_info, read_borrower_infos, read_config, read_state, store_borrower_info,
     store_state, BorrowerInfo, Config, State,
 };
+use std::ops::{Add, Div, Mul};
 use std::str::FromStr;
+
+const SECONDS_PER_YEAR: &str = "31536000";
 
 pub fn borrow_stable(
     deps: DepsMut,
@@ -329,11 +332,12 @@ pub fn compute_interest_raw(
     // passed time
     let passed_time = Decimal256::from_uint256(block_time - state.last_interest_updated_time);
 
-    let interest_factor = passed_time * borrow_rate;
+    let interest_factor =
+        calculate_compound_interest(borrow_rate, block_time - state.last_interest_updated_time)
+            .unwrap();
     let interest_accrued = state.total_liabilities * interest_factor;
 
-    state.global_interest_index =
-        state.global_interest_index * (Decimal256::one() + interest_factor);
+    state.global_interest_index = state.global_interest_index * interest_factor;
     state.total_liabilities += interest_accrued;
 
     let mut exchange_rate = compute_exchange_rate_raw(state, aterra_supply, balance);
@@ -494,4 +498,49 @@ fn assert_max_borrow_factor(
     }
 
     Ok(())
+}
+
+/**
+ * Function to calculate the interest using a compounded interest rate formula
+ * To avoid expensive exponentiation, the calculation is performed using a binomial approximation:
+ *
+ *  (1+x)^n = 1+n*x+[n/2*(n-1)]*x^2+[n/6*(n-1)*(n-2)*x^3...
+ *
+**/
+fn calculate_compound_interest(rate: Decimal256, exp: u64) -> StdResult<Decimal256> {
+    if exp == 0 {
+        return Ok(Decimal256::one());
+    }
+
+    let exp_minus_one = exp - 1;
+
+    let exp_minus_two = if exp > 2 { exp - 2 } else { 0u64 };
+
+    let rate_per_second = rate.div(Decimal256::from_str(SECONDS_PER_YEAR).unwrap());
+
+    let base_power_two = rate_per_second.mul(rate_per_second);
+    let base_power_three = base_power_two.mul(rate_per_second);
+
+    let second_term =
+        Decimal256::from_str(exp.checked_mul(exp_minus_one).unwrap().to_string().as_str())
+            .unwrap()
+            .mul(base_power_two)
+            .div(Decimal256::from_uint256(2u128));
+
+    let third_term = Decimal256::from_str(
+        exp.checked_mul(exp_minus_one)
+            .unwrap()
+            .checked_mul(exp_minus_two)
+            .unwrap()
+            .to_string()
+            .as_str(),
+    )
+    .unwrap()
+    .mul(base_power_three)
+    .div(Decimal256::from_uint256(6u128));
+
+    Ok(Decimal256::one()
+        .add(rate_per_second.mul(Decimal256::from_uint256(exp)))
+        .add(second_term)
+        .add(third_term))
 }

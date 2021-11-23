@@ -1076,8 +1076,11 @@ fn borrow_stable() {
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
-    deps.querier
-        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+    //borrow rate should be divided to value per seconds
+    deps.querier.with_borrow_rate(&[(
+        &"interest".to_string(),
+        &Decimal256::from_ratio(Uint256::from(1u64), Uint256::from(3153600000u64)),
+    )]);
     deps.querier
         .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
 
@@ -1150,12 +1153,12 @@ fn borrow_stable() {
         )
         .unwrap(),
         State {
-            total_liabilities: Decimal256::from_uint256(2500000u128),
+            total_liabilities: Decimal256::from_str("2500000.000000001000000000").unwrap(),
             total_reserves: Decimal256::zero(),
             last_interest_updated_time: env.block.time.seconds(),
             last_reward_updated_time: env.block.time.seconds(),
-            global_interest_index: Decimal256::from_uint256(2u128),
-            global_reward_index: Decimal256::from_str("0.0001").unwrap(),
+            global_interest_index: Decimal256::from_str("1.000000000000001000").unwrap(),
+            global_reward_index: Decimal256::from_str("0.00005").unwrap(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
@@ -2049,7 +2052,7 @@ fn claim_rewards() {
     .unwrap();
     assert_eq!(
         res.pending_rewards,
-        Decimal256::from_str("0.333333333333").unwrap()
+        Decimal256::from_str("0.333333328051543584").unwrap()
     );
     assert_eq!(
         res.reward_index,
