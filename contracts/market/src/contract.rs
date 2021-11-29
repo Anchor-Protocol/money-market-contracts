@@ -5,7 +5,7 @@ use crate::borrow::{
     borrow_stable, claim_rewards, compute_interest, compute_interest_raw, compute_reward,
     query_borrower_info, query_borrower_infos, repay_stable, repay_stable_from_liquidation,
 };
-use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
+use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable, withdraw_stable};
 use crate::error::ContractError;
 use crate::querier::{query_anc_emission_rate, query_borrow_rate, query_target_deposit_rate};
 use crate::response::MsgInstantiateContractResponse;
@@ -197,6 +197,7 @@ pub fn execute(
             let api = deps.api;
             claim_rewards(deps, env, info, optional_addr_validate(api, to)?)
         }
+        ExecuteMsg::WithdrawStable { amount } => withdraw_stable(deps, env, info, amount),
     }
 }
 

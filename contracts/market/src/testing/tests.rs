@@ -833,6 +833,191 @@ fn redeem_stable() {
 }
 
 #[test]
+fn withdraw_stable() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+    }]);
+
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        stable_denom: "uusd".to_string(),
+        aterra_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
+    };
+
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // Register anchor token contract
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("AT-uusd".to_string());
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubMsgExecutionResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
+    };
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    // Register overseer contract
+    let msg = ExecuteMsg::RegisterContracts {
+        overseer_contract: "overseer".to_string(),
+        interest_model: "interest".to_string(),
+        distribution_model: "distribution".to_string(),
+        collector_contract: "collector".to_string(),
+        distributor_contract: "distributor".to_string(),
+    };
+    let info = mock_info("addr0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // Deposit 1000000
+    let msg = ExecuteMsg::DepositStable {};
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(1000000u128),
+        }],
+    );
+
+    deps.querier
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+    deps.querier.with_token_balances(&[(
+        &"AT-uusd".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(2000000u128))],
+    )]);
+    deps.querier.update_balance(
+        MOCK_CONTRACT_ADDR.to_string(),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 1000000u128),
+        }],
+    );
+
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // Redeem 1000000
+    // Withdraw 100000
+    let msg = ExecuteMsg::WithdrawStable {
+        amount: Uint256::from(1000000u128),
+    };
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+
+    assert_eq!(
+        res.messages,
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "AT-uusd".to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+                    owner: info.sender.to_string(),
+                    recipient: mock_env().contract.address.to_string(),
+                    amount: Uint128::from(1000000u128),
+                })
+                .unwrap()
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "AT-uusd".to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                    amount: Uint128::from(1000000u128),
+                })
+                .unwrap()
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "addr0000".to_string(),
+                amount: vec![deduct_tax(
+                    deps.as_ref(),
+                    Coin {
+                        denom: "uusd".to_string(),
+                        amount: Uint128::from(1000000u128),
+                    }
+                )
+                .unwrap(),]
+            }))
+        ]
+    );
+
+    deps.querier.update_balance(
+        MOCK_CONTRACT_ADDR.to_string(),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(500000u128),
+        }],
+    );
+
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+    let _uusd_string = "uusd";
+    println!("{:?}", res);
+    match res {
+        Err(ContractError::NoStableAvailable(_uusd_string)) => (),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    deps.querier.update_balance(
+        MOCK_CONTRACT_ADDR.to_string(),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(5000000u128),
+        }],
+    );
+
+    // exchange rate is 0.25 therefore 4000000 can be withdrawn
+    let msg = ExecuteMsg::WithdrawStable {
+        amount: Uint256::from(100u128),
+    };
+
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+    assert_eq!(
+        res.messages,
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "AT-uusd".to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+                    owner: info.sender.to_string(),
+                    recipient: mock_env().contract.address.to_string(),
+                    amount: Uint128::from(40u128),
+                })
+                .unwrap()
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "AT-uusd".to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                    amount: Uint128::from(40u128),
+                })
+                .unwrap()
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "addr0000".to_string(),
+                amount: vec![deduct_tax(
+                    deps.as_ref(),
+                    Coin {
+                        denom: "uusd".to_string(),
+                        amount: Uint128::from(100u128),
+                    }
+                )
+                .unwrap(),]
+            }))
+        ]
+    );
+}
+
+#[test]
 fn borrow_stable() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),

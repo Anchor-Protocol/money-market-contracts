@@ -90,6 +90,11 @@ pub enum ExecuteMsg {
     ClaimRewards {
         to: Option<String>,
     },
+
+    // Withdraw an specify amount of UST + tax for the user
+    WithdrawStable {
+        amount: Uint256,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
