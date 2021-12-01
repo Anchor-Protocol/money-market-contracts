@@ -37,6 +37,7 @@ pub struct State {
     pub anc_emission_rate: Decimal256,
     pub prev_aterra_supply: Uint256,
     pub prev_exchange_rate: Decimal256,
+    pub distributed_rewards: Uint256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

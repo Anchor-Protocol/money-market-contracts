@@ -18,6 +18,7 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20Coin, Cw20ReceiveMsg, MinterResponse};
 
+use crate::migration::migrate_state;
 use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{
@@ -79,6 +80,7 @@ pub fn instantiate(
             anc_emission_rate: msg.anc_emission_rate,
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Uint256::zero(),
         },
     )?;
 
@@ -381,7 +383,7 @@ pub fn execute_epoch_operations(
     state.prev_exchange_rate =
         compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest);
 
-    compute_reward(&mut state, env.block.time.seconds());
+    compute_reward(deps.as_ref(), &mut state, env.block.time.seconds());
 
     // Compute total_reserves to fund collector contract
     // Update total_reserves and send it to collector contract
@@ -507,7 +509,7 @@ pub fn query_state(deps: Deps, env: Env, block_time: Option<u64>) -> StdResult<S
     compute_interest(deps, &config, &mut state, block_time, None)?;
 
     // Compute reward rate with given block height
-    compute_reward(&mut state, block_time);
+    compute_reward(deps, &mut state, block_time);
 
     Ok(StateResponse {
         total_liabilities: state.total_liabilities,
@@ -519,6 +521,7 @@ pub fn query_state(deps: Deps, env: Env, block_time: Option<u64>) -> StdResult<S
         anc_emission_rate: state.anc_emission_rate,
         prev_aterra_supply: state.prev_aterra_supply,
         prev_exchange_rate: state.prev_exchange_rate,
+        distributed_rewards: state.distributed_rewards,
     })
 }
 
@@ -587,6 +590,7 @@ pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response>
     state.anc_emission_rate = msg.anc_emission_rate;
 
     store_state(deps.storage, &state)?;
+    migrate_state(deps.storage, msg.distributed_rewards)?;
 
     Ok(Response::default())
 }
@@ -603,6 +607,7 @@ mod test {
 
         let legacy_anc_emssion_rate = Decimal256::from_str("1").unwrap();
         let new_anc_emission_rate = Decimal256::from_str("1.1").unwrap();
+        let distributed_rewards = Uint256::from(10000u64);
 
         // init the contract
         let init_msg = InstantiateMsg {
@@ -623,11 +628,13 @@ mod test {
         // migrate
         let migrate_msg = MigrateMsg {
             anc_emission_rate: new_anc_emission_rate,
+            distributed_rewards,
         };
         let res = migrate(deps.as_mut(), mock_env(), migrate_msg).unwrap();
         assert_eq!(res, Response::default());
 
         let state = read_state(&deps.storage).unwrap();
-        assert_eq!(state.anc_emission_rate, new_anc_emission_rate)
+        assert_eq!(state.anc_emission_rate, new_anc_emission_rate);
+        assert_eq!(state.distributed_rewards, distributed_rewards);
     }
 }

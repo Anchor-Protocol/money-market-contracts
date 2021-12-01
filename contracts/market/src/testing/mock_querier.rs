@@ -13,8 +13,12 @@ use std::collections::HashMap;
 use cw20::TokenInfoResponse;
 use moneymarket::distribution_model::AncEmissionRateResponse;
 use moneymarket::interest_model::BorrowRateResponse;
+use moneymarket::market::TotalRewardsResponse;
 use moneymarket::overseer::{BorrowLimitResponse, ConfigResponse};
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
+
+// total rewards that is in distributor contract
+const TOTAL_REWARDS: u64 = 400000000u64;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -41,6 +45,7 @@ pub enum QueryMsg {
     Config {},
     /// Query cw20 Token Info
     TokenInfo {},
+    TotalRewards {},
 }
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -287,6 +292,11 @@ impl WasmMockQuerier {
                             symbol: "mAPPL".to_string(),
                             decimals: 6,
                             total_supply,
+                        })))
+                    }
+                    QueryMsg::TotalRewards {} => {
+                        SystemResult::Ok(ContractResult::from(to_binary(&TotalRewardsResponse {
+                            total_rewards: Uint256::from(TOTAL_REWARDS),
                         })))
                     }
                 }

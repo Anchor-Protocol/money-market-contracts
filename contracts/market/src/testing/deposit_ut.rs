@@ -40,6 +40,7 @@ fn proper_compute_exchange_rate() {
         anc_emission_rate: Decimal256::one(),
         prev_aterra_supply: Uint256::zero(),
         prev_exchange_rate: Decimal256::one(),
+        distributed_rewards: Default::default(),
     };
     let mock_deposit_amount = Some(Uint256::from(1000000u128));
 

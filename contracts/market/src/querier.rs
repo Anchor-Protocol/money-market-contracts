@@ -3,6 +3,7 @@ use cosmwasm_std::{to_binary, Addr, Deps, QueryRequest, StdResult, WasmQuery};
 
 use moneymarket::distribution_model::{AncEmissionRateResponse, QueryMsg as DistributionQueryMsg};
 use moneymarket::interest_model::{BorrowRateResponse, QueryMsg as InterestQueryMsg};
+use moneymarket::market::{DistributorMockQuery, TotalRewardsResponse};
 use moneymarket::overseer::{BorrowLimitResponse, ConfigResponse, QueryMsg as OverseerQueryMsg};
 
 pub fn query_borrow_rate(
@@ -73,4 +74,14 @@ pub fn query_target_deposit_rate(deps: Deps, overseer_contract: Addr) -> StdResu
         }))?;
 
     Ok(overseer_config.target_deposit_rate)
+}
+
+pub fn query_total_rewards(deps: Deps, distributor_contract: Addr) -> StdResult<Uint256> {
+    let total_rewards: TotalRewardsResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: distributor_contract.to_string(),
+            msg: to_binary(&DistributorMockQuery::TotalRewards {})?,
+        }))?;
+
+    Ok(total_rewards.total_rewards)
 }

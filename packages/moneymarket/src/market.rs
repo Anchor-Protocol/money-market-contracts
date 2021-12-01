@@ -152,6 +152,7 @@ pub struct StateResponse {
     pub anc_emission_rate: Decimal256,
     pub prev_aterra_supply: Uint256,
     pub prev_exchange_rate: Decimal256,
+    pub distributed_rewards: Uint256,
 }
 
 // We define a custom struct for each query response
@@ -181,4 +182,18 @@ pub struct BorrowerInfosResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MigrateMsg {
     pub anc_emission_rate: Decimal256,
+    pub distributed_rewards: Uint256,
+}
+
+// TODO: Remove this later after publishing anchor token package
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DistributorMockQuery {
+    TotalRewards {},
+}
+
+// TODO: Remove this later after publishing anchor token package
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TotalRewardsResponse {
+    pub total_rewards: Uint256,
 }

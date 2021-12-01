@@ -11,11 +11,14 @@ use moneymarket::querier::{deduct_tax, query_balance, query_supply};
 
 use crate::deposit::compute_exchange_rate_raw;
 use crate::error::ContractError;
-use crate::querier::{query_borrow_limit, query_borrow_rate, query_target_deposit_rate};
+use crate::querier::{
+    query_borrow_limit, query_borrow_rate, query_target_deposit_rate, query_total_rewards,
+};
 use crate::state::{
     read_borrower_info, read_borrower_infos, read_config, read_state, store_borrower_info,
     store_state, BorrowerInfo, Config, State,
 };
+use std::str::FromStr;
 
 pub fn borrow_stable(
     deps: DepsMut,
@@ -43,7 +46,7 @@ pub fn borrow_stable(
     compute_borrower_interest(&state, &mut liability);
 
     // Compute ANC reward
-    compute_reward(&mut state, env.block.time.seconds());
+    compute_reward(deps.as_ref(), &mut state, env.block.time.seconds());
     compute_borrower_reward(&state, &mut liability);
 
     let overseer = deps.api.addr_humanize(&config.overseer_contract)?;
@@ -165,7 +168,7 @@ pub fn repay_stable(
     compute_borrower_interest(&state, &mut liability);
 
     // Compute ANC reward
-    compute_reward(&mut state, env.block.time.seconds());
+    compute_reward(deps.as_ref(), &mut state, env.block.time.seconds());
     compute_borrower_reward(&state, &mut liability);
 
     let repay_amount: Uint256;
@@ -226,7 +229,7 @@ pub fn claim_rewards(
     compute_borrower_interest(&state, &mut liability);
 
     // Compute ANC reward
-    compute_reward(&mut state, env.block.time.seconds());
+    compute_reward(deps.as_ref(), &mut state, env.block.time.seconds());
     compute_borrower_reward(&state, &mut liability);
 
     let claim_amount = liability.pending_rewards * Uint256::one();
@@ -235,7 +238,6 @@ pub fn claim_rewards(
     store_state(deps.storage, &state)?;
     store_borrower_info(deps.storage, &borrower_raw, &liability)?;
 
-    println!("{}", claim_amount);
     let messages: Vec<CosmosMsg> = if !claim_amount.is_zero() {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
@@ -364,20 +366,46 @@ pub(crate) fn compute_borrower_interest(state: &State, liability: &mut BorrowerI
 }
 
 /// Compute distributed reward and update global index
-pub fn compute_reward(state: &mut State, block_time: u64) {
+pub fn compute_reward(deps: Deps, state: &mut State, block_time: u64) {
+    let config = read_config(deps.storage).unwrap();
     // todo: should not we have a minimum block time for this?
     if state.last_reward_updated_time >= block_time {
         return;
     }
 
     let passed_time = Decimal256::from_uint256(block_time - state.last_reward_updated_time);
-    let reward_accrued = passed_time * state.anc_emission_rate;
+    // the amount that should be originally given to user
+    let actual_reward_accrued = passed_time * state.anc_emission_rate;
     let borrow_amount = state.total_liabilities / state.global_interest_index;
+
+    // total rewards that was in the distributor contract since the genesis
+    let total_rewards = query_total_rewards(
+        deps,
+        deps.api
+            .addr_humanize(&config.distributor_contract)
+            .unwrap(),
+    )
+    .unwrap();
+
+    //the amount that has not been allocated for rewards
+    let amount_left_for_distribution =
+        Decimal256::from_uint256(total_rewards - state.distributed_rewards);
+
+    // if the actual_reward_accrued is bigger than the amount that is left for distribution
+    // the actual amount needs to be paid to user
+    // otherwise, the amount that is left in distributor contract should be considered
+
+    let reward_accrued = if actual_reward_accrued < amount_left_for_distribution {
+        actual_reward_accrued
+    } else {
+        amount_left_for_distribution
+    };
 
     if !reward_accrued.is_zero() && !borrow_amount.is_zero() {
         state.global_reward_index += reward_accrued / borrow_amount;
     }
 
+    state.distributed_rewards += Uint256::from_str(&reward_accrued.to_string()).unwrap();
     state.last_reward_updated_time = block_time;
 }
 
@@ -412,7 +440,7 @@ pub fn query_borrower_info(
     compute_interest(deps, &config, &mut state, block_time, None)?;
     compute_borrower_interest(&state, &mut borrower_info);
 
-    compute_reward(&mut state, block_time);
+    compute_reward(deps, &mut state, block_time);
     compute_borrower_reward(&state, &mut borrower_info);
 
     Ok(BorrowerInfoResponse {

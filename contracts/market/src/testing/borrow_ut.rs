@@ -18,6 +18,7 @@ fn proper_compute_borrower_interest() {
         anc_emission_rate: Decimal256::one(),
         prev_aterra_supply: Uint256::zero(),
         prev_exchange_rate: Decimal256::one(),
+        distributed_rewards: Default::default(),
     };
     let mut liability1 = BorrowerInfo {
         interest_index: Decimal256::one(),
@@ -44,6 +45,7 @@ fn proper_compute_borrower_interest() {
         anc_emission_rate: Decimal256::zero(),
         prev_aterra_supply: Uint256::zero(),
         prev_exchange_rate: Decimal256::one(),
+        distributed_rewards: Default::default(),
     };
     let mut liability3 = BorrowerInfo {
         interest_index: Decimal256::from_uint256(4u128),
@@ -101,6 +103,7 @@ fn proper_compute_interest() {
         anc_emission_rate: Decimal256::one(),
         prev_aterra_supply: Uint256::zero(),
         prev_exchange_rate: Decimal256::one(),
+        distributed_rewards: Default::default(),
     };
     store_state(&mut deps.storage, &mock_state).unwrap();
 
@@ -126,6 +129,7 @@ fn proper_compute_interest() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default()
         }
     );
 
@@ -151,6 +155,7 @@ fn proper_compute_interest() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(2000000u64),
             prev_exchange_rate: Decimal256::from_ratio(19995, 10000),
+            distributed_rewards: Default::default()
         }
     );
 
@@ -165,6 +170,7 @@ fn proper_compute_interest() {
         anc_emission_rate: Decimal256::one(),
         prev_aterra_supply: Uint256::from(2000000u128),
         prev_exchange_rate: Decimal256::one(),
+        distributed_rewards: Default::default(),
     };
     store_state(&mut deps.storage, &mock_state).unwrap();
 
@@ -200,6 +206,7 @@ fn proper_compute_interest() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(2000000u64),
             prev_exchange_rate: Decimal256::from_uint256(2u64),
+            distributed_rewards: Default::default()
         }
     );
 }

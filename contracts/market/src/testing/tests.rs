@@ -524,6 +524,7 @@ fn deposit_stable() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(1000000u64),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default()
         }
     );
 
@@ -563,6 +564,7 @@ fn deposit_stable() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -613,6 +615,7 @@ fn deposit_stable() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -640,6 +643,7 @@ fn deposit_stable() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT + 1818181),
             prev_exchange_rate: Decimal256::from_ratio(55u64, 100u64),
+            distributed_rewards: Uint256::from(100u64)
         }
     );
 }
@@ -777,6 +781,7 @@ fn redeem_stable() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(2000000u64),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -1088,6 +1093,7 @@ fn borrow_stable() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -1153,6 +1159,7 @@ fn borrow_stable() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Uint256::from(100u64)
         }
     );
 
@@ -1179,6 +1186,7 @@ fn borrow_stable() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Uint256::from(101u64)
         }
     );
 
@@ -1332,6 +1340,7 @@ fn assert_max_borrow_factor() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -1443,6 +1452,7 @@ fn repay_stable() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -1626,6 +1636,7 @@ fn repay_stable_for_others() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -1813,6 +1824,7 @@ fn repay_stable_from_liquidation() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -1984,6 +1996,7 @@ fn claim_rewards() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -2042,6 +2055,123 @@ fn claim_rewards() {
         res.reward_index,
         Decimal256::from_str("0.000066666666666666").unwrap()
     );
+}
+
+//test rewards that is more than the total amount of rewards
+#[test]
+fn rewards_more_than_balance() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+    }]);
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        stable_denom: "uusd".to_string(),
+        aterra_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
+    };
+
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // Register anchor token contract
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("AT-uusd".to_string());
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubMsgExecutionResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
+    };
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    // Register overseer contract
+    let msg = ExecuteMsg::RegisterContracts {
+        overseer_contract: "overseer".to_string(),
+        interest_model: "interest".to_string(),
+        distribution_model: "distribution".to_string(),
+        collector_contract: "collector".to_string(),
+        distributor_contract: "distributor".to_string(),
+    };
+    let info = mock_info("addr0000", &[]);
+    let mut env = mock_env();
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    deps.querier
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+    deps.querier
+        .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
+
+    store_state(
+        deps.as_mut().storage,
+        &State {
+            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_reserves: Decimal256::zero(),
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
+            global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
+        },
+    )
+    .unwrap();
+
+    // zero loan claim, will return empty messages
+    let msg = ExecuteMsg::ClaimRewards { to: None };
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+    assert_eq!(res.messages.len(), 0);
+
+    let msg = ExecuteMsg::BorrowStable {
+        borrow_amount: Uint256::from(500000u64),
+        to: None,
+    };
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    // zero block passed
+    let msg = ExecuteMsg::ClaimRewards {
+        to: Some("addr0001".to_string()),
+    };
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    assert_eq!(res.messages.len(), 0);
+
+    // passe a huge amount of time to increase the amount of rewards
+
+    env.block.time = env.block.time.plus_seconds(10000000000);
+
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "distributor".to_string(),
+            funds: vec![],
+            msg: to_binary(&FaucetExecuteMsg::Spend {
+                recipient: "addr0001".to_string(),
+                amount: Uint128::from(133333333u128),
+            })
+            .unwrap(),
+        }))]
+    );
+
+    let state = read_state(deps.as_ref().storage).unwrap();
+    assert_eq!(state.distributed_rewards, Uint256::from(400000000u64));
 }
 
 #[test]
@@ -2115,6 +2245,7 @@ fn execute_epoch_operations() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -2162,6 +2293,7 @@ fn execute_epoch_operations() {
             anc_emission_rate: Decimal256::from_uint256(5u64),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Uint256::from(100u64)
         }
     );
 
@@ -2189,6 +2321,7 @@ fn execute_epoch_operations() {
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -2219,6 +2352,7 @@ fn execute_epoch_operations() {
             anc_emission_rate: Decimal256::from_uint256(5u64),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Uint256::from(100u64)
         }
     );
 }
