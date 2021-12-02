@@ -966,3 +966,65 @@ fn proper_distribute_rewards_with_no_rewards() {
         ),]
     );
 }
+
+#[test]
+fn swap_to_stable_denom_no_swap_required() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(1000000u128),
+    }]);
+    deps.querier.set_other_balances(Uint128::new(1000000u128));
+
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+
+    let msg = InstantiateMsg {
+        owner: "owner".to_string(),
+        collateral_token: "beth".to_string(),
+        overseer_contract: "overseer".to_string(),
+        market_contract: "market".to_string(),
+        reward_contract: "reward".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "beth".to_string(),
+            symbol: "beth".to_string(),
+            decimals: 6,
+        },
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // mimic callback from distribute_rewards to execute swap_to_stable_denom
+    // should immediately call distribute hook
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubMsgExecutionResponse {
+            events: vec![],
+            data: None,
+        }),
+    };
+    let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "distribute_rewards"),
+            attr("buffer_rewards", "1000000"),
+        ]
+    );
+
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: "overseer".to_string(),
+            amount: vec![Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128::from(990099u128)
+            }],
+        })),],
+    )
+}
