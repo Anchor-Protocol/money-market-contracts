@@ -36,8 +36,6 @@ pub enum ExecuteMsg {
         /// The contract has the logics for
         /// ANC distribution speed
         distribution_model: String,
-        /// Collector contract to send all the reserve
-        collector_contract: String,
         /// Faucet contract to drip ANC token to users
         distributor_contract: String,
     },
@@ -134,7 +132,6 @@ pub struct ConfigResponse {
     pub interest_model: String,
     pub distribution_model: String,
     pub overseer_contract: String,
-    pub collector_contract: String,
     pub distributor_contract: String,
     pub stable_denom: String,
     pub max_borrow_factor: Decimal256,

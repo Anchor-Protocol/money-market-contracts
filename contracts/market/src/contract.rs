@@ -18,7 +18,7 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20Coin, Cw20ReceiveMsg, MinterResponse};
 
-use crate::migration::migrate_state;
+use crate::migration::{migrate_config, migrate_state};
 use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{
@@ -61,7 +61,6 @@ pub fn instantiate(
             overseer_contract: CanonicalAddr::from(vec![]),
             interest_model: CanonicalAddr::from(vec![]),
             distribution_model: CanonicalAddr::from(vec![]),
-            collector_contract: CanonicalAddr::from(vec![]),
             distributor_contract: CanonicalAddr::from(vec![]),
             stable_denom: msg.stable_denom.clone(),
             max_borrow_factor: msg.max_borrow_factor,
@@ -126,7 +125,6 @@ pub fn execute(
             overseer_contract,
             interest_model,
             distribution_model,
-            collector_contract,
             distributor_contract,
         } => {
             let api = deps.api;
@@ -135,7 +133,6 @@ pub fn execute(
                 api.addr_validate(&overseer_contract)?,
                 api.addr_validate(&interest_model)?,
                 api.addr_validate(&distribution_model)?,
-                api.addr_validate(&collector_contract)?,
                 api.addr_validate(&distributor_contract)?,
             )
         }
@@ -264,14 +261,12 @@ pub fn register_contracts(
     overseer_contract: Addr,
     interest_model: Addr,
     distribution_model: Addr,
-    collector_contract: Addr,
     distributor_contract: Addr,
 ) -> Result<Response, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
     if config.overseer_contract != CanonicalAddr::from(vec![])
         || config.interest_model != CanonicalAddr::from(vec![])
         || config.distribution_model != CanonicalAddr::from(vec![])
-        || config.collector_contract != CanonicalAddr::from(vec![])
         || config.distributor_contract != CanonicalAddr::from(vec![])
     {
         return Err(ContractError::Unauthorized {});
@@ -280,7 +275,6 @@ pub fn register_contracts(
     config.overseer_contract = deps.api.addr_canonicalize(overseer_contract.as_str())?;
     config.interest_model = deps.api.addr_canonicalize(interest_model.as_str())?;
     config.distribution_model = deps.api.addr_canonicalize(distribution_model.as_str())?;
-    config.collector_contract = deps.api.addr_canonicalize(collector_contract.as_str())?;
     config.distributor_contract = deps.api.addr_canonicalize(distributor_contract.as_str())?;
     store_config(deps.storage, &config)?;
 
@@ -385,8 +379,8 @@ pub fn execute_epoch_operations(
 
     compute_reward(deps.as_ref(), &mut state, env.block.time.seconds());
 
-    // Compute total_reserves to fund collector contract
-    // Update total_reserves and send it to collector contract
+    // Compute total_reserves to fund overseer contract
+    // Update total_reserves and send it to overseer contract
     // only when there is enough balance
     let total_reserves = state.total_reserves * Uint256::one();
     let messages: Vec<CosmosMsg> = if !total_reserves.is_zero() && balance > total_reserves {
@@ -395,7 +389,7 @@ pub fn execute_epoch_operations(
         vec![CosmosMsg::Bank(BankMsg::Send {
             to_address: deps
                 .api
-                .addr_humanize(&config.collector_contract)?
+                .addr_humanize(&config.overseer_contract)?
                 .to_string(),
             amount: vec![deduct_tax(
                 deps.as_ref(),
@@ -468,10 +462,6 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         overseer_contract: deps
             .api
             .addr_humanize(&config.overseer_contract)?
-            .to_string(),
-        collector_contract: deps
-            .api
-            .addr_humanize(&config.collector_contract)?
             .to_string(),
         distributor_contract: deps
             .api
@@ -592,6 +582,8 @@ pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response>
     store_state(deps.storage, &state)?;
     migrate_state(deps.storage, msg.distributed_rewards)?;
 
+    migrate_config(deps.storage)?;
+
     Ok(Response::default())
 }
 
@@ -636,5 +628,8 @@ mod test {
         let state = read_state(&deps.storage).unwrap();
         assert_eq!(state.anc_emission_rate, new_anc_emission_rate);
         assert_eq!(state.distributed_rewards, distributed_rewards);
+
+        let config = read_config(&deps.storage).unwrap();
+        assert_eq!(config.overseer_contract, CanonicalAddr::from(vec![]))
     }
 }

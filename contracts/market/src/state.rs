@@ -20,7 +20,6 @@ pub struct Config {
     pub interest_model: CanonicalAddr,
     pub distribution_model: CanonicalAddr,
     pub overseer_contract: CanonicalAddr,
-    pub collector_contract: CanonicalAddr,
     pub distributor_contract: CanonicalAddr,
     pub stable_denom: String,
     pub max_borrow_factor: Decimal256,

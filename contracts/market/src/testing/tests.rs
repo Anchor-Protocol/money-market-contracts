@@ -93,7 +93,6 @@ fn proper_initialization() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -104,7 +103,6 @@ fn proper_initialization() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -117,7 +115,6 @@ fn proper_initialization() {
     assert_eq!("interest".to_string(), config_res.interest_model);
     assert_eq!("distribution".to_string(), config_res.distribution_model);
     assert_eq!("distributor".to_string(), config_res.distributor_contract);
-    assert_eq!("collector".to_string(), config_res.collector_contract);
     assert_eq!("overseer".to_string(), config_res.overseer_contract);
     assert_eq!("uusd".to_string(), config_res.stable_denom);
     assert_eq!(Decimal256::one(), config_res.max_borrow_factor);
@@ -186,7 +183,6 @@ fn update_config() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -288,7 +284,6 @@ fn deposit_stable_huge_amount() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -444,7 +439,6 @@ fn deposit_stable() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -691,7 +685,6 @@ fn redeem_stable() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -880,7 +873,6 @@ fn withdraw_stable() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -1069,7 +1061,6 @@ fn borrow_stable() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let mut env = mock_env();
@@ -1320,7 +1311,6 @@ fn assert_max_borrow_factor() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -1431,7 +1421,6 @@ fn repay_stable() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let mut env = mock_env();
@@ -1615,7 +1604,6 @@ fn repay_stable_for_others() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let mut env = mock_env();
@@ -1803,7 +1791,6 @@ fn repay_stable_from_liquidation() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let mut env = mock_env();
@@ -1975,7 +1962,6 @@ fn claim_rewards() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -2108,7 +2094,6 @@ fn rewards_more_than_balance() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -2224,7 +2209,6 @@ fn execute_epoch_operations() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let mut env = mock_env();

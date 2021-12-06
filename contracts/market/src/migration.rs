@@ -1,9 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::state::{store_state, State, KEY_STATE};
+use crate::state::{store_config, store_state, Config, State, KEY_CONFIG, KEY_STATE};
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::{StdResult, Storage};
+use cosmwasm_std::{CanonicalAddr, StdResult, Storage};
 use cosmwasm_storage::ReadonlySingleton;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -17,6 +17,20 @@ struct LegacyState {
     pub anc_emission_rate: Decimal256,
     pub prev_aterra_supply: Uint256,
     pub prev_exchange_rate: Decimal256,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct LegacyConfig {
+    pub contract_addr: CanonicalAddr,
+    pub owner_addr: CanonicalAddr,
+    pub aterra_contract: CanonicalAddr,
+    pub interest_model: CanonicalAddr,
+    pub distribution_model: CanonicalAddr,
+    pub overseer_contract: CanonicalAddr,
+    pub collector_contract: CanonicalAddr,
+    pub distributor_contract: CanonicalAddr,
+    pub stable_denom: String,
+    pub max_borrow_factor: Decimal256,
 }
 
 fn read_legacy_state(storage: &dyn Storage) -> StdResult<LegacyState> {
@@ -39,6 +53,29 @@ pub fn migrate_state(storage: &mut dyn Storage, distributed_rewards: Uint256) ->
             prev_aterra_supply: legacy_state.prev_aterra_supply,
             prev_exchange_rate: legacy_state.prev_exchange_rate,
             distributed_rewards,
+        },
+    )
+}
+
+fn read_legacy_config(storage: &dyn Storage) -> StdResult<LegacyConfig> {
+    ReadonlySingleton::new(storage, KEY_CONFIG).load()
+}
+
+pub fn migrate_config(storage: &mut dyn Storage) -> StdResult<()> {
+    let legacy_config: LegacyConfig = read_legacy_config(storage)?;
+
+    store_config(
+        storage,
+        &Config {
+            contract_addr: legacy_config.contract_addr,
+            owner_addr: legacy_config.owner_addr,
+            aterra_contract: legacy_config.aterra_contract,
+            interest_model: legacy_config.interest_model,
+            distribution_model: legacy_config.distribution_model,
+            overseer_contract: legacy_config.overseer_contract,
+            distributor_contract: legacy_config.distributor_contract,
+            stable_denom: legacy_config.stable_denom,
+            max_borrow_factor: legacy_config.max_borrow_factor,
         },
     )
 }

@@ -20,7 +20,6 @@ fn proper_compute_exchange_rate() {
         interest_model: deps.api.addr_canonicalize("interest").unwrap(),
         distribution_model: deps.api.addr_canonicalize("distribution").unwrap(),
         distributor_contract: deps.api.addr_canonicalize("distributor").unwrap(),
-        collector_contract: deps.api.addr_canonicalize("collector").unwrap(),
         overseer_contract: deps.api.addr_canonicalize("overseer").unwrap(),
         stable_denom: "uusd".to_string(),
         max_borrow_factor: Decimal256::one(),
