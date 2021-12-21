@@ -485,7 +485,7 @@ fn deposit_stable() {
     );
 
     deps.querier
-        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(2))]);
     deps.querier.with_token_balances(&[(
         &"AT-uusd".to_string(),
         &[(
@@ -628,15 +628,15 @@ fn deposit_stable() {
     assert_eq!(
         read_state(deps.as_ref().storage).unwrap(),
         State {
-            global_interest_index: Decimal256::from_uint256(2u128),
+            global_interest_index: Decimal256::from_str("1.000000063419583900").unwrap(),
             global_reward_index: Decimal256::from_str("0.002").unwrap(),
-            total_liabilities: Decimal256::from_uint256(100000u128),
+            total_liabilities: Decimal256::from_str("50000.003170979195000000").unwrap(),
             total_reserves: Decimal256::from_uint256(550000u128),
             last_interest_updated_time: env.block.time.seconds(),
             last_reward_updated_time: env.block.time.seconds(),
             anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT + 1818181),
-            prev_exchange_rate: Decimal256::from_ratio(55u64, 100u64),
+            prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT + 1999999),
+            prev_exchange_rate: Decimal256::from_str("0.500000003170979195").unwrap(),
             distributed_rewards: Uint256::from(100u64)
         }
     );
@@ -1068,21 +1068,19 @@ fn borrow_stable() {
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     //borrow rate should be divided to value per seconds
-    deps.querier.with_borrow_rate(&[(
-        &"interest".to_string(),
-        &Decimal256::from_ratio(Uint256::from(1u64), Uint256::from(3153600000u64)),
-    )]);
+    deps.querier
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(2))]);
     deps.querier
         .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
 
     store_state(
         deps.as_mut().storage,
         &State {
-            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_liabilities: Decimal256::from_str("1500000.062793719200000000").unwrap(),
             total_reserves: Decimal256::zero(),
             last_interest_updated_time: mock_env().block.time.seconds(),
             last_reward_updated_time: env.block.time.seconds(),
-            global_interest_index: Decimal256::one(),
+            global_interest_index: Decimal256::from_str("1.000000062793719200").unwrap(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
@@ -1144,12 +1142,12 @@ fn borrow_stable() {
         )
         .unwrap(),
         State {
-            total_liabilities: Decimal256::from_str("2500000.000000001000000000").unwrap(),
+            total_liabilities: Decimal256::from_str("2000000.157923099032351543").unwrap(),
             total_reserves: Decimal256::zero(),
             last_interest_updated_time: env.block.time.seconds(),
             last_reward_updated_time: env.block.time.seconds(),
-            global_interest_index: Decimal256::from_str("1.000000000000001000").unwrap(),
-            global_reward_index: Decimal256::from_str("0.00005").unwrap(),
+            global_interest_index: Decimal256::from_str("1.000000126213307082").unwrap(),
+            global_reward_index: Decimal256::from_str("0.000066666668062082").unwrap(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
@@ -1171,12 +1169,12 @@ fn borrow_stable() {
         )
         .unwrap(),
         State {
-            total_liabilities: Decimal256::from_uint256(2525000u128),
+            total_liabilities: Decimal256::from_str("2000000.159191490810505715").unwrap(),
             total_reserves: Decimal256::from_uint256(0u128),
             last_interest_updated_time: env.block.time.seconds() + 1u64,
             last_reward_updated_time: env.block.time.seconds() + 1u64,
-            global_interest_index: Decimal256::from_str("2.02").unwrap(),
-            global_reward_index: Decimal256::from_str("0.0001008").unwrap(),
+            global_interest_index: Decimal256::from_str("1.000000126847503001").unwrap(),
+            global_reward_index: Decimal256::from_str("0.000067166668085707").unwrap(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
@@ -1199,9 +1197,9 @@ fn borrow_stable() {
         liability,
         BorrowerInfoResponse {
             borrower: "addr0000".to_string(),
-            interest_index: Decimal256::from_uint256(2u128),
-            reward_index: Decimal256::from_str("0.0001").unwrap(),
-            loan_amount: Uint256::from(500000u64),
+            interest_index: Decimal256::from_str("1.000000126213307082").unwrap(),
+            reward_index: Decimal256::from_str("0.000066666668062082").unwrap(),
+            loan_amount: Uint256::from(499999u64),
             pending_rewards: Decimal256::zero(),
         }
     );
@@ -1221,9 +1219,9 @@ fn borrow_stable() {
         borrower_info,
         BorrowerInfoResponse {
             borrower: "addr0000".to_string(),
-            interest_index: Decimal256::from_uint256(2u128),
-            reward_index: Decimal256::from_str("0.0001").unwrap(),
-            loan_amount: Uint256::from(500000u64),
+            interest_index: Decimal256::from_str("1.000000126213307082").unwrap(),
+            reward_index: Decimal256::from_str("0.000066666668062082").unwrap(),
+            loan_amount: Uint256::from(499999u64),
             pending_rewards: Decimal256::zero(),
         }
     );
@@ -1245,16 +1243,16 @@ fn borrow_stable() {
         borrower_info,
         BorrowerInfoResponse {
             borrower: "addr0000".to_string(),
-            interest_index: Decimal256::from_uint256(4u128),
-            reward_index: Decimal256::from_str("0.00018").unwrap(),
-            loan_amount: Uint256::from(1000000u64),
-            pending_rewards: Decimal256::from_uint256(20u64),
+            interest_index: Decimal256::from_str("1.000000189632898986").unwrap(),
+            reward_index: Decimal256::from_str("0.000116666670424669").unwrap(),
+            loan_amount: Uint256::from(499999u64),
+            pending_rewards: Decimal256::from_str("24.999946440478819410").unwrap(),
         }
     );
 
     // Cannot borrow more than borrow limit
     let msg = ExecuteMsg::BorrowStable {
-        borrow_amount: Uint256::from(500001u64),
+        borrow_amount: Uint256::from(5000001u64),
         to: None,
     };
     let res = execute(deps.as_mut(), env, info, msg);
@@ -1509,10 +1507,10 @@ fn repay_stable() {
         .get(0)
         .unwrap()
         .loan_amount;
-    assert_eq!(res_loan, Uint256::from(400000u128));
+    assert_eq!(res_loan, Uint256::from(399999u128));
     assert_eq!(
         read_state(deps.as_ref().storage).unwrap().total_liabilities,
-        Decimal256::from_uint256(2400000u128)
+        Decimal256::from_str("1400000.0317097919000000").unwrap()
     );
 
     info.funds = vec![Coin {
@@ -1525,7 +1523,7 @@ fn repay_stable() {
         vec![
             attr("action", "repay_stable"),
             attr("borrower", "addr0000"),
-            attr("repay_amount", "400000"),
+            attr("repay_amount", "399998"),
         ]
     );
 
@@ -1538,21 +1536,17 @@ fn repay_stable() {
     assert_eq!(res_loan, Uint256::zero());
     assert_eq!(
         read_state(deps.as_ref().storage).unwrap().total_liabilities,
-        Decimal256::from_uint256(2000000u128)
+        Decimal256::from_str("1000002.031709791900000000").unwrap()
     );
 
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
             to_address: "addr0000".to_string(),
-            amount: vec![deduct_tax(
-                deps.as_ref(),
-                Coin {
-                    denom: "uusd".to_string(),
-                    amount: Uint128::from(100000u128),
-                }
-            )
-            .unwrap()]
+            amount: vec![Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128::from(99011u128),
+            }]
         }))]
     );
 }
@@ -1696,10 +1690,10 @@ fn repay_stable_for_others() {
         .get(0)
         .unwrap()
         .loan_amount;
-    assert_eq!(res_loan, Uint256::from(400000u128));
+    assert_eq!(res_loan, Uint256::from(399999u128));
     assert_eq!(
         read_state(deps.as_ref().storage).unwrap().total_liabilities,
-        Decimal256::from_uint256(2400000u128)
+        Decimal256::from_str("1400000.031709791900000000").unwrap()
     );
 
     info.funds = vec![Coin {
@@ -1712,7 +1706,7 @@ fn repay_stable_for_others() {
         vec![
             attr("action", "repay_stable"),
             attr("borrower", "addr0000"),
-            attr("repay_amount", "400000"),
+            attr("repay_amount", "399998"),
         ]
     );
 
@@ -1725,21 +1719,17 @@ fn repay_stable_for_others() {
     assert_eq!(res_loan, Uint256::zero());
     assert_eq!(
         read_state(deps.as_ref().storage).unwrap().total_liabilities,
-        Decimal256::from_uint256(2000000u128)
+        Decimal256::from_str("1000002.031709791900000000").unwrap()
     );
 
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
             to_address: "addr0000".to_string(),
-            amount: vec![deduct_tax(
-                deps.as_ref(),
-                Coin {
-                    denom: "uusd".to_string(),
-                    amount: Uint128::from(100000u128),
-                }
-            )
-            .unwrap()]
+            amount: vec![Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128::from(99011u128),
+            }]
         }))]
     );
 }
@@ -1969,7 +1959,7 @@ fn claim_rewards() {
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     deps.querier
-        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(2))]);
     deps.querier
         .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
 
@@ -2038,7 +2028,7 @@ fn claim_rewards() {
     .unwrap();
     assert_eq!(
         res.pending_rewards,
-        Decimal256::from_str("0.333333328051543584").unwrap()
+        Decimal256::from_str("0.333331219347004068").unwrap()
     );
     assert_eq!(
         res.reward_index,
@@ -2101,7 +2091,7 @@ fn rewards_more_than_balance() {
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     deps.querier
-        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(2))]);
     deps.querier
         .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
 
@@ -2137,12 +2127,13 @@ fn rewards_more_than_balance() {
     let msg = ExecuteMsg::ClaimRewards {
         to: Some("addr0001".to_string()),
     };
+
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
     assert_eq!(res.messages.len(), 0);
 
     // passe a huge amount of time to increase the amount of rewards
 
-    env.block.time = env.block.time.plus_seconds(10000000000);
+    env.block.time = env.block.time.plus_seconds(100000);
 
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
     assert_eq!(
@@ -2152,14 +2143,14 @@ fn rewards_more_than_balance() {
             funds: vec![],
             msg: to_binary(&FaucetExecuteMsg::Spend {
                 recipient: "addr0001".to_string(),
-                amount: Uint128::from(133333333u128),
+                amount: Uint128::from(33333u128),
             })
             .unwrap(),
         }))]
     );
 
     let state = read_state(deps.as_ref().storage).unwrap();
-    assert_eq!(state.distributed_rewards, Uint256::from(400000000u64));
+    assert_eq!(state.distributed_rewards, Uint256::from(100000u64));
 }
 
 #[test]
@@ -2216,7 +2207,7 @@ fn execute_epoch_operations() {
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     deps.querier
-        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(2))]);
     deps.querier
         .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
 
@@ -2259,7 +2250,7 @@ fn execute_epoch_operations() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-            to_address: "collector".to_string(),
+            to_address: "overseer".to_string(),
             amount: vec![Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128::from(2970u128), // 1% tax
@@ -2271,11 +2262,11 @@ fn execute_epoch_operations() {
     assert_eq!(
         state,
         State {
-            total_liabilities: Decimal256::from_uint256(2000000u128),
+            total_liabilities: Decimal256::from_str("1000000.063419583900000000").unwrap(),
             total_reserves: Decimal256::zero(),
             last_interest_updated_time: env.block.time.seconds(),
             last_reward_updated_time: env.block.time.seconds(),
-            global_interest_index: Decimal256::from_uint256(2u64),
+            global_interest_index: Decimal256::from_str("1.000000063419583900").unwrap(),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
             prev_aterra_supply: Uint256::zero(),
@@ -2330,11 +2321,11 @@ fn execute_epoch_operations() {
     assert_eq!(
         state,
         State {
-            total_liabilities: Decimal256::from_uint256(2000000u128),
+            total_liabilities: Decimal256::from_str("1000000.063419583900000000").unwrap(),
             total_reserves: Decimal256::from_uint256(3000u128),
             last_interest_updated_time: env.block.time.seconds(),
             last_reward_updated_time: env.block.time.seconds(),
-            global_interest_index: Decimal256::from_uint256(2u64),
+            global_interest_index: Decimal256::from_str("1.000000063419583900").unwrap(),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
             prev_aterra_supply: Uint256::zero(),

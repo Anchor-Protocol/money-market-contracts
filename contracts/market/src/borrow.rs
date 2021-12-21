@@ -335,7 +335,7 @@ pub fn compute_interest_raw(
     let interest_factor =
         calculate_compound_interest(borrow_rate, block_time - state.last_interest_updated_time)
             .unwrap();
-    let interest_accrued = state.total_liabilities * interest_factor;
+    let interest_accrued = state.total_liabilities * (interest_factor - Decimal256::one());
 
     state.global_interest_index = state.global_interest_index * interest_factor;
     state.total_liabilities += interest_accrued;

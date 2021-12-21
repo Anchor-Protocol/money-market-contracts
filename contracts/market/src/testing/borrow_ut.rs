@@ -91,17 +91,15 @@ fn proper_compute_interest() {
     };
 
     //borrow rate should be divided to value per seconds
-    deps.querier.with_borrow_rate(&[(
-        &"interest".to_string(),
-        &Decimal256::from_ratio(Uint256::from(1u64), Uint256::from(3153600000u64)),
-    )]);
+    deps.querier
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(2))]);
 
     let mut mock_state = State {
-        total_liabilities: Decimal256::from_uint256(1000000u128),
+        total_liabilities: Decimal256::from_str("1000000.063419583900000000").unwrap(),
         total_reserves: Decimal256::zero(),
-        last_interest_updated_time: env.block.time.seconds(),
+        last_interest_updated_time: mock_env().block.time.seconds(),
         last_reward_updated_time: env.block.time.seconds(),
-        global_interest_index: Decimal256::one(),
+        global_interest_index: Decimal256::from_str("1.000000063419583900").unwrap(),
         global_reward_index: Decimal256::zero(),
         anc_emission_rate: Decimal256::one(),
         prev_aterra_supply: Uint256::zero(),
@@ -123,16 +121,16 @@ fn proper_compute_interest() {
     assert_eq!(
         mock_state,
         State {
-            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_liabilities: Decimal256::from_str("1000000.063419583900000000").unwrap(),
             total_reserves: Decimal256::zero(),
             last_interest_updated_time: env.block.time.seconds(),
             last_reward_updated_time: env.block.time.seconds(),
-            global_interest_index: Decimal256::one(),
+            global_interest_index: Decimal256::from_str("1.000000063419583900").unwrap(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
-            distributed_rewards: Default::default()
+            distributed_rewards: Default::default(),
         }
     );
 
@@ -149,15 +147,15 @@ fn proper_compute_interest() {
     assert_eq!(
         mock_state,
         State {
-            total_liabilities: Decimal256::from_str("2000000.000000001000000000").unwrap(),
+            total_liabilities: Decimal256::from_str("1000000.126839171822043622").unwrap(),
             total_reserves: Decimal256::zero(),
             last_interest_updated_time: env.block.time.seconds(),
             last_reward_updated_time: env.block.time.seconds() - 100,
-            global_interest_index: Decimal256::from_str("1.000000000000001000").unwrap(),
+            global_interest_index: Decimal256::from_str("1.000000126839171822").unwrap(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(2000000u64),
-            prev_exchange_rate: Decimal256::from_str("1.999500000000000500").unwrap(),
+            prev_exchange_rate: Decimal256::from_str("1.499500063419585911").unwrap(),
             distributed_rewards: Default::default()
         }
     );
@@ -204,7 +202,7 @@ fn proper_compute_interest() {
             total_reserves: Decimal256::from_uint256(2000000u64),
             last_interest_updated_time: env.block.time.seconds(),
             last_reward_updated_time: env.block.time.seconds() - 100,
-            global_interest_index: Decimal256::from_str("1.000000000000001000").unwrap(),
+            global_interest_index: Decimal256::from_str("1.000000063419583900").unwrap(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(2000000u64),
