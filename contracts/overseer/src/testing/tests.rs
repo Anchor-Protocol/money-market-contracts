@@ -71,7 +71,7 @@ fn proper_initialization() {
         epoch_state,
         EpochState {
             deposit_rate: Decimal256::zero(),
-            last_executed_height: mock_env().block.height,
+            last_executed_time: mock_env().block.time.seconds(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
             prev_interest_buffer: Uint256::zero(),
@@ -389,11 +389,11 @@ fn execute_epoch_operations() {
     let msg = ExecuteMsg::ExecuteEpochOperations {};
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     match res {
-        Err(ContractError::EpochNotPassed(12345)) => (),
+        Err(ContractError::EpochNotPassed(1571797419)) => (),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    env.block.height += 86400u64;
+    env.block.time = env.block.time.plus_seconds(86400u64);
 
     // If deposit_rate is bigger than threshold_deposit_rate
     deps.querier.with_epoch_state(&[(
@@ -458,7 +458,7 @@ fn execute_epoch_operations() {
     store_epoch_state(
         deps.as_mut().storage,
         &EpochState {
-            last_executed_height: env.block.height,
+            last_executed_time: env.block.time.seconds(),
             prev_exchange_rate: Decimal256::from_str("1.2").unwrap(),
             prev_aterra_supply: Uint256::from_str("1000000").unwrap(),
             prev_interest_buffer: Uint256::from_str("9999000000").unwrap(),
@@ -478,7 +478,7 @@ fn execute_epoch_operations() {
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
 
-    env.block.height += 86400u64;
+    env.block.time = env.block.time.plus_seconds(86400u64);
 
     // accrued_buffer = 1,000,000
     // interest_buffer = 9,999,000,000
@@ -606,7 +606,7 @@ fn update_epoch_state() {
     // Assume execute epoch operation is executed
     let mut env = mock_env();
     let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
-    env.block.height += 86400u64;
+    env.block.time = env.block.time.plus_seconds(86400u64);
 
     deps.querier.with_epoch_state(&[(
         &"market".to_string(),
@@ -645,7 +645,7 @@ fn update_epoch_state() {
         &(Uint256::from(1000000u64), Decimal256::percent(125)),
     )]);
 
-    env.block.height += 86400u64;
+    env.block.time = env.block.time.plus_seconds(86400u64);
     let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -675,7 +675,7 @@ fn update_epoch_state() {
     let epoch_state_response = query_epoch_state(
         deps.as_ref(),
         Addr::unchecked("market"),
-        env.block.height,
+        env.block.time.seconds(),
         None,
     )
     .unwrap();
@@ -689,7 +689,7 @@ fn update_epoch_state() {
             prev_aterra_supply: epoch_state_response.aterra_supply,
             prev_exchange_rate: epoch_state_response.exchange_rate,
             prev_interest_buffer: Uint256::from(10000000000u128),
-            last_executed_height: env.block.height,
+            last_executed_time: env.block.time.seconds(),
         }
     )
 }

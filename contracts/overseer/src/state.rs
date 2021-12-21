@@ -36,7 +36,7 @@ pub struct EpochState {
     pub prev_aterra_supply: Uint256,
     pub prev_exchange_rate: Decimal256,
     pub prev_interest_buffer: Uint256,
-    pub last_executed_height: u64,
+    pub last_executed_time: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

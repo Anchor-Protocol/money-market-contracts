@@ -8,7 +8,7 @@ use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::{
-    BorrowRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
+    BorrowRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -132,4 +132,53 @@ fn query_borrow_rate(
     Ok(BorrowRateResponse {
         rate: utilization_ratio * config.interest_multiplier + config.base_rate,
     })
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    // read and store the new config values
+    let mut config = read_config(deps.storage)?;
+    config.base_rate = msg.base_rate;
+    config.interest_multiplier = msg.interest_multiplier;
+    store_config(deps.storage, &config)?;
+
+    Ok(Response::default())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use std::str::FromStr;
+
+    #[test]
+    fn proper_migrate() {
+        let mut deps = mock_dependencies(&[]);
+
+        // init the contract
+        let init_msg = InstantiateMsg {
+            owner: "owner".to_string(),
+            base_rate: Default::default(),
+            interest_multiplier: Default::default(),
+        };
+
+        let info = mock_info("sender", &[]);
+        let res = instantiate(deps.as_mut(), mock_env(), info, init_msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let base_rate = Decimal256::from_str("1.1").unwrap();
+        let interest_multiplier = Decimal256::from_str("2").unwrap();
+
+        // migrate
+        let migrate_msg = MigrateMsg {
+            base_rate,
+            interest_multiplier,
+        };
+        let res = migrate(deps.as_mut(), mock_env(), migrate_msg).unwrap();
+        assert_eq!(res, Response::default());
+
+        let config = read_config(&deps.storage).unwrap();
+        assert_eq!(config.base_rate, base_rate);
+        assert_eq!(config.interest_multiplier, interest_multiplier);
+    }
 }

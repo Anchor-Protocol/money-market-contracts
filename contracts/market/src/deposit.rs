@@ -37,10 +37,10 @@ pub fn deposit_stable(
         deps.as_ref(),
         &config,
         &mut state,
-        env.block.height,
+        env.block.time.seconds(),
         Some(deposit_amount),
     )?;
-    compute_reward(&mut state, env.block.height);
+    compute_reward(deps.as_ref(), &mut state, env.block.time.seconds());
 
     // Load anchor token exchange rate with updated state
     let exchange_rate =
@@ -76,8 +76,14 @@ pub fn redeem_stable(
 
     // Update interest related state
     let mut state: State = read_state(deps.storage)?;
-    compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
-    compute_reward(&mut state, env.block.height);
+    compute_interest(
+        deps.as_ref(),
+        &config,
+        &mut state,
+        env.block.time.seconds(),
+        None,
+    )?;
+    compute_reward(deps.as_ref(), &mut state, env.block.time.seconds());
 
     // Load anchor token exchange rate with updated state
     let exchange_rate = compute_exchange_rate(deps.as_ref(), &config, &state, None)?;
@@ -118,6 +124,69 @@ pub fn redeem_stable(
             attr("action", "redeem_stable"),
             attr("burn_amount", burn_amount),
             attr("redeem_amount", redeem_amount),
+        ]))
+}
+
+pub fn withdraw_stable(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    amount: Uint256,
+) -> Result<Response, ContractError> {
+    let config: Config = read_config(deps.storage)?;
+
+    // Update interest related state
+    let mut state: State = read_state(deps.storage)?;
+
+    // Load anchor token exchange rate with updated state
+    let exchange_rate = compute_exchange_rate(deps.as_ref(), &config, &state, None)?;
+    let aust_amount = amount / exchange_rate;
+
+    let current_balance = query_balance(
+        deps.as_ref(),
+        env.contract.address.clone(),
+        config.stable_denom.to_string(),
+    )?;
+
+    // Assert redeem amount
+    assert_redeem_amount(&config, &state, current_balance, aust_amount)?;
+
+    state.prev_aterra_supply = state.prev_aterra_supply - aust_amount;
+    store_state(deps.storage, &state)?;
+
+    Ok(Response::new()
+        .add_messages(vec![
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+                    owner: info.sender.to_string(),
+                    recipient: env.contract.address.to_string(),
+                    amount: aust_amount.into(),
+                })?,
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                    amount: aust_amount.into(),
+                })?,
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: info.sender.to_string(),
+                amount: vec![deduct_tax(
+                    deps.as_ref(),
+                    Coin {
+                        denom: config.stable_denom,
+                        amount: amount.into(),
+                    },
+                )?],
+            }),
+        ])
+        .add_attributes(vec![
+            attr("action", "withdraw_stable"),
+            attr("withdraw_amount", amount),
+            attr("redeem_amount", aust_amount),
         ]))
 }
 

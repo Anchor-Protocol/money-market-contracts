@@ -6,8 +6,8 @@
     "anc_emission_rate",
     "global_interest_index",
     "global_reward_index",
-    "last_interest_updated",
-    "last_reward_updated",
+    "last_interest_updated_time",
+    "last_reward_updated_time",
     "prev_aterra_supply",
     "prev_exchange_rate",
     "total_liabilities",
@@ -23,12 +23,12 @@
     "global_reward_index": {
       "$ref": "#/definitions/Decimal256"
     },
-    "last_interest_updated": {
+    "last_interest_updated_time": {
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
     },
-    "last_reward_updated": {
+    "last_reward_updated_time": {
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0

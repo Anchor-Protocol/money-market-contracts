@@ -173,3 +173,15 @@ pub struct BorrowLimitResponse {
     pub borrower: String,
     pub borrow_limit: Uint256,
 }
+
+// struct for migration
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {
+    // change in the state attribute
+    pub deposit_rate: Decimal256,
+    // change the config attributes
+    // change the epoch period to time_based value
+    pub epoch_period: u64,
+    pub threshold_deposit_rate: Decimal256,
+    pub target_deposit_rate: Decimal256,
+}

@@ -93,7 +93,6 @@ fn proper_initialization() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -104,7 +103,6 @@ fn proper_initialization() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -117,7 +115,6 @@ fn proper_initialization() {
     assert_eq!("interest".to_string(), config_res.interest_model);
     assert_eq!("distribution".to_string(), config_res.distribution_model);
     assert_eq!("distributor".to_string(), config_res.distributor_contract);
-    assert_eq!("collector".to_string(), config_res.collector_contract);
     assert_eq!("overseer".to_string(), config_res.overseer_contract);
     assert_eq!("uusd".to_string(), config_res.stable_denom);
     assert_eq!(Decimal256::one(), config_res.max_borrow_factor);
@@ -125,13 +122,16 @@ fn proper_initialization() {
     let query_res = query(
         deps.as_ref(),
         mock_env(),
-        QueryMsg::State { block_height: None },
+        QueryMsg::State { block_time: None },
     )
     .unwrap();
     let state: StateResponse = from_binary(&query_res).unwrap();
     assert_eq!(Decimal256::zero(), state.total_liabilities);
     assert_eq!(Decimal256::zero(), state.total_reserves);
-    assert_eq!(mock_env().block.height, state.last_interest_updated);
+    assert_eq!(
+        mock_env().block.time.seconds(),
+        state.last_interest_updated_time
+    );
     assert_eq!(Decimal256::one(), state.global_interest_index);
     assert_eq!(Decimal256::one(), state.anc_emission_rate);
     assert_eq!(Uint256::zero(), state.prev_aterra_supply);
@@ -183,7 +183,6 @@ fn update_config() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -285,7 +284,6 @@ fn deposit_stable_huge_amount() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -441,7 +439,6 @@ fn deposit_stable() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -488,7 +485,7 @@ fn deposit_stable() {
     );
 
     deps.querier
-        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(2))]);
     deps.querier.with_token_balances(&[(
         &"AT-uusd".to_string(),
         &[(
@@ -516,11 +513,12 @@ fn deposit_stable() {
             global_reward_index: Decimal256::zero(),
             total_liabilities: Decimal256::zero(),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: mock_env().block.height,
-            last_reward_updated: mock_env().block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: mock_env().block.time.seconds(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(1000000u64),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default()
         }
     );
 
@@ -553,13 +551,14 @@ fn deposit_stable() {
         &State {
             total_liabilities: Decimal256::from_uint256(50000u128),
             total_reserves: Decimal256::from_uint256(550000u128),
-            last_interest_updated: mock_env().block.height,
-            last_reward_updated: mock_env().block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: mock_env().block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -603,18 +602,19 @@ fn deposit_stable() {
         &State {
             total_liabilities: Decimal256::from_uint256(50000u128),
             total_reserves: Decimal256::from_uint256(550000u128),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
     let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     // State: global_interest_index: 1
@@ -628,15 +628,16 @@ fn deposit_stable() {
     assert_eq!(
         read_state(deps.as_ref().storage).unwrap(),
         State {
-            global_interest_index: Decimal256::from_uint256(2u128),
+            global_interest_index: Decimal256::from_str("1.000000063419583900").unwrap(),
             global_reward_index: Decimal256::from_str("0.002").unwrap(),
-            total_liabilities: Decimal256::from_uint256(100000u128),
+            total_liabilities: Decimal256::from_str("50000.003170979195000000").unwrap(),
             total_reserves: Decimal256::from_uint256(550000u128),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT + 1818181),
-            prev_exchange_rate: Decimal256::from_ratio(55u64, 100u64),
+            prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT + 1999999),
+            prev_exchange_rate: Decimal256::from_str("0.500000003170979195").unwrap(),
+            distributed_rewards: Uint256::from(100u64)
         }
     );
 }
@@ -684,7 +685,6 @@ fn redeem_stable() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -767,13 +767,14 @@ fn redeem_stable() {
         &State {
             total_liabilities: Decimal256::from_uint256(500000u128),
             total_reserves: Decimal256::from_uint256(100000u128),
-            last_interest_updated: mock_env().block.height,
-            last_reward_updated: mock_env().block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: mock_env().block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(2000000u64),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -830,6 +831,190 @@ fn redeem_stable() {
 }
 
 #[test]
+fn withdraw_stable() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+    }]);
+
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        stable_denom: "uusd".to_string(),
+        aterra_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
+    };
+
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // Register anchor token contract
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("AT-uusd".to_string());
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubMsgExecutionResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
+    };
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    // Register overseer contract
+    let msg = ExecuteMsg::RegisterContracts {
+        overseer_contract: "overseer".to_string(),
+        interest_model: "interest".to_string(),
+        distribution_model: "distribution".to_string(),
+        distributor_contract: "distributor".to_string(),
+    };
+    let info = mock_info("addr0000", &[]);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // Deposit 1000000
+    let msg = ExecuteMsg::DepositStable {};
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(1000000u128),
+        }],
+    );
+
+    deps.querier
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+    deps.querier.with_token_balances(&[(
+        &"AT-uusd".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(2000000u128))],
+    )]);
+    deps.querier.update_balance(
+        MOCK_CONTRACT_ADDR.to_string(),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 1000000u128),
+        }],
+    );
+
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // Redeem 1000000
+    // Withdraw 100000
+    let msg = ExecuteMsg::WithdrawStable {
+        amount: Uint256::from(1000000u128),
+    };
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+
+    assert_eq!(
+        res.messages,
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "AT-uusd".to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+                    owner: info.sender.to_string(),
+                    recipient: mock_env().contract.address.to_string(),
+                    amount: Uint128::from(1000000u128),
+                })
+                .unwrap()
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "AT-uusd".to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                    amount: Uint128::from(1000000u128),
+                })
+                .unwrap()
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "addr0000".to_string(),
+                amount: vec![deduct_tax(
+                    deps.as_ref(),
+                    Coin {
+                        denom: "uusd".to_string(),
+                        amount: Uint128::from(1000000u128),
+                    }
+                )
+                .unwrap(),]
+            }))
+        ]
+    );
+
+    deps.querier.update_balance(
+        MOCK_CONTRACT_ADDR.to_string(),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(500000u128),
+        }],
+    );
+
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+    let _uusd_string = "uusd";
+    println!("{:?}", res);
+    match res {
+        Err(ContractError::NoStableAvailable(_uusd_string)) => (),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    deps.querier.update_balance(
+        MOCK_CONTRACT_ADDR.to_string(),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(5000000u128),
+        }],
+    );
+
+    // exchange rate is 0.25 therefore 4000000 can be withdrawn
+    let msg = ExecuteMsg::WithdrawStable {
+        amount: Uint256::from(100u128),
+    };
+
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+    assert_eq!(
+        res.messages,
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "AT-uusd".to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+                    owner: info.sender.to_string(),
+                    recipient: mock_env().contract.address.to_string(),
+                    amount: Uint128::from(40u128),
+                })
+                .unwrap()
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "AT-uusd".to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                    amount: Uint128::from(40u128),
+                })
+                .unwrap()
+            })),
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "addr0000".to_string(),
+                amount: vec![deduct_tax(
+                    deps.as_ref(),
+                    Coin {
+                        denom: "uusd".to_string(),
+                        amount: Uint128::from(100u128),
+                    }
+                )
+                .unwrap(),]
+            }))
+        ]
+    );
+}
+
+#[test]
 fn borrow_stable() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -876,30 +1061,31 @@ fn borrow_stable() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let mut env = mock_env();
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
+    //borrow rate should be divided to value per seconds
     deps.querier
-        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(2))]);
     deps.querier
         .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
 
     store_state(
         deps.as_mut().storage,
         &State {
-            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_liabilities: Decimal256::from_str("1500000.062793719200000000").unwrap(),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
-            global_interest_index: Decimal256::one(),
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
+            global_interest_index: Decimal256::from_str("1.000000062793719200").unwrap(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -909,7 +1095,7 @@ fn borrow_stable() {
         to: None,
     };
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     // interest_factor = 1% * 100blocks = 1
@@ -950,21 +1136,22 @@ fn borrow_stable() {
             &query(
                 deps.as_ref(),
                 env.clone(),
-                QueryMsg::State { block_height: None }
+                QueryMsg::State { block_time: None }
             )
             .unwrap()
         )
         .unwrap(),
         State {
-            total_liabilities: Decimal256::from_uint256(2500000u128),
+            total_liabilities: Decimal256::from_str("2000000.157923099032351543").unwrap(),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
-            global_interest_index: Decimal256::from_uint256(2u128),
-            global_reward_index: Decimal256::from_str("0.0001").unwrap(),
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
+            global_interest_index: Decimal256::from_str("1.000000126213307082").unwrap(),
+            global_reward_index: Decimal256::from_str("0.000066666668062082").unwrap(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Uint256::from(100u64)
         }
     );
 
@@ -975,22 +1162,23 @@ fn borrow_stable() {
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::State {
-                    block_height: Some(env.block.height + 1u64)
+                    block_time: Some(env.block.time.plus_seconds(1).seconds())
                 }
             )
             .unwrap()
         )
         .unwrap(),
         State {
-            total_liabilities: Decimal256::from_uint256(2525000u128),
+            total_liabilities: Decimal256::from_str("2000000.159191490810505715").unwrap(),
             total_reserves: Decimal256::from_uint256(0u128),
-            last_interest_updated: env.block.height + 1u64,
-            last_reward_updated: env.block.height + 1u64,
-            global_interest_index: Decimal256::from_str("2.02").unwrap(),
-            global_reward_index: Decimal256::from_str("0.0001008").unwrap(),
+            last_interest_updated_time: env.block.time.seconds() + 1u64,
+            last_reward_updated_time: env.block.time.seconds() + 1u64,
+            global_interest_index: Decimal256::from_str("1.000000126847503001").unwrap(),
+            global_reward_index: Decimal256::from_str("0.000067166668085707").unwrap(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Uint256::from(101u64)
         }
     );
 
@@ -999,7 +1187,7 @@ fn borrow_stable() {
         mock_env(),
         QueryMsg::BorrowerInfo {
             borrower: "addr0000".to_string(),
-            block_height: None,
+            block_time: None,
         },
     )
     .unwrap();
@@ -1009,9 +1197,9 @@ fn borrow_stable() {
         liability,
         BorrowerInfoResponse {
             borrower: "addr0000".to_string(),
-            interest_index: Decimal256::from_uint256(2u128),
-            reward_index: Decimal256::from_str("0.0001").unwrap(),
-            loan_amount: Uint256::from(500000u64),
+            interest_index: Decimal256::from_str("1.000000126213307082").unwrap(),
+            reward_index: Decimal256::from_str("0.000066666668062082").unwrap(),
+            loan_amount: Uint256::from(499999u64),
             pending_rewards: Decimal256::zero(),
         }
     );
@@ -1021,7 +1209,7 @@ fn borrow_stable() {
         mock_env(),
         QueryMsg::BorrowerInfo {
             borrower: "addr0000".to_string(),
-            block_height: Some(env.block.height),
+            block_time: Some(env.block.height),
         },
     )
     .unwrap();
@@ -1031,9 +1219,9 @@ fn borrow_stable() {
         borrower_info,
         BorrowerInfoResponse {
             borrower: "addr0000".to_string(),
-            interest_index: Decimal256::from_uint256(2u128),
-            reward_index: Decimal256::from_str("0.0001").unwrap(),
-            loan_amount: Uint256::from(500000u64),
+            interest_index: Decimal256::from_str("1.000000126213307082").unwrap(),
+            reward_index: Decimal256::from_str("0.000066666668062082").unwrap(),
+            loan_amount: Uint256::from(499999u64),
             pending_rewards: Decimal256::zero(),
         }
     );
@@ -1045,7 +1233,7 @@ fn borrow_stable() {
         mock_env(),
         QueryMsg::BorrowerInfo {
             borrower: "addr0000".to_string(),
-            block_height: Some(env.block.height + 100),
+            block_time: Some(env.block.time.plus_seconds(100).seconds()),
         },
     )
     .unwrap();
@@ -1055,16 +1243,16 @@ fn borrow_stable() {
         borrower_info,
         BorrowerInfoResponse {
             borrower: "addr0000".to_string(),
-            interest_index: Decimal256::from_uint256(4u128),
-            reward_index: Decimal256::from_str("0.00018").unwrap(),
-            loan_amount: Uint256::from(1000000u64),
-            pending_rewards: Decimal256::from_uint256(20u64),
+            interest_index: Decimal256::from_str("1.000000189632898986").unwrap(),
+            reward_index: Decimal256::from_str("0.000116666670424669").unwrap(),
+            loan_amount: Uint256::from(499999u64),
+            pending_rewards: Decimal256::from_str("24.999946440478819410").unwrap(),
         }
     );
 
     // Cannot borrow more than borrow limit
     let msg = ExecuteMsg::BorrowStable {
-        borrow_amount: Uint256::from(500001u64),
+        borrow_amount: Uint256::from(5000001u64),
         to: None,
     };
     let res = execute(deps.as_mut(), env, info, msg);
@@ -1121,7 +1309,6 @@ fn assert_max_borrow_factor() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -1137,13 +1324,14 @@ fn assert_max_borrow_factor() {
         &State {
             total_liabilities: Decimal256::zero(),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: mock_env().block.height,
-            last_reward_updated: mock_env().block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: mock_env().block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -1231,7 +1419,6 @@ fn repay_stable() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let mut env = mock_env();
@@ -1248,13 +1435,14 @@ fn repay_stable() {
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -1264,10 +1452,10 @@ fn repay_stable() {
         to: None,
     };
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
-    let msg = ExecuteMsg::RepayStable {};
+    let msg = ExecuteMsg::RepayStable { borrower: None };
     info.funds = vec![Coin {
         denom: "ukrw".to_string(),
         amount: Uint128::from(100000u128),
@@ -1319,10 +1507,10 @@ fn repay_stable() {
         .get(0)
         .unwrap()
         .loan_amount;
-    assert_eq!(res_loan, Uint256::from(400000u128));
+    assert_eq!(res_loan, Uint256::from(399999u128));
     assert_eq!(
         read_state(deps.as_ref().storage).unwrap().total_liabilities,
-        Decimal256::from_uint256(2400000u128)
+        Decimal256::from_str("1400000.0317097919000000").unwrap()
     );
 
     info.funds = vec![Coin {
@@ -1335,7 +1523,7 @@ fn repay_stable() {
         vec![
             attr("action", "repay_stable"),
             attr("borrower", "addr0000"),
-            attr("repay_amount", "400000"),
+            attr("repay_amount", "399998"),
         ]
     );
 
@@ -1348,21 +1536,200 @@ fn repay_stable() {
     assert_eq!(res_loan, Uint256::zero());
     assert_eq!(
         read_state(deps.as_ref().storage).unwrap().total_liabilities,
-        Decimal256::from_uint256(2000000u128)
+        Decimal256::from_str("1000002.031709791900000000").unwrap()
     );
 
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
             to_address: "addr0000".to_string(),
-            amount: vec![deduct_tax(
-                deps.as_ref(),
-                Coin {
-                    denom: "uusd".to_string(),
-                    amount: Uint128::from(100000u128),
-                }
-            )
-            .unwrap()]
+            amount: vec![Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128::from(99011u128),
+            }]
+        }))]
+    );
+}
+
+#[test]
+fn repay_stable_for_others() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+    }]);
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        stable_denom: "uusd".to_string(),
+        aterra_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
+    };
+
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // Register anchor token contract
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("AT-uusd".to_string());
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubMsgExecutionResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
+    };
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    // Register overseer contract
+    let msg = ExecuteMsg::RegisterContracts {
+        overseer_contract: "overseer".to_string(),
+        interest_model: "interest".to_string(),
+        distribution_model: "distribution".to_string(),
+        distributor_contract: "distributor".to_string(),
+    };
+    let mut env = mock_env();
+    let mut info = mock_info("addr0000", &[]);
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    deps.querier
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+    deps.querier
+        .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
+
+    store_state(
+        deps.as_mut().storage,
+        &State {
+            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_reserves: Decimal256::zero(),
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
+            global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
+        },
+    )
+    .unwrap();
+
+    let msg = ExecuteMsg::BorrowStable {
+        borrow_amount: Uint256::from(500000u64),
+        to: None,
+    };
+
+    env.block.time = env.block.time.plus_seconds(100);
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    let msg = ExecuteMsg::RepayStable {
+        borrower: Some(info.sender.to_string()),
+    };
+    info.funds = vec![Coin {
+        denom: "ukrw".to_string(),
+        amount: Uint128::from(100000u128),
+    }];
+
+    //send by a different address
+    let mut info = mock_info("addr0001", &[]);
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
+    let _uusd_string = "uusd";
+    match res {
+        Err(ContractError::ZeroRepay(_uusd_string)) => (),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    info.funds = vec![Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::zero(),
+    }];
+
+    let res2 = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
+    match res2 {
+        Err(ContractError::ZeroRepay(_uusd_string)) => (),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    deps.querier.update_balance(
+        MOCK_CONTRACT_ADDR.to_string(),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 100000u128),
+        }],
+    );
+
+    info.funds = vec![Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(100000u128),
+    }];
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "repay_stable"),
+            attr("borrower", "addr0000"),
+            attr("repay_amount", "100000"),
+        ]
+    );
+
+    //Loan amount and Total liability have decreased according to the repayment
+    let res_loan = read_borrower_infos(deps.as_ref(), None, None)
+        .unwrap()
+        .get(0)
+        .unwrap()
+        .loan_amount;
+    assert_eq!(res_loan, Uint256::from(399999u128));
+    assert_eq!(
+        read_state(deps.as_ref().storage).unwrap().total_liabilities,
+        Decimal256::from_str("1400000.031709791900000000").unwrap()
+    );
+
+    info.funds = vec![Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(500000u128),
+    }];
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "repay_stable"),
+            attr("borrower", "addr0000"),
+            attr("repay_amount", "399998"),
+        ]
+    );
+
+    //Loan amount and Total liability have decreased according to the repayment
+    let res_loan = read_borrower_infos(deps.as_ref(), None, None)
+        .unwrap()
+        .get(0)
+        .unwrap()
+        .loan_amount;
+    assert_eq!(res_loan, Uint256::zero());
+    assert_eq!(
+        read_state(deps.as_ref().storage).unwrap().total_liabilities,
+        Decimal256::from_str("1000002.031709791900000000").unwrap()
+    );
+
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: "addr0000".to_string(),
+            amount: vec![Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128::from(99011u128),
+            }]
         }))]
     );
 }
@@ -1414,7 +1781,6 @@ fn repay_stable_from_liquidation() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let mut env = mock_env();
@@ -1431,13 +1797,14 @@ fn repay_stable_from_liquidation() {
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -1585,7 +1952,6 @@ fn claim_rewards() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
@@ -1593,7 +1959,7 @@ fn claim_rewards() {
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     deps.querier
-        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(2))]);
     deps.querier
         .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
 
@@ -1602,13 +1968,14 @@ fn claim_rewards() {
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
@@ -1631,8 +1998,8 @@ fn claim_rewards() {
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
     assert_eq!(res.messages.len(), 0);
 
-    // 100 blocks passed
-    env.block.height += 100;
+    // 100 seconds is passed
+    env.block.time = env.block.time.plus_seconds(100);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -1653,7 +2020,7 @@ fn claim_rewards() {
             mock_env(),
             QueryMsg::BorrowerInfo {
                 borrower: "addr0000".to_string(),
-                block_height: None,
+                block_time: None,
             },
         )
         .unwrap(),
@@ -1661,12 +2028,129 @@ fn claim_rewards() {
     .unwrap();
     assert_eq!(
         res.pending_rewards,
-        Decimal256::from_str("0.333333333333").unwrap()
+        Decimal256::from_str("0.333331219347004068").unwrap()
     );
     assert_eq!(
         res.reward_index,
         Decimal256::from_str("0.000066666666666666").unwrap()
     );
+}
+
+//test rewards that is more than the total amount of rewards
+#[test]
+fn rewards_more_than_balance() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+    }]);
+    deps.querier.with_tax(
+        Decimal::percent(1),
+        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
+    );
+
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        stable_denom: "uusd".to_string(),
+        aterra_code_id: 123u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
+    };
+
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // Register anchor token contract
+    let mut token_inst_res = MsgInstantiateContractResponse::new();
+    token_inst_res.set_contract_address("AT-uusd".to_string());
+    let reply_msg = Reply {
+        id: 1,
+        result: ContractResult::Ok(SubMsgExecutionResponse {
+            events: vec![],
+            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+        }),
+    };
+    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+
+    // Register overseer contract
+    let msg = ExecuteMsg::RegisterContracts {
+        overseer_contract: "overseer".to_string(),
+        interest_model: "interest".to_string(),
+        distribution_model: "distribution".to_string(),
+        distributor_contract: "distributor".to_string(),
+    };
+    let info = mock_info("addr0000", &[]);
+    let mut env = mock_env();
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    deps.querier
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(2))]);
+    deps.querier
+        .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
+
+    store_state(
+        deps.as_mut().storage,
+        &State {
+            total_liabilities: Decimal256::from_uint256(1000000u128),
+            total_reserves: Decimal256::zero(),
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
+            global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::zero(),
+            prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
+        },
+    )
+    .unwrap();
+
+    // zero loan claim, will return empty messages
+    let msg = ExecuteMsg::ClaimRewards { to: None };
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+    assert_eq!(res.messages.len(), 0);
+
+    let msg = ExecuteMsg::BorrowStable {
+        borrow_amount: Uint256::from(500000u64),
+        to: None,
+    };
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    // zero block passed
+    let msg = ExecuteMsg::ClaimRewards {
+        to: Some("addr0001".to_string()),
+    };
+
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    assert_eq!(res.messages.len(), 0);
+
+    // passe a huge amount of time to increase the amount of rewards
+
+    env.block.time = env.block.time.plus_seconds(100000);
+
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "distributor".to_string(),
+            funds: vec![],
+            msg: to_binary(&FaucetExecuteMsg::Spend {
+                recipient: "addr0001".to_string(),
+                amount: Uint128::from(33333u128),
+            })
+            .unwrap(),
+        }))]
+    );
+
+    let state = read_state(deps.as_ref().storage).unwrap();
+    assert_eq!(state.distributed_rewards, Uint256::from(100000u64));
 }
 
 #[test]
@@ -1716,7 +2200,6 @@ fn execute_epoch_operations() {
         overseer_contract: "overseer".to_string(),
         interest_model: "interest".to_string(),
         distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
     let mut env = mock_env();
@@ -1724,7 +2207,7 @@ fn execute_epoch_operations() {
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     deps.querier
-        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
+        .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(2))]);
     deps.querier
         .with_borrow_limit(&[(&"addr0000".to_string(), &Uint256::from(1000000u64))]);
 
@@ -1733,18 +2216,19 @@ fn execute_epoch_operations() {
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::from_uint256(3000u128),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: mock_env().block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
 
     // reserve == 3000
     let msg = ExecuteMsg::ExecuteEpochOperations {
@@ -1766,7 +2250,7 @@ fn execute_epoch_operations() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-            to_address: "collector".to_string(),
+            to_address: "overseer".to_string(),
             amount: vec![Coin {
                 denom: "uusd".to_string(),
                 amount: Uint128::from(2970u128), // 1% tax
@@ -1778,15 +2262,16 @@ fn execute_epoch_operations() {
     assert_eq!(
         state,
         State {
-            total_liabilities: Decimal256::from_uint256(2000000u128),
+            total_liabilities: Decimal256::from_str("1000000.063419583900000000").unwrap(),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
-            global_interest_index: Decimal256::from_uint256(2u64),
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
+            global_interest_index: Decimal256::from_str("1.000000063419583900").unwrap(),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Uint256::from(100u64)
         }
     );
 
@@ -1807,18 +2292,19 @@ fn execute_epoch_operations() {
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
             total_reserves: Decimal256::from_uint256(3000u128),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Default::default(),
         },
     )
     .unwrap();
 
-    env.block.height += 100;
+    env.block.time = env.block.time.plus_seconds(100);
 
     // reserve == 3000
     let msg = ExecuteMsg::ExecuteEpochOperations {
@@ -1835,15 +2321,16 @@ fn execute_epoch_operations() {
     assert_eq!(
         state,
         State {
-            total_liabilities: Decimal256::from_uint256(2000000u128),
+            total_liabilities: Decimal256::from_str("1000000.063419583900000000").unwrap(),
             total_reserves: Decimal256::from_uint256(3000u128),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
-            global_interest_index: Decimal256::from_uint256(2u64),
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
+            global_interest_index: Decimal256::from_str("1.000000063419583900").unwrap(),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Uint256::from(100u64)
         }
     );
 }

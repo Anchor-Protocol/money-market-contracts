@@ -5,7 +5,7 @@ use crate::borrow::{
     borrow_stable, claim_rewards, compute_interest, compute_interest_raw, compute_reward,
     query_borrower_info, query_borrower_infos, repay_stable, repay_stable_from_liquidation,
 };
-use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
+use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable, withdraw_stable};
 use crate::error::ContractError;
 use crate::querier::{query_anc_emission_rate, query_borrow_rate, query_target_deposit_rate};
 use crate::response::MsgInstantiateContractResponse;
@@ -18,11 +18,12 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20Coin, Cw20ReceiveMsg, MinterResponse};
 
+use crate::migration::{migrate_config, migrate_state};
 use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{
-    ConfigResponse, Cw20HookMsg, EpochStateResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-    StateResponse,
+    ConfigResponse, Cw20HookMsg, EpochStateResponse, ExecuteMsg, InstantiateMsg, MigrateMsg,
+    QueryMsg, StateResponse,
 };
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
 use protobuf::Message;
@@ -60,7 +61,6 @@ pub fn instantiate(
             overseer_contract: CanonicalAddr::from(vec![]),
             interest_model: CanonicalAddr::from(vec![]),
             distribution_model: CanonicalAddr::from(vec![]),
-            collector_contract: CanonicalAddr::from(vec![]),
             distributor_contract: CanonicalAddr::from(vec![]),
             stable_denom: msg.stable_denom.clone(),
             max_borrow_factor: msg.max_borrow_factor,
@@ -72,13 +72,14 @@ pub fn instantiate(
         &State {
             total_liabilities: Decimal256::zero(),
             total_reserves: Decimal256::zero(),
-            last_interest_updated: env.block.height,
-            last_reward_updated: env.block.height,
+            last_interest_updated_time: env.block.time.seconds(),
+            last_reward_updated_time: env.block.time.seconds(),
             global_interest_index: Decimal256::one(),
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: msg.anc_emission_rate,
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
+            distributed_rewards: Uint256::zero(),
         },
     )?;
 
@@ -124,7 +125,6 @@ pub fn execute(
             overseer_contract,
             interest_model,
             distribution_model,
-            collector_contract,
             distributor_contract,
         } => {
             let api = deps.api;
@@ -133,7 +133,6 @@ pub fn execute(
                 api.addr_validate(&overseer_contract)?,
                 api.addr_validate(&interest_model)?,
                 api.addr_validate(&distribution_model)?,
-                api.addr_validate(&collector_contract)?,
                 api.addr_validate(&distributor_contract)?,
             )
         }
@@ -179,7 +178,7 @@ pub fn execute(
                 optional_addr_validate(api, to)?,
             )
         }
-        ExecuteMsg::RepayStable {} => repay_stable(deps, env, info),
+        ExecuteMsg::RepayStable { borrower } => repay_stable(deps, env, info, borrower),
         ExecuteMsg::RepayStableFromLiquidation {
             borrower,
             prev_balance,
@@ -197,6 +196,7 @@ pub fn execute(
             let api = deps.api;
             claim_rewards(deps, env, info, optional_addr_validate(api, to)?)
         }
+        ExecuteMsg::WithdrawStable { amount } => withdraw_stable(deps, env, info, amount),
     }
 }
 
@@ -261,14 +261,12 @@ pub fn register_contracts(
     overseer_contract: Addr,
     interest_model: Addr,
     distribution_model: Addr,
-    collector_contract: Addr,
     distributor_contract: Addr,
 ) -> Result<Response, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
     if config.overseer_contract != CanonicalAddr::from(vec![])
         || config.interest_model != CanonicalAddr::from(vec![])
         || config.distribution_model != CanonicalAddr::from(vec![])
-        || config.collector_contract != CanonicalAddr::from(vec![])
         || config.distributor_contract != CanonicalAddr::from(vec![])
     {
         return Err(ContractError::Unauthorized {});
@@ -277,7 +275,6 @@ pub fn register_contracts(
     config.overseer_contract = deps.api.addr_canonicalize(overseer_contract.as_str())?;
     config.interest_model = deps.api.addr_canonicalize(interest_model.as_str())?;
     config.distribution_model = deps.api.addr_canonicalize(distribution_model.as_str())?;
-    config.collector_contract = deps.api.addr_canonicalize(collector_contract.as_str())?;
     config.distributor_contract = deps.api.addr_canonicalize(distributor_contract.as_str())?;
     store_config(deps.storage, &config)?;
 
@@ -306,7 +303,13 @@ pub fn update_config(
 
     if interest_model.is_some() {
         let mut state: State = read_state(deps.storage)?;
-        compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
+        compute_interest(
+            deps.as_ref(),
+            &config,
+            &mut state,
+            env.block.time.seconds(),
+            None,
+        )?;
         store_state(deps.storage, &state)?;
 
         if let Some(interest_model) = interest_model {
@@ -363,7 +366,7 @@ pub fn execute_epoch_operations(
 
     compute_interest_raw(
         &mut state,
-        env.block.height,
+        env.block.time.seconds(),
         balance,
         aterra_supply,
         borrow_rate_res.rate,
@@ -374,10 +377,10 @@ pub fn execute_epoch_operations(
     state.prev_exchange_rate =
         compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest);
 
-    compute_reward(&mut state, env.block.height);
+    compute_reward(deps.as_ref(), &mut state, env.block.time.seconds());
 
-    // Compute total_reserves to fund collector contract
-    // Update total_reserves and send it to collector contract
+    // Compute total_reserves to fund overseer contract
+    // Update total_reserves and send it to overseer contract
     // only when there is enough balance
     let total_reserves = state.total_reserves * Uint256::one();
     let messages: Vec<CosmosMsg> = if !total_reserves.is_zero() && balance > total_reserves {
@@ -386,7 +389,7 @@ pub fn execute_epoch_operations(
         vec![CosmosMsg::Bank(BankMsg::Send {
             to_address: deps
                 .api
-                .addr_humanize(&config.collector_contract)?
+                .addr_humanize(&config.overseer_contract)?
                 .to_string(),
             amount: vec![deduct_tax(
                 deps.as_ref(),
@@ -424,23 +427,19 @@ pub fn execute_epoch_operations(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::State { block_height } => to_binary(&query_state(deps, env, block_height)?),
+        QueryMsg::State { block_time } => to_binary(&query_state(deps, env, block_time)?),
         QueryMsg::EpochState {
-            block_height,
+            block_time,
             distributed_interest,
-        } => to_binary(&query_epoch_state(
-            deps,
-            block_height,
-            distributed_interest,
-        )?),
+        } => to_binary(&query_epoch_state(deps, block_time, distributed_interest)?),
         QueryMsg::BorrowerInfo {
             borrower,
-            block_height,
+            block_time,
         } => to_binary(&query_borrower_info(
             deps,
             env,
             deps.api.addr_validate(&borrower)?,
-            block_height,
+            block_time,
         )?),
         QueryMsg::BorrowerInfos { start_after, limit } => to_binary(&query_borrower_infos(
             deps,
@@ -464,10 +463,6 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
             .api
             .addr_humanize(&config.overseer_contract)?
             .to_string(),
-        collector_contract: deps
-            .api
-            .addr_humanize(&config.collector_contract)?
-            .to_string(),
         distributor_contract: deps
             .api
             .addr_humanize(&config.distributor_contract)?
@@ -477,22 +472,22 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     })
 }
 
-pub fn query_state(deps: Deps, env: Env, block_height: Option<u64>) -> StdResult<StateResponse> {
+pub fn query_state(deps: Deps, env: Env, block_time: Option<u64>) -> StdResult<StateResponse> {
     let mut state: State = read_state(deps.storage)?;
 
-    let block_height = if let Some(block_height) = block_height {
-        block_height
+    let block_time = if let Some(block_time) = block_time {
+        block_time
     } else {
-        env.block.height
+        env.block.time.seconds()
     };
 
-    if block_height < state.last_interest_updated {
+    if block_time < state.last_interest_updated_time {
         return Err(StdError::generic_err(
             "block_height must bigger than last_interest_updated",
         ));
     }
 
-    if block_height < state.last_reward_updated {
+    if block_time < state.last_reward_updated_time {
         return Err(StdError::generic_err(
             "block_height must bigger than last_reward_updated",
         ));
@@ -501,27 +496,28 @@ pub fn query_state(deps: Deps, env: Env, block_height: Option<u64>) -> StdResult
     let config: Config = read_config(deps.storage)?;
 
     // Compute interest rate with given block height
-    compute_interest(deps, &config, &mut state, block_height, None)?;
+    compute_interest(deps, &config, &mut state, block_time, None)?;
 
     // Compute reward rate with given block height
-    compute_reward(&mut state, block_height);
+    compute_reward(deps, &mut state, block_time);
 
     Ok(StateResponse {
         total_liabilities: state.total_liabilities,
         total_reserves: state.total_reserves,
-        last_interest_updated: state.last_interest_updated,
-        last_reward_updated: state.last_reward_updated,
+        last_interest_updated_time: state.last_interest_updated_time,
+        last_reward_updated_time: state.last_reward_updated_time,
         global_interest_index: state.global_interest_index,
         global_reward_index: state.global_reward_index,
         anc_emission_rate: state.anc_emission_rate,
         prev_aterra_supply: state.prev_aterra_supply,
         prev_exchange_rate: state.prev_exchange_rate,
+        distributed_rewards: state.distributed_rewards,
     })
 }
 
 pub fn query_epoch_state(
     deps: Deps,
-    block_height: Option<u64>,
+    block_time: Option<u64>,
     distributed_interest: Option<Uint256>,
 ) -> StdResult<EpochStateResponse> {
     let config: Config = read_config(deps.storage)?;
@@ -535,8 +531,8 @@ pub fn query_epoch_state(
         config.stable_denom.to_string(),
     )? - distributed_interest;
 
-    if let Some(block_height) = block_height {
-        if block_height < state.last_interest_updated {
+    if let Some(block_time) = block_time {
+        if block_time < state.last_interest_updated_time {
             return Err(StdError::generic_err(
                 "block_height must bigger than last_interest_updated",
             ));
@@ -556,7 +552,7 @@ pub fn query_epoch_state(
         // Compute interest rate to return latest epoch state
         compute_interest_raw(
             &mut state,
-            block_height,
+            block_time,
             balance,
             aterra_supply,
             borrow_rate_res.rate,
@@ -573,4 +569,20 @@ pub fn query_epoch_state(
         exchange_rate,
         aterra_supply,
     })
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    //read and store  the state and replace the prev anc emission rate
+    // with the new value based on time
+    // prev value was based on block
+    let mut state = read_state(deps.storage)?;
+    state.anc_emission_rate = msg.anc_emission_rate;
+
+    store_state(deps.storage, &state)?;
+    migrate_state(deps.storage, msg.distributed_rewards)?;
+
+    migrate_config(deps.storage)?;
+
+    Ok(Response::default())
 }

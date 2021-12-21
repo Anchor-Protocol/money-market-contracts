@@ -204,7 +204,15 @@
       ],
       "properties": {
         "repay_stable": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "borrower": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
         }
       },
       "additionalProperties": false

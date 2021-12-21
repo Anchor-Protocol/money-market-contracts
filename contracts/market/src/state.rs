@@ -20,7 +20,6 @@ pub struct Config {
     pub interest_model: CanonicalAddr,
     pub distribution_model: CanonicalAddr,
     pub overseer_contract: CanonicalAddr,
-    pub collector_contract: CanonicalAddr,
     pub distributor_contract: CanonicalAddr,
     pub stable_denom: String,
     pub max_borrow_factor: Decimal256,
@@ -30,13 +29,14 @@ pub struct Config {
 pub struct State {
     pub total_liabilities: Decimal256,
     pub total_reserves: Decimal256,
-    pub last_interest_updated: u64,
-    pub last_reward_updated: u64,
+    pub last_interest_updated_time: u64,
+    pub last_reward_updated_time: u64,
     pub global_interest_index: Decimal256,
     pub global_reward_index: Decimal256,
     pub anc_emission_rate: Decimal256,
     pub prev_aterra_supply: Uint256,
     pub prev_exchange_rate: Decimal256,
+    pub distributed_rewards: Uint256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
