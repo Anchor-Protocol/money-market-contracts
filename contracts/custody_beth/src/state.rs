@@ -160,3 +160,23 @@ pub fn update_user_rewards(storage: &mut dyn Storage, borrower: &CanonicalAddr) 
     user_rewards.user_index = global_index;
     save_user_rewards(storage, borrower, &user_rewards)
 }
+
+pub fn save_total_cumulative_rewards(
+    storage: &mut dyn Storage,
+    new_rewards: &Uint256,
+) -> StdResult<()> {
+    let mut rewards = Singleton::new(storage, KEY_TOTAL_CUMULATIVE_REWARDS);
+    rewards.save(new_rewards)
+}
+
+pub fn read_total_cumulative_rewards(storage: &dyn Storage) -> Uint256 {
+    ReadonlySingleton::new(storage, KEY_TOTAL_CUMULATIVE_REWARDS)
+        .load()
+        .unwrap_or_else(|_| Uint256::zero())
+}
+
+pub fn update_total_cumulative_rewards(storage: &mut dyn Storage, data: &Uint256) -> StdResult<()> {
+    let mut current = read_total_cumulative_rewards(storage);
+    current += *data;
+    save_total_cumulative_rewards(storage, &current)
+}

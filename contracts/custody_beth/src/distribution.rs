@@ -7,7 +7,7 @@ use cosmwasm_std::{
 use crate::contract::{CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION};
 use crate::error::ContractError;
 use crate::external::handle::{RewardContractExecuteMsg, RewardContractQueryMsg};
-use crate::state::{read_config, BETHAccruedRewardsResponse, Config, update_global_index};
+use crate::state::{read_config, BETHAccruedRewardsResponse, Config, update_global_index, update_total_cumulative_rewards};
 
 use moneymarket::querier::{deduct_tax, query_all_balances, query_balance, query_token_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
@@ -74,6 +74,7 @@ pub fn distribute_hook(
     )?;
 
     update_global_index(deps.storage, &reward_amount, &collateral_amount)?;
+    update_total_cumulative_rewards(deps.storage, &reward_amount)?;
 
     Ok(Response::new().add_attributes(vec![
         attr("action", "distribute_rewards"),

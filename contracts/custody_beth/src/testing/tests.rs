@@ -1,24 +1,24 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     attr, from_binary, to_binary, Api, Attribute, BankMsg, Coin, ContractResult, CosmosMsg,
     Decimal, Reply, Response, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
+use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
+use terra_cosmwasm::create_swap_msg;
+
+use moneymarket::custody::{
+    BAssetInfo, BorrowerResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
+};
+use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
 
 use crate::contract::{
     execute, instantiate, query, reply, CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION,
 };
 use crate::error::ContractError;
 use crate::external::handle::RewardContractExecuteMsg;
-use crate::state::{read_borrower_info, BETHAccruedRewardsResponse, read_global_index, UserRewards, save_user_rewards, save_global_index, read_user_rewards};
+use crate::state::{read_borrower_info, read_global_index, read_user_rewards, save_global_index, save_user_rewards, BETHAccruedRewardsResponse, UserRewards, read_total_cumulative_rewards};
 use crate::testing::mock_querier::mock_dependencies;
-
-use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
-use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
-use moneymarket::custody::{
-    BAssetInfo, BorrowerResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
-};
-use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
-use terra_cosmwasm::create_swap_msg;
 
 #[test]
 fn proper_initialization() {
@@ -666,6 +666,11 @@ fn distribute_hook() {
         read_global_index(&deps.storage).to_string(),
         "1000".to_string()
     );
+
+    assert_eq!(
+        read_total_cumulative_rewards(&deps.storage),
+        Uint256::from(1000000u128)
+    );
 }
 
 #[test]
@@ -720,6 +725,11 @@ fn distribution_hook_zero_rewards() {
     assert_eq!(
         read_global_index(&deps.storage).to_string(),
         "0".to_string()
+    );
+
+    assert_eq!(
+        read_total_cumulative_rewards(&deps.storage),
+        Uint256::zero()
     );
 }
 

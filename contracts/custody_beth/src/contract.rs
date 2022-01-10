@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdError, StdResult,
+    StdResult,
 };
 
 use crate::collateral::{
@@ -11,7 +11,7 @@ use crate::collateral::{
 };
 use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
 use crate::error::ContractError;
-use crate::state::{read_config, store_config, Config};
+use crate::state::{read_config, store_config, Config, read_total_cumulative_rewards};
 
 use cw20::Cw20ReceiveMsg;
 use moneymarket::common::optional_addr_validate;
@@ -162,7 +162,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             optional_addr_validate(deps.api, start_after)?,
             limit,
         )?),
-        QueryMsg::TotalCumulativeRewards {} => Err(StdError::generic_err("Not implemented")),
+        QueryMsg::TotalCumulativeRewards {} => {
+            to_binary(&read_total_cumulative_rewards(deps.storage))
+        }
     }
 }
 
