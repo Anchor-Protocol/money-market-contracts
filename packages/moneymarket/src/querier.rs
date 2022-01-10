@@ -52,8 +52,7 @@ pub fn query_supply(deps: Deps, contract_addr: Addr) -> StdResult<Uint256> {
             contract_addr: contract_addr.to_string(),
             msg: to_binary(&Cw20QueryMsg::TokenInfo {})?,
         }))?;
-
-    Ok(Uint256::from(token_info.total_supply))
+    Ok(token_info.total_supply.into())
 }
 
 pub fn query_tax_rate_and_cap(deps: Deps, denom: String) -> StdResult<(Decimal256, Uint256)> {
