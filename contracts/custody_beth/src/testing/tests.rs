@@ -17,7 +17,10 @@ use crate::contract::{
 };
 use crate::error::ContractError;
 use crate::external::handle::RewardContractExecuteMsg;
-use crate::state::{read_borrower_info, read_global_index, read_user_rewards, save_global_index, save_user_rewards, BETHAccruedRewardsResponse, UserRewards, read_total_cumulative_rewards};
+use crate::state::{
+    read_borrower_info, read_global_index, read_total_cumulative_rewards, read_user_rewards,
+    save_global_index, save_user_rewards, BETHAccruedRewardsResponse, UserRewards,
+};
 use crate::testing::mock_querier::mock_dependencies;
 
 #[test]

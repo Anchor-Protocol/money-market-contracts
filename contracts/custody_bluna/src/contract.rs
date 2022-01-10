@@ -1,9 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    Addr, attr, Binary, Deps, DepsMut, Env, from_binary, MessageInfo, Reply, Response, StdResult,
-    to_binary,
+    attr, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    StdResult,
 };
+use cw20::Cw20ReceiveMsg;
+use terra_cosmwasm::TerraMsgWrapper;
+
+use moneymarket::common::optional_addr_validate;
+use moneymarket::custody::{ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
 
 use crate::collateral::{
     deposit_collateral, liquidate_collateral, lock_collateral, query_borrower, query_borrowers,
@@ -11,12 +16,7 @@ use crate::collateral::{
 };
 use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
 use crate::error::ContractError;
-use crate::state::{Config, read_config, store_config, read_total_cumulative_rewards};
-
-use cw20::Cw20ReceiveMsg;
-use moneymarket::common::optional_addr_validate;
-use moneymarket::custody::{ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
-use terra_cosmwasm::TerraMsgWrapper;
+use crate::state::{read_config, read_total_cumulative_rewards, store_config, Config};
 
 pub const CLAIM_REWARDS_OPERATION: u64 = 1u64;
 pub const SWAP_TO_STABLE_OPERATION: u64 = 2u64;

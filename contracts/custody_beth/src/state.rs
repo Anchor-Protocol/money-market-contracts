@@ -1,9 +1,9 @@
+use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::{CanonicalAddr, Deps, Order, StdResult, Storage, Uint128};
+use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_bignumber::Uint256;
-use cosmwasm_std::{CanonicalAddr, Deps, Order, StdResult, Storage, Uint128};
-use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
 use moneymarket::custody::{BAssetInfo, BorrowerResponse};
 
 //BETHAccruedRewardsResponse the struct that shows the result of accrued_rewards query

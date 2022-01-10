@@ -1,24 +1,27 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     attr, from_binary, to_binary, Api, Attribute, BankMsg, Coin, ContractResult, CosmosMsg,
     Decimal, Reply, Response, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
+use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
+use terra_cosmwasm::create_swap_msg;
+
+use moneymarket::custody::{
+    BAssetInfo, BorrowerResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
+};
+use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
 
 use crate::contract::{
     execute, instantiate, query, reply, CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION,
 };
 use crate::error::ContractError;
 use crate::external::handle::RewardContractExecuteMsg;
-use crate::state::{read_borrower_info, read_global_index, read_total_cumulative_rewards, read_user_rewards, save_user_rewards, BLunaAccruedRewardsResponse, UserRewards, save_global_index};
-use crate::testing::mock_querier::mock_dependencies;
-
-use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
-use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
-use moneymarket::custody::{
-    BAssetInfo, BorrowerResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
+use crate::state::{
+    read_borrower_info, read_global_index, read_total_cumulative_rewards, read_user_rewards,
+    save_global_index, save_user_rewards, BLunaAccruedRewardsResponse, UserRewards,
 };
-use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
-use terra_cosmwasm::create_swap_msg;
+use crate::testing::mock_querier::mock_dependencies;
 
 #[test]
 fn proper_initialization() {

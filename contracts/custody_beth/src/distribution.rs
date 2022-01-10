@@ -3,14 +3,17 @@ use cosmwasm_std::{
     attr, to_binary, Addr, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, QueryRequest,
     ReplyOn, Response, StdResult, SubMsg, Uint128, WasmMsg, WasmQuery,
 };
+use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
+
+use moneymarket::querier::{deduct_tax, query_all_balances, query_balance, query_token_balance};
 
 use crate::contract::{CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION};
 use crate::error::ContractError;
 use crate::external::handle::{RewardContractExecuteMsg, RewardContractQueryMsg};
-use crate::state::{read_config, BETHAccruedRewardsResponse, Config, update_global_index, update_total_cumulative_rewards};
-
-use moneymarket::querier::{deduct_tax, query_all_balances, query_balance, query_token_balance};
-use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
+use crate::state::{
+    read_config, update_global_index, update_total_cumulative_rewards, BETHAccruedRewardsResponse,
+    Config,
+};
 
 // REWARD_THRESHOLD
 // This value is used as the minimum reward claim amount

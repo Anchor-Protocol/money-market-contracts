@@ -1,19 +1,20 @@
-use crate::error::ContractError;
-use crate::state::{
-    read_borrower_info, read_borrowers, read_config, read_user_rewards, remove_borrower_info,
-    save_user_rewards, store_borrower_info, update_user_rewards, BorrowerInfo, Config,
-};
-
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, CanonicalAddr, Coin, CosmosMsg, Deps, DepsMut, MessageInfo,
     Response, StdResult, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
+use terra_cosmwasm::TerraMsgWrapper;
+
 use moneymarket::custody::{BorrowerResponse, BorrowersResponse};
 use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
 use moneymarket::querier::deduct_tax;
-use terra_cosmwasm::TerraMsgWrapper;
+
+use crate::error::ContractError;
+use crate::state::{
+    read_borrower_info, read_borrowers, read_config, read_user_rewards, remove_borrower_info,
+    save_user_rewards, store_borrower_info, update_user_rewards, BorrowerInfo, Config,
+};
 
 /// Deposit new collateral
 /// Executor: bAsset token contract
