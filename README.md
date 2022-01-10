@@ -3,7 +3,7 @@
 # Anchor Money Market Contracts
 A Rust and [CosmWasm](https://cosmwasm.com/) implementation of the Anchor Protocol money market on the [Terra blockchain](https://terra.money).
 
-You can find information about the architecture, usage, and function of the smart contracts in the [documentation](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/money-market).
+You can find information about the architecture, usage, and function of the smart contracts in the [documentation](https://docs.anchorprotocol.com/).
 
 ### Dependencies
 
@@ -11,15 +11,16 @@ Money Market has dependencies on [Anchor Token Contracts](https://github.com/anc
 
 ## Contracts
 
-| Contract                                               | Reference                                                                                                      | Description                                                                   |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [`overseer`](./contracts/overseer)                     | [doc](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/money-market/overseer)               | Manages money market overalls, stores borrower information                    |
-| [`market`](../contracts/market)                        | [doc](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/money-market/market)                 | Handles Terra stablecoin deposits and borrows, ANC distribution to borrowers  |
-| [`custody_bluna`](./contracts/custody_bluna)           | [doc](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/money-market/custody-bluna-specific) | Handles bLuna collateral deposits and withdrawals                             |
-| [`interest_model`](./contracts/interest_model)         | [doc](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/money-market/interest_model)         | Calculates the current borrow interest rate based on the market situation     |
-| [`distribution_model`](./contracts/distribution_model) | [doc](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/money-market/distribution_model)     | Calculates the borrower ANC emission rate based on the previous emission rate |
-| [`oracle`](./contracts/oracle)                         | [doc](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/money-market/oracle)                 | Provides a price feed for bAsset collaterals                                  |
-| [`liquidation`](./contracts/liquidation)               | [doc](https://app.gitbook.com/@anchor-protocol/s/anchor-2/smart-contracts/liquidations/liquidation-contract)   | OTC exchange contract for bAsset collateral liquidations                      |
+| Contract                                               | Reference                                                                                  | Description                                                                   |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| [`overseer`](./contracts/overseer)                     | [doc](https://docs.anchorprotocol.com/smart-contracts/money-market/overseer)               | Manages money market overalls, stores borrower information                    |
+| [`market`](../contracts/market)                        | [doc](https://docs.anchorprotocol.com/smart-contracts/money-market/market)                 | Handles Terra stablecoin deposits and borrows, ANC distribution to borrowers  |
+| [`custody_bluna`](./contracts/custody_bluna)           | [doc](https://docs.anchorprotocol.com/smart-contracts/money-market/custody-bluna-specific) | Handles bLuna collateral deposits and withdrawals                             |
+| [`custody_beth`](./contracts/custody_beth)             | [doc](https://docs.anchorprotocol.com/smart-contracts/money-market/custody-beth)           | Handles bEth collateral deposits and withdrawals                              |
+| [`interest_model`](./contracts/interest_model)         | [doc](https://docs.anchorprotocol.com/smart-contracts/money-market/interest-model)         | Calculates the current borrow interest rate based on the market situation     |
+| [`distribution_model`](./contracts/distribution_model) | [doc](https://docs.anchorprotocol.com/smart-contracts/money-market/distribution-model)     | Calculates the borrower ANC emission rate based on the previous emission rate |
+| [`oracle`](./contracts/oracle)                         | [doc](https://docs.anchorprotocol.com/smart-contracts/money-market/oracle)                 | Provides a price feed for bAsset collaterals                                  |
+| [`liquidation`](./contracts/liquidation)               | [doc](https://docs.anchorprotocol.com/smart-contracts/liquidations)                        | OTC exchange contract for bAsset collateral liquidations                      |
 
 ## Development
 
@@ -38,7 +39,7 @@ rustup default stable
 rustup target add wasm32-unknown-unknown
 ```
 
-3. Make sure [Docker](https://www.docker.com/) is installed
+3. Make sure [Docker](https://www.docker.com/) is installed.
 
 ### Unit / Integration Tests
 
