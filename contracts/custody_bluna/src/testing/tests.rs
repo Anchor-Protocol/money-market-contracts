@@ -647,7 +647,7 @@ fn distribute_hook() {
     // mimic last swap_msg callback to execute distribute_hook
     deps.querier.set_other_balances(Uint128::new(1000000));
     let reply_msg = Reply {
-        id: 2,
+        id: SWAP_TO_STABLE_OPERATION,
         result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: None,
@@ -704,7 +704,7 @@ fn distribution_hook_zero_rewards() {
 
     // mimic last swap_msg callback to execute distribute_hook
     let reply_msg = Reply {
-        id: 2,
+        id: SWAP_TO_STABLE_OPERATION,
         result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: None,
@@ -834,7 +834,7 @@ fn swap_to_stable_denom() {
 
     // mimic callback from distribute_rewards to execute swap_to_stable_denom
     let reply_msg = Reply {
-        id: 1,
+        id: CLAIM_REWARDS_OPERATION,
         result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: None,
