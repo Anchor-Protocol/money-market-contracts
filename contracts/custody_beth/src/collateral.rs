@@ -1,18 +1,13 @@
 use crate::error::ContractError;
-use crate::state::{
-    read_borrower_info, read_borrowers, read_config, remove_borrower_info, store_borrower_info,
-    BorrowerInfo, Config,
-};
+use crate::state::{read_borrower_info, read_borrowers, read_config, remove_borrower_info, store_borrower_info, BorrowerInfo, Config, update_user_rewards, save_user_rewards, read_user_rewards};
 
 use cosmwasm_bignumber::Uint256;
-use cosmwasm_std::{
-    attr, to_binary, Addr, CanonicalAddr, CosmosMsg, Deps, DepsMut, MessageInfo, Response,
-    StdResult, WasmMsg,
-};
+use cosmwasm_std::{attr, to_binary, Addr, CanonicalAddr, CosmosMsg, Deps, DepsMut, MessageInfo, Response, StdResult, WasmMsg, Coin, BankMsg};
 use cw20::Cw20ExecuteMsg;
 use moneymarket::custody::{BorrowerResponse, BorrowersResponse};
 use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
 use terra_cosmwasm::TerraMsgWrapper;
+use moneymarket::querier::deduct_tax;
 
 /// Deposit new collateral
 /// Executor: bAsset token contract
@@ -22,6 +17,7 @@ pub fn deposit_collateral(
     amount: Uint256,
 ) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let borrower_raw = deps.api.addr_canonicalize(borrower.as_str())?;
+    update_user_rewards(deps.storage, &borrower_raw)?;
     let mut borrower_info: BorrowerInfo = read_borrower_info(deps.storage, &borrower_raw);
 
     // increase borrower collateral
@@ -48,6 +44,7 @@ pub fn withdraw_collateral(
 
     let borrower = info.sender;
     let borrower_raw = deps.api.addr_canonicalize(borrower.as_str())?;
+    update_user_rewards(deps.storage, &borrower_raw)?;
     let mut borrower_info: BorrowerInfo = read_borrower_info(deps.storage, &borrower_raw);
 
     // Check spendable balance
@@ -164,6 +161,7 @@ pub fn liquidate_collateral(
     }
 
     let borrower_raw: CanonicalAddr = deps.api.addr_canonicalize(borrower.as_str())?;
+    update_user_rewards(deps.storage, &borrower_raw)?;
     let mut borrower_info: BorrowerInfo = read_borrower_info(deps.storage, &borrower_raw);
     let locked_amount = borrower_info.balance - borrower_info.spendable;
     if amount > locked_amount {
@@ -207,6 +205,30 @@ pub fn liquidate_collateral(
             attr("borrower", borrower),
             attr("amount", amount),
         ]))
+}
+
+pub fn withdraw_staking_rewards(
+    deps: DepsMut,
+    info: MessageInfo,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
+    let borrower_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
+    let config = read_config(deps.storage)?;
+    update_user_rewards(deps.storage, &borrower_raw)?;
+
+    let mut user_rewards = read_user_rewards(deps.storage, &borrower_raw);
+    let amount = user_rewards.rewards;
+    user_rewards.rewards = Uint256::zero();
+    save_user_rewards(deps.storage, &borrower_raw, &user_rewards)?;
+    Ok(Response::new().add_message(CosmosMsg::Bank(BankMsg::Send {
+        to_address: info.sender.to_string(),
+        amount: vec![deduct_tax(
+            deps.as_ref(),
+            Coin {
+                denom: config.stable_denom,
+                amount: amount.into(),
+            },
+        )?],
+    })))
 }
 
 pub fn query_borrower(deps: Deps, borrower: Addr) -> StdResult<BorrowerResponse> {

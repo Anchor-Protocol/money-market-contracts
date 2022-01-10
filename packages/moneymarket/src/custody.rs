@@ -41,9 +41,15 @@ pub enum ExecuteMsg {
         liquidation_contract: Option<String>,
     },
     /// Make specified amount of tokens unspendable
-    LockCollateral { borrower: String, amount: Uint256 },
+    LockCollateral {
+        borrower: String,
+        amount: Uint256,
+    },
     /// Make specified amount of collateral tokens spendable
-    UnlockCollateral { borrower: String, amount: Uint256 },
+    UnlockCollateral {
+        borrower: String,
+        amount: Uint256,
+    },
     /// Claim bAsset rewards and distribute claimed rewards
     /// to market and overseer contracts
     DistributeRewards {},
@@ -62,7 +68,11 @@ pub enum ExecuteMsg {
     /// Withdraw spendable collateral token.
     /// If the amount is not given,
     /// return all spendable collateral
-    WithdrawCollateral { amount: Option<Uint256> },
+    WithdrawCollateral {
+        amount: Option<Uint256>,
+    },
+    /// Withdraw accrued staking rewards.
+    WithdrawStakingRewards {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

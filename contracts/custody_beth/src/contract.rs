@@ -2,12 +2,12 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdResult,
+    StdError, StdResult,
 };
 
 use crate::collateral::{
     deposit_collateral, liquidate_collateral, lock_collateral, query_borrower, query_borrowers,
-    unlock_collateral, withdraw_collateral,
+    unlock_collateral, withdraw_collateral, withdraw_staking_rewards,
 };
 use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
 use crate::error::ContractError;
@@ -84,6 +84,7 @@ pub fn execute(
             let borrower_addr = deps.api.addr_validate(&borrower)?;
             liquidate_collateral(deps, info, liquidator_addr, borrower_addr, amount)
         }
+        ExecuteMsg::WithdrawStakingRewards {} => withdraw_staking_rewards(deps, info),
     }
 }
 
@@ -161,6 +162,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             optional_addr_validate(deps.api, start_after)?,
             limit,
         )?),
+        QueryMsg::TotalCumulativeRewards {} => Err(StdError::generic_err("Not implemented")),
     }
 }
 

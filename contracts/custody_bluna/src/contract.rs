@@ -7,11 +7,11 @@ use cosmwasm_std::{
 
 use crate::collateral::{
     deposit_collateral, liquidate_collateral, lock_collateral, query_borrower, query_borrowers,
-    unlock_collateral, withdraw_collateral,
+    unlock_collateral, withdraw_collateral, withdraw_staking_rewards,
 };
 use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
 use crate::error::ContractError;
-use crate::state::{read_config, store_config, Config};
+use crate::state::{read_config, read_total_cumulative_rewards, store_config, Config};
 
 use cw20::Cw20ReceiveMsg;
 use moneymarket::common::optional_addr_validate;
@@ -75,6 +75,7 @@ pub fn execute(
         }
         ExecuteMsg::DistributeRewards {} => distribute_rewards(deps, env, info),
         ExecuteMsg::WithdrawCollateral { amount } => withdraw_collateral(deps, info, amount),
+        ExecuteMsg::WithdrawStakingRewards {} => withdraw_staking_rewards(deps, info),
         ExecuteMsg::LiquidateCollateral {
             liquidator,
             borrower,
@@ -160,7 +161,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             deps,
             optional_addr_validate(deps.api, start_after)?,
             limit,
-        )?),
+        )?)
     }
 }
 

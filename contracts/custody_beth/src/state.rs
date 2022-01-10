@@ -106,3 +106,57 @@ fn calc_range_start(start_after: Option<CanonicalAddr>) -> Option<Vec<u8>> {
         v
     })
 }
+
+// rewards / collateral
+const KEY_GLOBAL_INDEX: &[u8] = b"global_index";
+const KEY_USER_REWARDS: &[u8] = b"user_rewards";
+const KEY_TOTAL_CUMULATIVE_REWARDS: &[u8] = b"total_cumulative_rewards";
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+pub struct UserRewards {
+    pub user_index: Decimal256,
+    pub rewards: Uint256,
+}
+
+pub fn save_global_index(storage: &mut dyn Storage, data: &Decimal256) -> StdResult<()> {
+    Singleton::new(storage, KEY_GLOBAL_INDEX).save(data)
+}
+
+pub fn read_global_index(storage: &dyn Storage) -> Decimal256 {
+    ReadonlySingleton::new(storage, KEY_GLOBAL_INDEX)
+        .load()
+        .unwrap_or_else(|_| Decimal256::zero())
+}
+
+pub fn update_global_index(
+    storage: &mut dyn Storage,
+    reward_amount: &Uint256,
+    collateral_amount: &Uint256,
+) -> StdResult<()> {
+    let mut current = read_global_index(storage);
+    current += Decimal256::from_ratio(*reward_amount, *collateral_amount);
+    save_global_index(storage, &current)
+}
+
+pub fn save_user_rewards(
+    storage: &mut dyn Storage,
+    borrower: &CanonicalAddr,
+    new_rewards: &UserRewards,
+) -> StdResult<()> {
+    let mut user_index_bucket = Bucket::new(storage, KEY_USER_REWARDS);
+    user_index_bucket.save(borrower, new_rewards)
+}
+
+pub fn read_user_rewards(storage: &dyn Storage, borrower: &CanonicalAddr) -> UserRewards {
+    let user_index_bucket = ReadonlyBucket::new(storage, KEY_USER_REWARDS);
+    user_index_bucket.load(borrower).unwrap_or_default()
+}
+
+pub fn update_user_rewards(storage: &mut dyn Storage, borrower: &CanonicalAddr) -> StdResult<()> {
+    let global_index = read_global_index(storage);
+    let mut user_rewards = read_user_rewards(storage, borrower);
+    let borrower_info = read_borrower_info(storage, borrower);
+    user_rewards.rewards += borrower_info.balance * (global_index - user_rewards.user_index);
+    user_rewards.user_index = global_index;
+    save_user_rewards(storage, borrower, &user_rewards)
+}

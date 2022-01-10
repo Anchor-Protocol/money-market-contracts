@@ -1,15 +1,17 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
-    attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, QueryRequest,
-    ReplyOn, Response, StdResult, SubMsg, Uint128, WasmMsg, WasmQuery,
+    attr, to_binary, Addr, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, QueryRequest, ReplyOn,
+    Response, StdResult, SubMsg, Uint128, WasmMsg, WasmQuery,
 };
 
 use crate::contract::{CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION};
 use crate::error::ContractError;
 use crate::external::handle::{RewardContractExecuteMsg, RewardContractQueryMsg};
-use crate::state::{read_config, BLunaAccruedRewardsResponse, Config};
+use crate::state::{
+    read_config, update_global_index, BLunaAccruedRewardsResponse, Config,
+};
 
-use moneymarket::querier::{deduct_tax, query_all_balances, query_balance};
+use moneymarket::querier::{query_all_balances, query_balance, query_token_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
 
 // REWARD_THRESHOLD
@@ -60,30 +62,24 @@ pub fn distribute_hook(
 ) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let contract_addr = env.contract.address;
     let config: Config = read_config(deps.storage)?;
-    let overseer_contract = deps.api.addr_humanize(&config.overseer_contract)?;
 
     // reward_amount = (prev_balance + reward_amount) - prev_balance
     // = (0 + reward_amount) - 0 = reward_amount = balance
     let reward_amount: Uint256 = query_balance(
         deps.as_ref(),
-        contract_addr,
+        contract_addr.clone(),
         config.stable_denom.to_string(),
     )?;
-    let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
-    if !reward_amount.is_zero() {
-        messages.push(CosmosMsg::Bank(BankMsg::Send {
-            to_address: overseer_contract.to_string(),
-            amount: vec![deduct_tax(
-                deps.as_ref(),
-                Coin {
-                    denom: config.stable_denom,
-                    amount: reward_amount.into(),
-                },
-            )?],
-        }));
-    }
 
-    Ok(Response::new().add_messages(messages).add_attributes(vec![
+    let collateral_amount: Uint256 = query_token_balance(
+        deps.as_ref(),
+        deps.api.addr_humanize(&config.collateral_token)?,
+        contract_addr,
+    )?;
+
+    update_global_index(deps.storage, &reward_amount, &collateral_amount)?;
+
+    Ok(Response::new().add_attributes(vec![
         attr("action", "distribute_rewards"),
         attr("buffer_rewards", reward_amount),
     ]))
