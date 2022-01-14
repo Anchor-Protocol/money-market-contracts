@@ -125,7 +125,7 @@ pub fn save_global_index(storage: &mut dyn Storage, data: &Decimal256) -> StdRes
 pub fn read_global_index(storage: &dyn Storage) -> Decimal256 {
     ReadonlySingleton::new(storage, KEY_GLOBAL_INDEX)
         .load()
-        .unwrap_or(Decimal256::zero())
+        .unwrap_or_else(|_| Decimal256::zero())
 }
 
 pub fn update_global_index(
@@ -144,23 +144,21 @@ pub fn save_user_rewards(
     new_rewards: &UserRewards,
 ) -> StdResult<()> {
     let mut user_index_bucket = Bucket::new(storage, KEY_USER_REWARDS);
-    user_index_bucket.save(&borrower, new_rewards)
+    user_index_bucket.save(borrower, new_rewards)
 }
 
 pub fn read_user_rewards(storage: &dyn Storage, borrower: &CanonicalAddr) -> UserRewards {
     let user_index_bucket = ReadonlyBucket::new(storage, KEY_USER_REWARDS);
-    user_index_bucket
-        .load(&borrower)
-        .unwrap_or(UserRewards::default())
+    user_index_bucket.load(borrower).unwrap_or_default()
 }
 
 pub fn update_user_rewards(storage: &mut dyn Storage, borrower: &CanonicalAddr) -> StdResult<()> {
     let global_index = read_global_index(storage);
-    let mut user_rewards = read_user_rewards(storage, &borrower);
-    let borrower_info = read_borrower_info(storage, &borrower);
+    let mut user_rewards = read_user_rewards(storage, borrower);
+    let borrower_info = read_borrower_info(storage, borrower);
     user_rewards.rewards += borrower_info.balance * (global_index - user_rewards.user_index);
     user_rewards.user_index = global_index;
-    save_user_rewards(storage, &borrower, &user_rewards)
+    save_user_rewards(storage, borrower, &user_rewards)
 }
 
 pub fn save_total_cumulative_rewards(
@@ -174,7 +172,7 @@ pub fn save_total_cumulative_rewards(
 pub fn read_total_cumulative_rewards(storage: &dyn Storage) -> Uint256 {
     ReadonlySingleton::new(storage, KEY_TOTAL_CUMULATIVE_REWARDS)
         .load()
-        .unwrap_or(Uint256::zero())
+        .unwrap_or_else(|_| Uint256::zero())
 }
 
 pub fn update_total_cumulative_rewards(storage: &mut dyn Storage, data: &Uint256) -> StdResult<()> {
