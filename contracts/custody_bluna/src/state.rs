@@ -1,6 +1,7 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{CanonicalAddr, Deps, Order, StdResult, Storage, Uint128};
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
+use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -14,8 +15,9 @@ pub struct BLunaAccruedRewardsResponse {
 
 const PREFIX_BORROWER: &[u8] = b"borrower";
 const KEY_CONFIG: &[u8] = b"config";
-const KEY_REWARDS_INFO: &[u8] = b"rewards_info";
-const KEY_USER_REWARDS: &[u8] = b"user_rewards";
+
+const REWARDS_INFO: Item<RewardsInfo> = Item::new("rewards_info");
+const USER_REWARDS: Map<&[u8], UserRewards> = Map::new("user_rewards");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
@@ -122,13 +124,13 @@ fn calc_range_start(start_after: Option<CanonicalAddr>) -> Option<Vec<u8>> {
 }
 
 pub fn save_rewards_info(storage: &mut dyn Storage, data: &RewardsInfo) -> StdResult<()> {
-    Singleton::new(storage, KEY_REWARDS_INFO).save(data)
+    REWARDS_INFO.save(storage, data)
 }
 
-pub fn read_rewards_info(storage: &dyn Storage) -> RewardsInfo {
-    ReadonlySingleton::new(storage, KEY_REWARDS_INFO)
-        .load()
-        .unwrap_or_else(|_| RewardsInfo::default())
+pub fn read_rewards_info(storage: &dyn Storage) -> StdResult<RewardsInfo> {
+    REWARDS_INFO
+        .may_load(storage)
+        .map(Option::unwrap_or_default)
 }
 
 pub fn update_rewards_info(
@@ -136,7 +138,7 @@ pub fn update_rewards_info(
     reward_amount: &Uint256,
     collateral_amount: &Uint256,
 ) -> StdResult<()> {
-    let mut current = read_rewards_info(storage);
+    let mut current = REWARDS_INFO.may_load(storage)?.unwrap_or_default();
     current.global_index += Decimal256::from_ratio(*reward_amount, *collateral_amount);
     current.cumulative_total += *reward_amount;
     save_rewards_info(storage, &current)
@@ -147,18 +149,21 @@ pub fn save_user_rewards(
     borrower: &CanonicalAddr,
     new_rewards: &UserRewards,
 ) -> StdResult<()> {
-    let mut user_index_bucket = Bucket::new(storage, KEY_USER_REWARDS);
-    user_index_bucket.save(borrower, new_rewards)
+    USER_REWARDS.save(storage, borrower.as_slice(), new_rewards)
 }
 
-pub fn read_user_rewards(storage: &dyn Storage, borrower: &CanonicalAddr) -> UserRewards {
-    let user_index_bucket = ReadonlyBucket::new(storage, KEY_USER_REWARDS);
-    user_index_bucket.load(borrower).unwrap_or_default()
+pub fn read_user_rewards(
+    storage: &dyn Storage,
+    borrower: &CanonicalAddr,
+) -> StdResult<UserRewards> {
+    USER_REWARDS
+        .may_load(storage, borrower.as_slice())
+        .map(Option::unwrap_or_default)
 }
 
 pub fn update_user_rewards(storage: &mut dyn Storage, borrower: &CanonicalAddr) -> StdResult<()> {
-    let global_index = read_rewards_info(storage).global_index;
-    let mut user_rewards = read_user_rewards(storage, borrower);
+    let global_index = read_rewards_info(storage)?.global_index;
+    let mut user_rewards = read_user_rewards(storage, borrower)?;
     let borrower_info = read_borrower_info(storage, borrower);
     user_rewards.rewards += borrower_info.balance * (global_index - user_rewards.user_index);
     user_rewards.user_index = global_index;

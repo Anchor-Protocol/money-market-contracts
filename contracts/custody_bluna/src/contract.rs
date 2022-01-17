@@ -162,7 +162,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             optional_addr_validate(deps.api, start_after)?,
             limit,
         )?),
-        QueryMsg::RewardsInfo {} => to_binary(&read_rewards_info(deps.storage)),
+        QueryMsg::RewardsInfo {} => to_binary(&read_rewards_info(deps.storage)?),
     }
 }
 

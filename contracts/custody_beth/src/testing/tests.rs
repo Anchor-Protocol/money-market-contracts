@@ -665,12 +665,12 @@ fn distribute_hook() {
         ]
     );
 
-    let rewards_info = read_rewards_info(&deps.storage);
-    assert_eq!(rewards_info.global_index.to_string(), "1000".to_string());
-
     assert_eq!(
-        rewards_info.cumulative_total,
-        Uint256::from(1000000u128)
+        read_rewards_info(&deps.storage).unwrap(),
+        RewardsInfo {
+            global_index: Decimal256::from_uint256(1000u128),
+            cumulative_total: Uint256::from(1000000u128),
+        }
     );
 }
 
@@ -724,13 +724,11 @@ fn distribution_hook_zero_rewards() {
     assert_eq!(res.messages, vec![],);
 
     assert_eq!(
-        read_rewards_info(&deps.storage).global_index.to_string(),
-        "0".to_string()
-    );
-
-    assert_eq!(
-        read_rewards_info(&deps.storage).cumulative_total,
-        Uint256::zero()
+        read_rewards_info(&deps.storage).unwrap(),
+        RewardsInfo {
+            global_index: Decimal256::zero(),
+            cumulative_total: Uint256::zero(),
+        }
     );
 }
 
@@ -775,7 +773,7 @@ fn withdraws_staking_rewards() {
     );
 
     assert_eq!(
-        read_user_rewards(&deps.storage, &deps.api.addr_canonicalize(ADDR).unwrap()),
+        read_user_rewards(&deps.storage, &deps.api.addr_canonicalize(ADDR).unwrap()).unwrap(),
         UserRewards {
             user_index: Decimal256::zero(),
             rewards: Uint256::from(1000000u128),
@@ -786,7 +784,7 @@ fn withdraws_staking_rewards() {
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     assert_eq!(
-        read_user_rewards(&deps.storage, &deps.api.addr_canonicalize(ADDR).unwrap()),
+        read_user_rewards(&deps.storage, &deps.api.addr_canonicalize(ADDR).unwrap()).unwrap(),
         UserRewards {
             user_index: Decimal256::from_uint256(999u128),
             rewards: Uint256::zero(),

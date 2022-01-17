@@ -222,7 +222,7 @@ pub fn withdraw_staking_rewards(
     let config = read_config(deps.storage)?;
     update_user_rewards(deps.storage, &borrower_raw)?;
 
-    let mut user_rewards = read_user_rewards(deps.storage, &borrower_raw);
+    let mut user_rewards = read_user_rewards(deps.storage, &borrower_raw)?;
     let amount = user_rewards.rewards;
     user_rewards.rewards = Uint256::zero();
     save_user_rewards(deps.storage, &borrower_raw, &user_rewards)?;
