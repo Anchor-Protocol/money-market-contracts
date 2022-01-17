@@ -85,7 +85,7 @@ pub enum QueryMsg {
         start_after: Option<String>,
         limit: Option<u32>,
     },
-    TotalCumulativeRewards {},
+    RewardsInfo {},
 }
 
 // We define a custom struct for each query response

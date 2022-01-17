@@ -10,10 +10,7 @@ use moneymarket::querier::{query_all_balances, query_balance, query_token_balanc
 use crate::contract::{CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION};
 use crate::error::ContractError;
 use crate::external::handle::{RewardContractExecuteMsg, RewardContractQueryMsg};
-use crate::state::{
-    read_config, update_global_index, update_total_cumulative_rewards, BLunaAccruedRewardsResponse,
-    Config,
-};
+use crate::state::{read_config, update_rewards_info, BLunaAccruedRewardsResponse, Config};
 
 // REWARD_THRESHOLD
 // This value is used as the minimum reward claim amount
@@ -71,15 +68,12 @@ pub fn distribute_hook(
         contract_addr.clone(),
         config.stable_denom.to_string(),
     )?;
-
     let collateral_amount: Uint256 = query_token_balance(
         deps.as_ref(),
         deps.api.addr_humanize(&config.collateral_token)?,
         contract_addr,
     )?;
-
-    update_global_index(deps.storage, &reward_amount, &collateral_amount)?;
-    update_total_cumulative_rewards(deps.storage, &reward_amount)?;
+    update_rewards_info(deps.storage, &reward_amount, &collateral_amount)?;
 
     Ok(Response::new().add_attributes(vec![
         attr("action", "distribute_rewards"),

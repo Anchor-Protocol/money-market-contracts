@@ -1,19 +1,16 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
-    attr, to_binary, Addr, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, QueryRequest,
-    ReplyOn, Response, StdResult, SubMsg, Uint128, WasmMsg, WasmQuery,
+    attr, to_binary, Addr, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, QueryRequest, ReplyOn,
+    Response, StdResult, SubMsg, Uint128, WasmMsg, WasmQuery,
 };
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
 
-use moneymarket::querier::{deduct_tax, query_all_balances, query_balance, query_token_balance};
+use moneymarket::querier::{query_all_balances, query_balance, query_token_balance};
 
 use crate::contract::{CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION};
 use crate::error::ContractError;
 use crate::external::handle::{RewardContractExecuteMsg, RewardContractQueryMsg};
-use crate::state::{
-    read_config, update_global_index, update_total_cumulative_rewards, BETHAccruedRewardsResponse,
-    Config,
-};
+use crate::state::{read_config, update_rewards_info, BETHAccruedRewardsResponse, Config};
 
 // REWARD_THRESHOLD
 // This value is used as the minimum reward claim amount
@@ -69,15 +66,12 @@ pub fn distribute_hook(
         contract_addr.clone(),
         config.stable_denom.to_string(),
     )?;
-
     let collateral_amount: Uint256 = query_token_balance(
         deps.as_ref(),
         deps.api.addr_humanize(&config.collateral_token)?,
         contract_addr,
     )?;
-
-    update_global_index(deps.storage, &reward_amount, &collateral_amount)?;
-    update_total_cumulative_rewards(deps.storage, &reward_amount)?;
+    update_rewards_info(deps.storage, &reward_amount, &collateral_amount)?;
 
     Ok(Response::new().add_attributes(vec![
         attr("action", "distribute_rewards"),

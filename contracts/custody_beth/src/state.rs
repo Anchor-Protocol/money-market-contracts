@@ -12,8 +12,10 @@ pub struct BETHAccruedRewardsResponse {
     pub rewards: Uint128,
 }
 
-const KEY_CONFIG: &[u8] = b"config";
 const PREFIX_BORROWER: &[u8] = b"borrower";
+const KEY_CONFIG: &[u8] = b"config";
+const KEY_REWARDS_INFO: &[u8] = b"rewards_info";
+const KEY_USER_REWARDS: &[u8] = b"user_rewards";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
@@ -31,6 +33,18 @@ pub struct Config {
 pub struct BorrowerInfo {
     pub balance: Uint256,
     pub spendable: Uint256,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+pub struct RewardsInfo {
+    pub global_index: Decimal256,
+    pub cumulative_total: Uint256,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+pub struct UserRewards {
+    pub user_index: Decimal256,
+    pub rewards: Uint256,
 }
 
 pub fn store_config(storage: &mut dyn Storage, data: &Config) -> StdResult<()> {
@@ -107,35 +121,25 @@ fn calc_range_start(start_after: Option<CanonicalAddr>) -> Option<Vec<u8>> {
     })
 }
 
-// rewards / collateral
-const KEY_GLOBAL_INDEX: &[u8] = b"global_index";
-const KEY_USER_REWARDS: &[u8] = b"user_rewards";
-const KEY_TOTAL_CUMULATIVE_REWARDS: &[u8] = b"total_cumulative_rewards";
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
-pub struct UserRewards {
-    pub user_index: Decimal256,
-    pub rewards: Uint256,
+pub fn save_rewards_info(storage: &mut dyn Storage, data: &RewardsInfo) -> StdResult<()> {
+    Singleton::new(storage, KEY_REWARDS_INFO).save(data)
 }
 
-pub fn save_global_index(storage: &mut dyn Storage, data: &Decimal256) -> StdResult<()> {
-    Singleton::new(storage, KEY_GLOBAL_INDEX).save(data)
-}
-
-pub fn read_global_index(storage: &dyn Storage) -> Decimal256 {
-    ReadonlySingleton::new(storage, KEY_GLOBAL_INDEX)
+pub fn read_rewards_info(storage: &dyn Storage) -> RewardsInfo {
+    ReadonlySingleton::new(storage, KEY_REWARDS_INFO)
         .load()
-        .unwrap_or_else(|_| Decimal256::zero())
+        .unwrap_or_else(|_| RewardsInfo::default())
 }
 
-pub fn update_global_index(
+pub fn update_rewards_info(
     storage: &mut dyn Storage,
     reward_amount: &Uint256,
     collateral_amount: &Uint256,
 ) -> StdResult<()> {
-    let mut current = read_global_index(storage);
-    current += Decimal256::from_ratio(*reward_amount, *collateral_amount);
-    save_global_index(storage, &current)
+    let mut current = read_rewards_info(storage);
+    current.global_index += Decimal256::from_ratio(*reward_amount, *collateral_amount);
+    current.cumulative_total += *reward_amount;
+    save_rewards_info(storage, &current)
 }
 
 pub fn save_user_rewards(
@@ -153,30 +157,10 @@ pub fn read_user_rewards(storage: &dyn Storage, borrower: &CanonicalAddr) -> Use
 }
 
 pub fn update_user_rewards(storage: &mut dyn Storage, borrower: &CanonicalAddr) -> StdResult<()> {
-    let global_index = read_global_index(storage);
+    let global_index = read_rewards_info(storage).global_index;
     let mut user_rewards = read_user_rewards(storage, borrower);
     let borrower_info = read_borrower_info(storage, borrower);
     user_rewards.rewards += borrower_info.balance * (global_index - user_rewards.user_index);
     user_rewards.user_index = global_index;
     save_user_rewards(storage, borrower, &user_rewards)
-}
-
-pub fn save_total_cumulative_rewards(
-    storage: &mut dyn Storage,
-    new_rewards: &Uint256,
-) -> StdResult<()> {
-    let mut rewards = Singleton::new(storage, KEY_TOTAL_CUMULATIVE_REWARDS);
-    rewards.save(new_rewards)
-}
-
-pub fn read_total_cumulative_rewards(storage: &dyn Storage) -> Uint256 {
-    ReadonlySingleton::new(storage, KEY_TOTAL_CUMULATIVE_REWARDS)
-        .load()
-        .unwrap_or_else(|_| Uint256::zero())
-}
-
-pub fn update_total_cumulative_rewards(storage: &mut dyn Storage, data: &Uint256) -> StdResult<()> {
-    let mut current = read_total_cumulative_rewards(storage);
-    current += *data;
-    save_total_cumulative_rewards(storage, &current)
 }

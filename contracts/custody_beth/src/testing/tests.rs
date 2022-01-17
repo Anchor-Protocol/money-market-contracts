@@ -18,8 +18,8 @@ use crate::contract::{
 use crate::error::ContractError;
 use crate::external::handle::RewardContractExecuteMsg;
 use crate::state::{
-    read_borrower_info, read_global_index, read_total_cumulative_rewards, read_user_rewards,
-    save_global_index, save_user_rewards, BETHAccruedRewardsResponse, UserRewards,
+    read_borrower_info, read_rewards_info, read_user_rewards, save_rewards_info, save_user_rewards,
+    BETHAccruedRewardsResponse, RewardsInfo, UserRewards,
 };
 use crate::testing::mock_querier::mock_dependencies;
 
@@ -665,13 +665,11 @@ fn distribute_hook() {
         ]
     );
 
-    assert_eq!(
-        read_global_index(&deps.storage).to_string(),
-        "1000".to_string()
-    );
+    let rewards_info = read_rewards_info(&deps.storage);
+    assert_eq!(rewards_info.global_index.to_string(), "1000".to_string());
 
     assert_eq!(
-        read_total_cumulative_rewards(&deps.storage),
+        rewards_info.cumulative_total,
         Uint256::from(1000000u128)
     );
 }
@@ -726,12 +724,12 @@ fn distribution_hook_zero_rewards() {
     assert_eq!(res.messages, vec![],);
 
     assert_eq!(
-        read_global_index(&deps.storage).to_string(),
+        read_rewards_info(&deps.storage).global_index.to_string(),
         "0".to_string()
     );
 
     assert_eq!(
-        read_total_cumulative_rewards(&deps.storage),
+        read_rewards_info(&deps.storage).cumulative_total,
         Uint256::zero()
     );
 }
@@ -755,7 +753,14 @@ fn withdraws_staking_rewards() {
             decimals: 6,
         },
     };
-    save_global_index(&mut deps.storage, &Decimal256::from_uint256(999u128)).unwrap();
+    save_rewards_info(
+        &mut deps.storage,
+        &RewardsInfo {
+            global_index: Decimal256::from_uint256(999u128),
+            cumulative_total: Uint256::default(),
+        },
+    )
+    .unwrap();
 
     let info = mock_info(ADDR, &[]);
     let _ = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();

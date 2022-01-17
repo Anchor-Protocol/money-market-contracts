@@ -16,7 +16,7 @@ use crate::collateral::{
 };
 use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
 use crate::error::ContractError;
-use crate::state::{read_config, read_total_cumulative_rewards, store_config, Config};
+use crate::state::{read_config, read_rewards_info, store_config, Config};
 
 pub const CLAIM_REWARDS_OPERATION: u64 = 1u64;
 pub const SWAP_TO_STABLE_OPERATION: u64 = 2u64;
@@ -162,9 +162,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             optional_addr_validate(deps.api, start_after)?,
             limit,
         )?),
-        QueryMsg::TotalCumulativeRewards {} => {
-            to_binary(&read_total_cumulative_rewards(deps.storage))
-        }
+        QueryMsg::RewardsInfo {} => to_binary(&read_rewards_info(deps.storage)),
     }
 }
 
