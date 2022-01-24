@@ -51,7 +51,7 @@ pub fn lock_collateral(
     // Logging stuff, so can be removed
     let collateral_logs: Vec<String> = collaterals_human
         .iter()
-        .map(|c| format!("{}{}", c.1, c.0.to_string()))
+        .map(|c| format!("{}{}", c.1, c.0))
         .collect();
 
     Ok(Response::new().add_messages(messages).add_attributes(vec![
@@ -95,7 +95,7 @@ pub fn unlock_collateral(
     store_collaterals(deps.storage, &borrower_raw, &cur_collaterals)?;
 
     let mut messages: Vec<SubMsg> = vec![];
-    for collateral in collaterals.clone() {
+    for collateral in collaterals {
         let whitelist_elem: WhitelistElem = read_whitelist_elem(deps.storage, &collateral.0)?;
         messages.push(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
@@ -113,7 +113,7 @@ pub fn unlock_collateral(
     // Logging stuff, so can be removed
     let collateral_logs: Vec<String> = collaterals_human
         .iter()
-        .map(|c| format!("{}{}", c.1, c.0.to_string()))
+        .map(|c| format!("{}{}", c.1, c.0))
         .collect();
 
     Ok(Response::new()

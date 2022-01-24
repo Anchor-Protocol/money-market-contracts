@@ -4,19 +4,19 @@ use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
     StdResult,
 };
+use cw20::Cw20ReceiveMsg;
+use terra_cosmwasm::TerraMsgWrapper;
+
+use moneymarket::common::optional_addr_validate;
+use moneymarket::custody::{ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
 
 use crate::collateral::{
     deposit_collateral, liquidate_collateral, lock_collateral, query_borrower, query_borrowers,
-    unlock_collateral, withdraw_collateral,
+    unlock_collateral, withdraw_collateral, withdraw_staking_rewards,
 };
 use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
 use crate::error::ContractError;
-use crate::state::{read_config, store_config, Config};
-
-use cw20::Cw20ReceiveMsg;
-use moneymarket::common::optional_addr_validate;
-use moneymarket::custody::{ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
-use terra_cosmwasm::TerraMsgWrapper;
+use crate::state::{read_config, read_rewards_info, store_config, Config};
 
 pub const CLAIM_REWARDS_OPERATION: u64 = 1u64;
 pub const SWAP_TO_STABLE_OPERATION: u64 = 2u64;
@@ -75,6 +75,7 @@ pub fn execute(
         }
         ExecuteMsg::DistributeRewards {} => distribute_rewards(deps, env, info),
         ExecuteMsg::WithdrawCollateral { amount } => withdraw_collateral(deps, info, amount),
+        ExecuteMsg::WithdrawStakingRewards {} => withdraw_staking_rewards(deps, info),
         ExecuteMsg::LiquidateCollateral {
             liquidator,
             borrower,
@@ -161,6 +162,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             optional_addr_validate(deps.api, start_after)?,
             limit,
         )?),
+        QueryMsg::RewardsInfo {} => to_binary(&read_rewards_info(deps.storage)?),
     }
 }
 

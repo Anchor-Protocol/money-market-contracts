@@ -1,5 +1,5 @@
-use crate::external::handle::RewardContractQueryMsg;
-use crate::state::BLunaAccruedRewardsResponse;
+use std::collections::HashMap;
+
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, from_slice, to_binary, Addr, Api, BalanceResponse, BankQuery, CanonicalAddr, Coin,
@@ -7,9 +7,11 @@ use cosmwasm_std::{
     SystemResult, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
-use cw20::TokenInfoResponse;
-use std::collections::HashMap;
+use cw20::{BalanceResponse as Cw20BalanceResponse, Cw20QueryMsg, TokenInfoResponse};
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
+
+use crate::external::handle::RewardContractQueryMsg;
+use crate::state::BLunaAccruedRewardsResponse;
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -197,16 +199,40 @@ impl WasmMockQuerier {
                     panic!("DO NOT ENTER HERE")
                 }
             }
-            QueryRequest::Wasm(WasmQuery::Smart {
-                contract_addr: _,
-                msg,
-            }) => match from_binary(msg).unwrap() {
-                RewardContractQueryMsg::AccruedRewards { address: _ } => SystemResult::Ok(
-                    ContractResult::from(to_binary(&BLunaAccruedRewardsResponse {
-                        rewards: self.accrued_rewards.rewards,
-                    })),
-                ),
-            },
+            QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg })
+                if contract_addr == "reward" =>
+            {
+                match from_binary(msg).unwrap() {
+                    RewardContractQueryMsg::AccruedRewards { address: _ } => SystemResult::Ok(
+                        ContractResult::from(to_binary(&BLunaAccruedRewardsResponse {
+                            rewards: self.accrued_rewards.rewards,
+                        })),
+                    ),
+                }
+            }
+            QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
+                match from_binary(msg).unwrap() {
+                    Cw20QueryMsg::Balance {
+                        address: token_addr,
+                    } => {
+                        let balance = match self.token_querier.balances.get(contract_addr) {
+                            Some(map) if map.contains_key(&token_addr) => {
+                                *map.get(&token_addr).unwrap()
+                            }
+                            _ => {
+                                return SystemResult::Err(SystemError::InvalidRequest {
+                                    error: "Balance not found".to_string(),
+                                    request: msg.as_slice().into(),
+                                })
+                            }
+                        };
+                        SystemResult::Ok(ContractResult::from(to_binary(&Cw20BalanceResponse {
+                            balance,
+                        })))
+                    }
+                    _ => unimplemented!(),
+                }
+            }
             QueryRequest::Bank(BankQuery::Balance { address, denom }) => {
                 if address == "reward" && denom == "uusd" {
                     let bank_res = BalanceResponse {

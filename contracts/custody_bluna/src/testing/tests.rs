@@ -1,24 +1,27 @@
-use cosmwasm_bignumber::Uint256;
+use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     attr, from_binary, to_binary, Api, Attribute, BankMsg, Coin, ContractResult, CosmosMsg,
     Decimal, Reply, Response, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
+use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
+use terra_cosmwasm::create_swap_msg;
+
+use moneymarket::custody::{
+    BAssetInfo, BorrowerResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
+};
+use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
 
 use crate::contract::{
     execute, instantiate, query, reply, CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION,
 };
 use crate::error::ContractError;
 use crate::external::handle::RewardContractExecuteMsg;
-use crate::state::{read_borrower_info, BLunaAccruedRewardsResponse};
-use crate::testing::mock_querier::mock_dependencies;
-
-use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
-use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
-use moneymarket::custody::{
-    BAssetInfo, BorrowerResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
+use crate::state::{
+    read_borrower_info, read_rewards_info, read_user_rewards, save_rewards_info, save_user_rewards,
+    BLunaAccruedRewardsResponse, RewardsInfo, UserRewards,
 };
-use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
-use terra_cosmwasm::create_swap_msg;
+use crate::testing::mock_querier::mock_dependencies;
 
 #[test]
 fn proper_initialization() {
@@ -624,6 +627,7 @@ fn distribute_hook() {
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
 
+    const ADDR: &str = "addr0000";
     let msg = InstantiateMsg {
         owner: "owner".to_string(),
         collateral_token: "bluna".to_string(),
@@ -639,14 +643,14 @@ fn distribute_hook() {
         },
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = mock_info(ADDR, &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // Claimed rewards is 1000000uusd
     // mimic last swap_msg callback to execute distribute_hook
     deps.querier.set_other_balances(Uint128::new(1000000));
     let reply_msg = Reply {
-        id: 2,
+        id: SWAP_TO_STABLE_OPERATION,
         result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: None,
@@ -663,21 +667,24 @@ fn distribute_hook() {
     );
 
     assert_eq!(
-        res.messages,
-        vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-            to_address: "overseer".to_string(),
-            amount: vec![Coin {
-                denom: "uusd".to_string(),
-                amount: Uint128::from(990099u128)
-            }],
-        })),],
-    )
+        read_rewards_info(&deps.storage).unwrap(),
+        RewardsInfo {
+            global_index: Decimal256::from_uint256(1000u128),
+            cumulative_total: Uint256::from(1000000u128),
+        }
+    );
 }
 
 #[test]
 fn distribution_hook_zero_rewards() {
     let mut deps = mock_dependencies(&[]);
 
+    deps.querier.with_token_balances(&[(
+        &"bluna".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000u128))],
+    )]);
+
+    const ADDR: &str = "addr0000";
     let msg = InstantiateMsg {
         owner: "owner".to_string(),
         collateral_token: "bluna".to_string(),
@@ -693,13 +700,12 @@ fn distribution_hook_zero_rewards() {
         },
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = mock_info(ADDR, &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // Claimed rewards is 1000000uusd
     // mimic last swap_msg callback to execute distribute_hook
     let reply_msg = Reply {
-        id: 2,
+        id: SWAP_TO_STABLE_OPERATION,
         result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: None,
@@ -715,7 +721,86 @@ fn distribution_hook_zero_rewards() {
         ]
     );
 
-    assert_eq!(res.messages, vec![],)
+    assert_eq!(res.messages, vec![],);
+
+    assert_eq!(
+        read_rewards_info(&deps.storage).unwrap(),
+        RewardsInfo {
+            global_index: Decimal256::zero(),
+            cumulative_total: Uint256::zero(),
+        }
+    );
+}
+
+#[test]
+fn withdraws_staking_rewards() {
+    let mut deps = mock_dependencies(&[]);
+
+    const ADDR: &str = "addr0000";
+    let msg = InstantiateMsg {
+        owner: "owner".to_string(),
+        collateral_token: "bluna".to_string(),
+        overseer_contract: "overseer".to_string(),
+        market_contract: "market".to_string(),
+        reward_contract: "reward".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "bluna".to_string(),
+            symbol: "bluna".to_string(),
+            decimals: 6,
+        },
+    };
+    save_rewards_info(
+        &mut deps.storage,
+        &RewardsInfo {
+            global_index: Decimal256::from_uint256(999u128),
+            cumulative_total: Uint256::default(),
+        },
+    )
+    .unwrap();
+
+    let info = mock_info(ADDR, &[]);
+    let _ = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+    let _ = save_user_rewards(
+        &mut deps.storage,
+        &deps.api.addr_canonicalize(ADDR).unwrap(),
+        &UserRewards {
+            user_index: Decimal256::zero(),
+            rewards: Uint256::from(1000000u128),
+        },
+    );
+
+    assert_eq!(
+        read_user_rewards(&deps.storage, &deps.api.addr_canonicalize(ADDR).unwrap()).unwrap(),
+        UserRewards {
+            user_index: Decimal256::zero(),
+            rewards: Uint256::from(1000000u128),
+        }
+    );
+
+    let msg = ExecuteMsg::WithdrawStakingRewards {};
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    assert_eq!(
+        read_user_rewards(&deps.storage, &deps.api.addr_canonicalize(ADDR).unwrap()).unwrap(),
+        UserRewards {
+            user_index: Decimal256::from_uint256(999u128),
+            rewards: Uint256::zero(),
+        }
+    );
+
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: ADDR.to_string(),
+            amount: vec![Coin {
+                denom: "uusd".to_string(),
+                amount: Uint128::from(1000000u128),
+            }]
+        }))]
+    );
 }
 
 #[test]
@@ -755,7 +840,7 @@ fn swap_to_stable_denom() {
 
     // mimic callback from distribute_rewards to execute swap_to_stable_denom
     let reply_msg = Reply {
-        id: 1,
+        id: CLAIM_REWARDS_OPERATION,
         result: ContractResult::Ok(SubMsgExecutionResponse {
             events: vec![],
             data: None,

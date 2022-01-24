@@ -63,6 +63,8 @@ pub enum ExecuteMsg {
     /// If the amount is not given,
     /// return all spendable collateral
     WithdrawCollateral { amount: Option<Uint256> },
+    /// Withdraw accrued staking rewards.
+    WithdrawStakingRewards {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -83,6 +85,7 @@ pub enum QueryMsg {
         start_after: Option<String>,
         limit: Option<u32>,
     },
+    RewardsInfo {},
 }
 
 // We define a custom struct for each query response
