@@ -1,8 +1,6 @@
-use crate::external::handle::RewardContractQueryMsg;
-use crate::state::BETHAccruedRewardsResponse;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Addr, Api, BalanceResponse, BankQuery, CanonicalAddr, Coin,
+    from_slice, to_binary, Addr, Api, BalanceResponse, BankQuery, CanonicalAddr, Coin,
     ContractResult, Decimal, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError,
     SystemResult, Uint128, WasmQuery,
 };
@@ -29,7 +27,6 @@ pub fn mock_dependencies(
 pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     token_querier: TokenQuerier,
-    accrued_rewards: BETHAccruedRewardsResponse,
     reward_balance: Uint128,
     other_balance: Uint128,
     tax_querier: TaxQuerier,
@@ -41,51 +38,11 @@ pub struct TokenQuerier {
     balances: HashMap<String, HashMap<String, Uint128>>,
 }
 
-impl TokenQuerier {
-    pub fn new(balances: &[(&String, &[(&String, &Uint128)])]) -> Self {
-        TokenQuerier {
-            balances: balances_to_map(balances),
-        }
-    }
-}
-
-pub(crate) fn balances_to_map(
-    balances: &[(&String, &[(&String, &Uint128)])],
-) -> HashMap<String, HashMap<String, Uint128>> {
-    let mut balances_map: HashMap<String, HashMap<String, Uint128>> = HashMap::new();
-    for (contract_addr, balances) in balances.iter() {
-        let mut contract_balances_map: HashMap<String, Uint128> = HashMap::new();
-        for (addr, balance) in balances.iter() {
-            contract_balances_map.insert(addr.to_string(), **balance);
-        }
-
-        balances_map.insert(contract_addr.to_string(), contract_balances_map);
-    }
-    balances_map
-}
-
 #[derive(Clone, Default)]
 pub struct TaxQuerier {
     rate: Decimal,
     // this lets us iterate over all pairs that match the first string
     caps: HashMap<String, Uint128>,
-}
-
-impl TaxQuerier {
-    pub fn new(rate: Decimal, caps: &[(&String, &Uint128)]) -> Self {
-        TaxQuerier {
-            rate,
-            caps: caps_to_map(caps),
-        }
-    }
-}
-
-pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint128> {
-    let mut owner_map: HashMap<String, Uint128> = HashMap::new();
-    for (denom, cap) in caps.iter() {
-        owner_map.insert(denom.to_string(), **cap);
-    }
-    owner_map
 }
 
 impl Querier for WasmMockQuerier {
@@ -197,16 +154,6 @@ impl WasmMockQuerier {
                     panic!("DO NOT ENTER HERE")
                 }
             }
-            QueryRequest::Wasm(WasmQuery::Smart {
-                contract_addr: _,
-                msg,
-            }) => match from_binary(msg).unwrap() {
-                RewardContractQueryMsg::AccruedRewards { address: _ } => SystemResult::Ok(
-                    ContractResult::from(to_binary(&BETHAccruedRewardsResponse {
-                        rewards: self.accrued_rewards.rewards,
-                    })),
-                ),
-            },
             QueryRequest::Bank(BankQuery::Balance { address, denom }) => {
                 if address == "reward" && denom == "uusd" {
                     let bank_res = BalanceResponse {
@@ -237,31 +184,12 @@ impl WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
-            accrued_rewards: BETHAccruedRewardsResponse::default(),
             reward_balance: Uint128::zero(),
             other_balance: Uint128::zero(),
         }
     }
 
-    // configure the mint whitelist mock querier
-    pub fn with_token_balances(&mut self, balances: &[(&String, &[(&String, &Uint128)])]) {
-        self.token_querier = TokenQuerier::new(balances);
-    }
-
-    // configure the tax mock querier
-    pub fn with_tax(&mut self, rate: Decimal, caps: &[(&String, &Uint128)]) {
-        self.tax_querier = TaxQuerier::new(rate, caps);
-    }
-
-    pub fn set_accrued_rewards(&mut self, new_state: BETHAccruedRewardsResponse) {
-        self.accrued_rewards = new_state
-    }
-
     pub fn set_reward_balance(&mut self, balance: Uint128) {
         self.reward_balance = balance
-    }
-
-    pub fn set_other_balances(&mut self, balance: Uint128) {
-        self.other_balance = balance
     }
 }

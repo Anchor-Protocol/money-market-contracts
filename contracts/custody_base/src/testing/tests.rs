@@ -1,24 +1,17 @@
 use cosmwasm_bignumber::Uint256;
-use cosmwasm_std::{
-    attr, from_binary, to_binary, Api, Attribute, BankMsg, Coin, ContractResult, CosmosMsg,
-    Decimal, Reply, Response, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
-};
+use cosmwasm_std::{attr, from_binary, to_binary, Api, Coin, CosmosMsg, SubMsg, Uint128, WasmMsg};
 
-use crate::contract::{
-    execute, instantiate, query, reply, CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION,
-};
+use crate::contract::{execute, instantiate, query};
 use crate::error::ContractError;
-use crate::external::handle::RewardContractExecuteMsg;
-use crate::state::{read_borrower_info, BETHAccruedRewardsResponse};
+use crate::state::read_borrower_info;
 use crate::testing::mock_querier::mock_dependencies;
 
-use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::testing::{mock_env, mock_info};
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use moneymarket::custody::{
     BAssetInfo, BorrowerResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
-use terra_cosmwasm::create_swap_msg;
 
 #[test]
 fn proper_initialization() {
@@ -26,15 +19,15 @@ fn proper_initialization() {
 
     let msg = InstantiateMsg {
         owner: "owner".to_string(),
-        collateral_token: "beth".to_string(),
+        collateral_token: "token".to_string(),
         overseer_contract: "overseer".to_string(),
         market_contract: "market".to_string(),
         reward_contract: "reward".to_string(),
         liquidation_contract: "liquidation".to_string(),
         stable_denom: "uusd".to_string(),
         basset_info: BAssetInfo {
-            name: "beth".to_string(),
-            symbol: "beth".to_string(),
+            name: "token".to_string(),
+            symbol: "token".to_string(),
             decimals: 6,
         },
     };
@@ -47,7 +40,7 @@ fn proper_initialization() {
     let query_res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&query_res).unwrap();
     assert_eq!("owner".to_string(), config_res.owner);
-    assert_eq!("beth".to_string(), config_res.collateral_token);
+    assert_eq!("token".to_string(), config_res.collateral_token);
     assert_eq!("overseer".to_string(), config_res.overseer_contract);
     assert_eq!("market".to_string(), config_res.market_contract);
     assert_eq!("reward".to_string(), config_res.reward_contract);
@@ -61,15 +54,15 @@ fn update_config() {
 
     let msg = InstantiateMsg {
         owner: "owner".to_string(),
-        collateral_token: "beth".to_string(),
+        collateral_token: "token".to_string(),
         overseer_contract: "overseer".to_string(),
         market_contract: "market".to_string(),
         reward_contract: "reward".to_string(),
         liquidation_contract: "liquidation".to_string(),
         stable_denom: "uusd".to_string(),
         basset_info: BAssetInfo {
-            name: "beth".to_string(),
-            symbol: "beth".to_string(),
+            name: "token".to_string(),
+            symbol: "token".to_string(),
             decimals: 6,
         },
     };
@@ -89,7 +82,7 @@ fn update_config() {
     let query_res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&query_res).unwrap();
     assert_eq!("owner2".to_string(), config_res.owner);
-    assert_eq!("beth".to_string(), config_res.collateral_token);
+    assert_eq!("token".to_string(), config_res.collateral_token);
     assert_eq!("overseer".to_string(), config_res.overseer_contract);
     assert_eq!("market".to_string(), config_res.market_contract);
     assert_eq!("reward".to_string(), config_res.reward_contract);
@@ -110,15 +103,15 @@ fn deposit_collateral() {
 
     let msg = InstantiateMsg {
         owner: "owner".to_string(),
-        collateral_token: "beth".to_string(),
+        collateral_token: "token".to_string(),
         overseer_contract: "overseer".to_string(),
         market_contract: "market".to_string(),
         reward_contract: "reward".to_string(),
         liquidation_contract: "liquidation".to_string(),
         stable_denom: "uusd".to_string(),
         basset_info: BAssetInfo {
-            name: "beth".to_string(),
-            symbol: "beth".to_string(),
+            name: "token".to_string(),
+            symbol: "token".to_string(),
             decimals: 6,
         },
     };
@@ -152,7 +145,7 @@ fn deposit_collateral() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let info = mock_info("beth", &[]);
+    let info = mock_info("token", &[]);
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
     assert_eq!(
         res.attributes,
@@ -218,15 +211,15 @@ fn withdraw_collateral() {
 
     let msg = InstantiateMsg {
         owner: "owner".to_string(),
-        collateral_token: "beth".to_string(),
+        collateral_token: "token".to_string(),
         overseer_contract: "overseer".to_string(),
         market_contract: "market".to_string(),
         reward_contract: "reward".to_string(),
         liquidation_contract: "liquidation".to_string(),
         stable_denom: "uusd".to_string(),
         basset_info: BAssetInfo {
-            name: "beth".to_string(),
-            symbol: "beth".to_string(),
+            name: "token".to_string(),
+            symbol: "token".to_string(),
             decimals: 6,
         },
     };
@@ -240,7 +233,7 @@ fn withdraw_collateral() {
         msg: to_binary(&Cw20HookMsg::DepositCollateral {}).unwrap(),
     });
 
-    let info = mock_info("beth", &[]);
+    let info = mock_info("token", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.attributes,
@@ -277,7 +270,7 @@ fn withdraw_collateral() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "beth".to_string(),
+            contract_addr: "token".to_string(),
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: "addr0000".to_string(),
@@ -355,15 +348,15 @@ fn lock_collateral() {
 
     let msg = InstantiateMsg {
         owner: "owner".to_string(),
-        collateral_token: "beth".to_string(),
+        collateral_token: "token".to_string(),
         overseer_contract: "overseer".to_string(),
         market_contract: "market".to_string(),
         reward_contract: "reward".to_string(),
         liquidation_contract: "liquidation".to_string(),
         stable_denom: "uusd".to_string(),
         basset_info: BAssetInfo {
-            name: "beth".to_string(),
-            symbol: "beth".to_string(),
+            name: "token".to_string(),
+            symbol: "token".to_string(),
             decimals: 6,
         },
     };
@@ -377,7 +370,7 @@ fn lock_collateral() {
         msg: to_binary(&Cw20HookMsg::DepositCollateral {}).unwrap(),
     });
 
-    let info = mock_info("beth", &[]);
+    let info = mock_info("token", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.attributes,
@@ -549,240 +542,19 @@ fn lock_collateral() {
 }
 
 #[test]
-fn distribute_rewards() {
+fn distribute_rewards_is_no_op() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
         amount: Uint128::new(1000000u128),
     }]);
-
-    let msg = InstantiateMsg {
-        owner: "owner".to_string(),
-        collateral_token: "beth".to_string(),
-        overseer_contract: "overseer".to_string(),
-        market_contract: "market".to_string(),
-        reward_contract: "reward".to_string(),
-        liquidation_contract: "liquidation".to_string(),
-        stable_denom: "uusd".to_string(),
-        basset_info: BAssetInfo {
-            name: "beth".to_string(),
-            symbol: "beth".to_string(),
-            decimals: 6,
-        },
-    };
-
-    let info = mock_info("addr0000", &[]);
-    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
-
-    let msg = ExecuteMsg::DistributeRewards {};
-    let res = execute(deps.as_mut(), mock_env(), info, msg);
-    match res {
-        Err(ContractError::Unauthorized {}) => (),
-        _ => panic!("DO NOT ENTER HERE"),
-    }
 
     let msg = ExecuteMsg::DistributeRewards {};
     let info = mock_info("overseer", &[]);
     deps.querier.set_reward_balance(Uint128::new(10000000));
-    deps.querier
-        .set_accrued_rewards(BETHAccruedRewardsResponse {
-            rewards: Uint128::new(10000000),
-        });
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-    // Do not print logs at this step
-    let empty_vector: Vec<Attribute> = Vec::new();
-    assert_eq!(res.attributes, empty_vector);
-    assert_eq!(
-        res.messages,
-        vec![SubMsg::reply_on_success(
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "reward".to_string(),
-                funds: vec![],
-                msg: to_binary(&RewardContractExecuteMsg::ClaimRewards { recipient: None })
-                    .unwrap(),
-            }),
-            CLAIM_REWARDS_OPERATION
-        )]
-    );
-}
-
-#[test]
-fn distribute_hook() {
-    let mut deps = mock_dependencies(&[Coin {
-        denom: "uusd".to_string(),
-        amount: Uint128::new(1000000u128),
-    }]);
-
-    deps.querier.with_token_balances(&[(
-        &"beth".to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000u128))],
-    )]);
-
-    deps.querier.with_tax(
-        Decimal::percent(1),
-        &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
-    );
-
-    let msg = InstantiateMsg {
-        owner: "owner".to_string(),
-        collateral_token: "beth".to_string(),
-        overseer_contract: "overseer".to_string(),
-        market_contract: "market".to_string(),
-        reward_contract: "reward".to_string(),
-        liquidation_contract: "liquidation".to_string(),
-        stable_denom: "uusd".to_string(),
-        basset_info: BAssetInfo {
-            name: "beth".to_string(),
-            symbol: "beth".to_string(),
-            decimals: 6,
-        },
-    };
-
-    let info = mock_info("addr0000", &[]);
-    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    // Claimed rewards is 1000000uusd
-    // mimic last swap_msg callback to execute distribute_hook
-    deps.querier.set_other_balances(Uint128::new(1000000));
-    let reply_msg = Reply {
-        id: SWAP_TO_STABLE_OPERATION,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: None,
-        }),
-    };
-    let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
-
-    assert_eq!(
-        res.attributes,
-        vec![
-            attr("action", "distribute_rewards"),
-            attr("buffer_rewards", "1000000"),
-        ]
-    );
-
-    assert_eq!(
-        res.messages,
-        vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-            to_address: "overseer".to_string(),
-            amount: vec![Coin {
-                denom: "uusd".to_string(),
-                amount: Uint128::from(990099u128)
-            }],
-        })),],
-    )
-}
-
-#[test]
-fn distribution_hook_zero_rewards() {
-    let mut deps = mock_dependencies(&[]);
-
-    let msg = InstantiateMsg {
-        owner: "owner".to_string(),
-        collateral_token: "beth".to_string(),
-        overseer_contract: "overseer".to_string(),
-        market_contract: "market".to_string(),
-        reward_contract: "reward".to_string(),
-        liquidation_contract: "terraswap".to_string(),
-        stable_denom: "uusd".to_string(),
-        basset_info: BAssetInfo {
-            name: "beth".to_string(),
-            symbol: "beth".to_string(),
-            decimals: 6,
-        },
-    };
-
-    let info = mock_info("addr0000", &[]);
-    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    // Claimed rewards is 1000000uusd
-    // mimic last swap_msg callback to execute distribute_hook
-    let reply_msg = Reply {
-        id: SWAP_TO_STABLE_OPERATION,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: None,
-        }),
-    };
-    let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
-    assert_eq!(
-        res.attributes,
-        vec![
-            attr("action", "distribute_rewards"),
-            attr("buffer_rewards", "0"),
-        ]
-    );
-
-    assert_eq!(res.messages, vec![],)
-}
-
-#[test]
-fn swap_to_stable_denom() {
-    let mut deps = mock_dependencies(&[
-        Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128::new(1000000u128),
-        },
-        Coin {
-            denom: "ukrw".to_string(),
-            amount: Uint128::new(20000000000u128),
-        },
-        Coin {
-            denom: "usdr".to_string(),
-            amount: Uint128::new(2000000u128),
-        },
-    ]);
-
-    let msg = InstantiateMsg {
-        owner: "owner".to_string(),
-        collateral_token: "beth".to_string(),
-        overseer_contract: "overseer".to_string(),
-        market_contract: "market".to_string(),
-        reward_contract: "reward".to_string(),
-        liquidation_contract: "liquidation".to_string(),
-        stable_denom: "uusd".to_string(),
-        basset_info: BAssetInfo {
-            name: "beth".to_string(),
-            symbol: "beth".to_string(),
-            decimals: 6,
-        },
-    };
-
-    let info = mock_info("addr0000", &[]);
-    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    // mimic callback from distribute_rewards to execute swap_to_stable_denom
-    let reply_msg = Reply {
-        id: 1,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: None,
-        }),
-    };
-    let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
-
-    assert_eq!(
-        res.messages,
-        vec![
-            SubMsg::new(create_swap_msg(
-                Coin {
-                    denom: "ukrw".to_string(),
-                    amount: Uint128::from(20000000000u128),
-                },
-                "uusd".to_string(),
-            )),
-            SubMsg::reply_on_success(
-                create_swap_msg(
-                    Coin {
-                        denom: "usdr".to_string(),
-                        amount: Uint128::from(2000000u128),
-                    },
-                    "uusd".to_string(),
-                ),
-                SWAP_TO_STABLE_OPERATION
-            ),
-        ]
-    );
+    assert_eq!(res.attributes.len(), 0);
+    assert_eq!(res.messages.len(), 0);
 }
 
 #[test]
@@ -791,15 +563,15 @@ fn liquidate_collateral() {
 
     let msg = InstantiateMsg {
         owner: "owner".to_string(),
-        collateral_token: "beth".to_string(),
+        collateral_token: "token".to_string(),
         overseer_contract: "overseer".to_string(),
         market_contract: "market".to_string(),
         reward_contract: "reward".to_string(),
         liquidation_contract: "liquidation".to_string(),
         stable_denom: "uusd".to_string(),
         basset_info: BAssetInfo {
-            name: "beth".to_string(),
-            symbol: "beth".to_string(),
+            name: "token".to_string(),
+            symbol: "token".to_string(),
             decimals: 6,
         },
     };
@@ -813,7 +585,7 @@ fn liquidate_collateral() {
         msg: to_binary(&Cw20HookMsg::DepositCollateral {}).unwrap(),
     });
 
-    let info = mock_info("beth", &[]);
+    let info = mock_info("token", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.attributes,
@@ -876,7 +648,7 @@ fn liquidate_collateral() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "beth".to_string(),
+            contract_addr: "token".to_string(),
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: "liquidation".to_string(),
@@ -890,79 +662,5 @@ fn liquidate_collateral() {
             })
             .unwrap(),
         }))]
-    );
-}
-
-#[test]
-fn proper_distribute_rewards_with_no_rewards() {
-    let mut deps = mock_dependencies(&[Coin {
-        denom: "uusd".to_string(),
-        amount: Uint128::new(1000000u128),
-    }]);
-
-    let msg = InstantiateMsg {
-        owner: "owner".to_string(),
-        collateral_token: "beth".to_string(),
-        overseer_contract: "overseer".to_string(),
-        market_contract: "market".to_string(),
-        reward_contract: "reward".to_string(),
-        liquidation_contract: "liquidation".to_string(),
-        stable_denom: "uusd".to_string(),
-        basset_info: BAssetInfo {
-            name: "beth".to_string(),
-            symbol: "beth".to_string(),
-            decimals: 6,
-        },
-    };
-
-    let info = mock_info("addr0000", &[]);
-    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
-
-    let msg = ExecuteMsg::DistributeRewards {};
-    let res = execute(deps.as_mut(), mock_env(), info, msg);
-    match res {
-        Err(ContractError::Unauthorized {}) => (),
-        _ => panic!("DO NOT ENTER HERE"),
-    }
-
-    let msg = ExecuteMsg::DistributeRewards {};
-    let info = mock_info("overseer", &[]);
-    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-    // must return
-    assert_eq!(res, Response::default());
-
-    let msg = ExecuteMsg::DistributeRewards {};
-    let info = mock_info("overseer", &[]);
-    deps.querier
-        .set_accrued_rewards(BETHAccruedRewardsResponse {
-            rewards: Uint128::new(0),
-        });
-    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-    // must return
-    assert_eq!(res, Response::default());
-
-    let msg = ExecuteMsg::DistributeRewards {};
-    let info = mock_info("overseer", &[]);
-
-    deps.querier
-        .set_accrued_rewards(BETHAccruedRewardsResponse {
-            rewards: Uint128::new(10000000),
-        });
-
-    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-    // Do not print logs at this step
-    let empty_vector: Vec<Attribute> = Vec::new();
-    assert_eq!(res.attributes, empty_vector);
-    assert_eq!(
-        res.messages,
-        vec![SubMsg::reply_on_success(
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "reward".to_string(),
-                funds: vec![],
-                msg: to_binary(&RewardContractExecuteMsg::ClaimRewards { recipient: None })
-                    .unwrap(),
-            }),
-            CLAIM_REWARDS_OPERATION
-        ),]
     );
 }

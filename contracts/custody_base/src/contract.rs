@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    attr, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response,
     StdResult,
 };
 
@@ -9,7 +9,6 @@ use crate::collateral::{
     deposit_collateral, liquidate_collateral, lock_collateral, query_borrower, query_borrowers,
     unlock_collateral, withdraw_collateral,
 };
-use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
 use crate::error::ContractError;
 use crate::state::{read_config, store_config, Config};
 
@@ -47,7 +46,7 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response<TerraMsgWrapper>, ContractError> {
@@ -73,7 +72,7 @@ pub fn execute(
             let borrower_addr = deps.api.addr_validate(&borrower)?;
             unlock_collateral(deps, info, borrower_addr, amount)
         }
-        ExecuteMsg::DistributeRewards {} => distribute_rewards(deps, env, info),
+        ExecuteMsg::DistributeRewards {} => Ok(Response::new()),
         ExecuteMsg::WithdrawCollateral { amount } => withdraw_collateral(deps, info, amount),
         ExecuteMsg::LiquidateCollateral {
             liquidator,
@@ -84,21 +83,6 @@ pub fn execute(
             let borrower_addr = deps.api.addr_validate(&borrower)?;
             liquidate_collateral(deps, info, liquidator_addr, borrower_addr, amount)
         }
-    }
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(
-    deps: DepsMut,
-    env: Env,
-    msg: Reply,
-) -> Result<Response<TerraMsgWrapper>, ContractError> {
-    match msg.id {
-        // ClaimRewards callback
-        CLAIM_REWARDS_OPERATION => swap_to_stable_denom(deps, env),
-        // Swap to stable callback
-        SWAP_TO_STABLE_OPERATION => distribute_hook(deps, env),
-        _ => Err(ContractError::InvalidReplyId {}),
     }
 }
 
