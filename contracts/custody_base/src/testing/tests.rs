@@ -1,11 +1,14 @@
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Api, BankMsg, Coin, ContractResult, CosmosMsg, Decimal, Reply,
-    SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
+    attr, from_binary, to_binary, Api, Attribute, BankMsg, Coin, ContractResult, CosmosMsg,
+    Decimal, Reply, Response, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
 
-use crate::contract::{execute, instantiate, query, reply, SWAP_TO_STABLE_OPERATION};
+use crate::contract::{
+    execute, instantiate, query, reply, CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION,
+};
 use crate::error::ContractError;
+use crate::external::handle::RewardContractExecuteMsg;
 use crate::state::{read_borrower_info, BETHAccruedRewardsResponse};
 use crate::testing::mock_querier::mock_dependencies;
 
@@ -210,7 +213,7 @@ fn deposit_collateral() {
 }
 
 #[test]
-fn withdraw_collateral_is_no_op() {
+fn withdraw_collateral() {
     let mut deps = mock_dependencies(&[]);
 
     let msg = InstantiateMsg {
@@ -229,16 +232,121 @@ fn withdraw_collateral_is_no_op() {
     };
 
     let info = mock_info("addr0000", &[]);
-    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+        sender: "addr0000".to_string(),
+        amount: Uint128::from(100u128),
+        msg: to_binary(&Cw20HookMsg::DepositCollateral {}).unwrap(),
+    });
+
+    let info = mock_info("beth", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "deposit_collateral"),
+            attr("borrower", "addr0000"),
+            attr("amount", "100"),
+        ]
+    );
+
+    let msg = ExecuteMsg::WithdrawCollateral {
+        amount: Some(Uint256::from(110u64)),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+    match res {
+        Err(ContractError::WithdrawAmountExceedsSpendable(100)) => (),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
 
     let msg = ExecuteMsg::WithdrawCollateral {
         amount: Some(Uint256::from(50u64)),
     };
-    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "withdraw_collateral"),
+            attr("borrower", "addr0000"),
+            attr("amount", "50"),
+        ]
+    );
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "beth".to_string(),
+            funds: vec![],
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                recipient: "addr0000".to_string(),
+                amount: Uint128::from(50u128),
+            })
+            .unwrap(),
+        }))]
+    );
 
-    // Confirm this operation is no-op
-    assert_eq!(res.attributes.len(), 0);
-    assert_eq!(res.messages.len(), 0);
+    let query_res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Borrower {
+            address: "addr0000".to_string(),
+        },
+    )
+    .unwrap();
+    let borrower_res: BorrowerResponse = from_binary(&query_res).unwrap();
+    assert_eq!(
+        borrower_res,
+        BorrowerResponse {
+            borrower: "addr0000".to_string(),
+            balance: Uint256::from(50u64),
+            spendable: Uint256::from(50u64),
+        }
+    );
+
+    let msg = ExecuteMsg::WithdrawCollateral {
+        amount: Some(Uint256::from(40u128)),
+    };
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    let query_res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Borrower {
+            address: "addr0000".to_string(),
+        },
+    )
+    .unwrap();
+    let borrower_res: BorrowerResponse = from_binary(&query_res).unwrap();
+    assert_eq!(
+        borrower_res,
+        BorrowerResponse {
+            borrower: "addr0000".to_string(),
+            balance: Uint256::from(10u128),
+            spendable: Uint256::from(10u128),
+        }
+    );
+
+    //withdraw with "None" amount
+    let msg = ExecuteMsg::WithdrawCollateral { amount: None };
+    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let query_res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Borrower {
+            address: "addr0000".to_string(),
+        },
+    )
+    .unwrap();
+    let borrower_res: BorrowerResponse = from_binary(&query_res).unwrap();
+    assert_eq!(
+        borrower_res,
+        BorrowerResponse {
+            borrower: "addr0000".to_string(),
+            balance: Uint256::zero(),
+            spendable: Uint256::zero(),
+        }
+    );
 }
 
 #[test]
@@ -320,12 +428,28 @@ fn lock_collateral() {
     .spendable;
     assert_eq!(spend, Uint256::from(50u128));
 
+    let msg = ExecuteMsg::WithdrawCollateral {
+        amount: Some(Uint256::from(51u64)),
+    };
     let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+    match res {
+        Err(ContractError::WithdrawAmountExceedsSpendable(50)) => (),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
     let msg = ExecuteMsg::WithdrawCollateral {
         amount: Some(Uint256::from(50u64)),
     };
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-    assert_eq!(res.attributes.len(), 0);
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "withdraw_collateral"),
+            attr("borrower", "addr0000"),
+            attr("amount", "50"),
+        ]
+    );
 
     let query_res = query(
         deps.as_ref(),
@@ -340,8 +464,8 @@ fn lock_collateral() {
         borrower_res,
         BorrowerResponse {
             borrower: "addr0000".to_string(),
-            balance: Uint256::from(100u64),
-            spendable: Uint256::from(50u64),
+            balance: Uint256::from(50u64),
+            spendable: Uint256::from(0u64),
         }
     );
 
@@ -389,7 +513,21 @@ fn lock_collateral() {
         &deps.api.addr_canonicalize("addr0000").unwrap(),
     )
     .spendable;
-    assert_eq!(spend, Uint256::from(80u128));
+    assert_eq!(spend, Uint256::from(30u128));
+
+    let msg = ExecuteMsg::WithdrawCollateral {
+        amount: Some(Uint256::from(30u64)),
+    };
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "withdraw_collateral"),
+            attr("borrower", "addr0000"),
+            attr("amount", "30"),
+        ]
+    );
 
     let query_res = query(
         deps.as_ref(),
@@ -404,18 +542,43 @@ fn lock_collateral() {
         borrower_res,
         BorrowerResponse {
             borrower: "addr0000".to_string(),
-            balance: Uint256::from(100u64),
-            spendable: Uint256::from(80u64),
+            balance: Uint256::from(20u64),
+            spendable: Uint256::from(0u64),
         }
     );
 }
 
 #[test]
-fn distribute_rewards_is_no_op() {
+fn distribute_rewards() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
         amount: Uint128::new(1000000u128),
     }]);
+
+    let msg = InstantiateMsg {
+        owner: "owner".to_string(),
+        collateral_token: "beth".to_string(),
+        overseer_contract: "overseer".to_string(),
+        market_contract: "market".to_string(),
+        reward_contract: "reward".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "beth".to_string(),
+            symbol: "beth".to_string(),
+            decimals: 6,
+        },
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+    let msg = ExecuteMsg::DistributeRewards {};
+    let res = execute(deps.as_mut(), mock_env(), info, msg);
+    match res {
+        Err(ContractError::Unauthorized {}) => (),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
 
     let msg = ExecuteMsg::DistributeRewards {};
     let info = mock_info("overseer", &[]);
@@ -426,10 +589,21 @@ fn distribute_rewards_is_no_op() {
         });
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    // Confirm this operation is no-op
-    assert_eq!(res.attributes.len(), 0);
-    assert_eq!(res.messages.len(), 0);
+    // Do not print logs at this step
+    let empty_vector: Vec<Attribute> = Vec::new();
+    assert_eq!(res.attributes, empty_vector);
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::reply_on_success(
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "reward".to_string(),
+                funds: vec![],
+                msg: to_binary(&RewardContractExecuteMsg::ClaimRewards { recipient: None })
+                    .unwrap(),
+            }),
+            CLAIM_REWARDS_OPERATION
+        )]
+    );
 }
 
 #[test]
@@ -716,5 +890,79 @@ fn liquidate_collateral() {
             })
             .unwrap(),
         }))]
+    );
+}
+
+#[test]
+fn proper_distribute_rewards_with_no_rewards() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::new(1000000u128),
+    }]);
+
+    let msg = InstantiateMsg {
+        owner: "owner".to_string(),
+        collateral_token: "beth".to_string(),
+        overseer_contract: "overseer".to_string(),
+        market_contract: "market".to_string(),
+        reward_contract: "reward".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        stable_denom: "uusd".to_string(),
+        basset_info: BAssetInfo {
+            name: "beth".to_string(),
+            symbol: "beth".to_string(),
+            decimals: 6,
+        },
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+    let msg = ExecuteMsg::DistributeRewards {};
+    let res = execute(deps.as_mut(), mock_env(), info, msg);
+    match res {
+        Err(ContractError::Unauthorized {}) => (),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let msg = ExecuteMsg::DistributeRewards {};
+    let info = mock_info("overseer", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    // must return
+    assert_eq!(res, Response::default());
+
+    let msg = ExecuteMsg::DistributeRewards {};
+    let info = mock_info("overseer", &[]);
+    deps.querier
+        .set_accrued_rewards(BETHAccruedRewardsResponse {
+            rewards: Uint128::new(0),
+        });
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    // must return
+    assert_eq!(res, Response::default());
+
+    let msg = ExecuteMsg::DistributeRewards {};
+    let info = mock_info("overseer", &[]);
+
+    deps.querier
+        .set_accrued_rewards(BETHAccruedRewardsResponse {
+            rewards: Uint128::new(10000000),
+        });
+
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    // Do not print logs at this step
+    let empty_vector: Vec<Attribute> = Vec::new();
+    assert_eq!(res.attributes, empty_vector);
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::reply_on_success(
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "reward".to_string(),
+                funds: vec![],
+                msg: to_binary(&RewardContractExecuteMsg::ClaimRewards { recipient: None })
+                    .unwrap(),
+            }),
+            CLAIM_REWARDS_OPERATION
+        ),]
     );
 }

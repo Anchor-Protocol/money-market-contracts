@@ -7,9 +7,9 @@ use cosmwasm_std::{
 
 use crate::collateral::{
     deposit_collateral, liquidate_collateral, lock_collateral, query_borrower, query_borrowers,
-    unlock_collateral,
+    unlock_collateral, withdraw_collateral,
 };
-use crate::distribution::{distribute_hook, swap_to_stable_denom};
+use crate::distribution::{distribute_hook, distribute_rewards, swap_to_stable_denom};
 use crate::error::ContractError;
 use crate::state::{read_config, store_config, Config};
 
@@ -47,7 +47,7 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response<TerraMsgWrapper>, ContractError> {
@@ -73,8 +73,8 @@ pub fn execute(
             let borrower_addr = deps.api.addr_validate(&borrower)?;
             unlock_collateral(deps, info, borrower_addr, amount)
         }
-        ExecuteMsg::DistributeRewards {} => Ok(Response::new()),
-        ExecuteMsg::WithdrawCollateral { amount: _ } => Ok(Response::new()),
+        ExecuteMsg::DistributeRewards {} => distribute_rewards(deps, env, info),
+        ExecuteMsg::WithdrawCollateral { amount } => withdraw_collateral(deps, info, amount),
         ExecuteMsg::LiquidateCollateral {
             liquidator,
             borrower,

@@ -1,12 +1,56 @@
 use cosmwasm_bignumber::Uint256;
-use cosmwasm_std::{attr, BankMsg, Coin, CosmosMsg, DepsMut, Env, ReplyOn, Response, SubMsg};
+use cosmwasm_std::{
+    attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, QueryRequest,
+    ReplyOn, Response, StdResult, SubMsg, Uint128, WasmMsg, WasmQuery,
+};
 
-use crate::contract::SWAP_TO_STABLE_OPERATION;
+use crate::contract::{CLAIM_REWARDS_OPERATION, SWAP_TO_STABLE_OPERATION};
 use crate::error::ContractError;
-use crate::state::{read_config, Config};
+use crate::external::handle::{RewardContractExecuteMsg, RewardContractQueryMsg};
+use crate::state::{read_config, BETHAccruedRewardsResponse, Config};
 
 use moneymarket::querier::{deduct_tax, query_all_balances, query_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
+
+// REWARD_THRESHOLD
+// This value is used as the minimum reward claim amount
+// thus if a user's reward is less than 1 ust do not send the ClaimRewards msg
+const REWARDS_THRESHOLD: Uint128 = Uint128::new(1000000);
+
+/// Request withdraw reward operation to
+/// reward contract and execute `distribute_hook`
+/// Executor: overseer
+pub fn distribute_rewards(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+) -> Result<Response<TerraMsgWrapper>, ContractError> {
+    let config: Config = read_config(deps.storage)?;
+
+    let contract_addr = env.contract.address;
+
+    if config.overseer_contract != deps.api.addr_canonicalize(info.sender.as_str())? {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    let reward_contract = deps.api.addr_humanize(&config.reward_contract)?;
+
+    let accrued_rewards =
+        get_accrued_rewards(deps.as_ref(), reward_contract.clone(), contract_addr)?;
+    if accrued_rewards < REWARDS_THRESHOLD {
+        return Ok(Response::default());
+    }
+
+    // Do not emit the event logs here
+    Ok(Response::new().add_submessage(SubMsg::reply_on_success(
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: reward_contract.to_string(),
+            funds: vec![],
+            msg: to_binary(&RewardContractExecuteMsg::ClaimRewards { recipient: None })?,
+        }),
+        CLAIM_REWARDS_OPERATION,
+    )))
+}
 
 /// Apply swapped reward to global index
 /// Executor: itself
@@ -69,4 +113,20 @@ pub fn swap_to_stable_denom(
     }
 
     Ok(Response::new().add_submessages(messages))
+}
+
+pub(crate) fn get_accrued_rewards(
+    deps: Deps,
+    reward_contract_addr: Addr,
+    contract_addr: Addr,
+) -> StdResult<Uint128> {
+    let rewards: BETHAccruedRewardsResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: reward_contract_addr.to_string(),
+            msg: to_binary(&RewardContractQueryMsg::AccruedRewards {
+                address: contract_addr.to_string(),
+            })?,
+        }))?;
+
+    Ok(rewards.rewards)
 }
