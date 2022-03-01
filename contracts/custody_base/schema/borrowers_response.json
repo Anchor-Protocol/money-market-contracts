@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BorrowersResponse",
+  "type": "object",
+  "required": [
+    "borrowers"
+  ],
+  "properties": {
+    "borrowers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/BorrowerResponse"
+      }
+    }
+  },
+  "definitions": {
+    "BorrowerResponse": {
+      "type": "object",
+      "required": [
+        "balance",
+        "borrower",
+        "spendable"
+      ],
+      "properties": {
+        "balance": {
+          "$ref": "#/definitions/Uint256"
+        },
+        "borrower": {
+          "type": "string"
+        },
+        "spendable": {
+          "$ref": "#/definitions/Uint256"
+        }
+      }
+    },
+    "Uint256": {
+      "type": "string"
+    }
+  }
+}
