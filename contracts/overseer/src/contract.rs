@@ -4,6 +4,7 @@ use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
     Response, StdResult, WasmMsg,
 };
+use std::cmp::{max, min};
 
 use crate::collateral::{
     liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
@@ -11,9 +12,12 @@ use crate::collateral::{
 };
 use crate::error::ContractError;
 use crate::querier::query_epoch_state;
+
 use crate::state::{
-    read_config, read_epoch_state, read_whitelist, read_whitelist_elem, store_config,
-    store_epoch_state, store_whitelist_elem, Config, EpochState, WhitelistElem,
+    read_config, read_dynrate_config, read_dynrate_state, read_epoch_state, read_whitelist,
+    read_whitelist_elem, store_config, store_dynrate_config, store_dynrate_state,
+    store_epoch_state, store_whitelist_elem, Config, DynrateConfig, DynrateState, EpochState,
+    WhitelistElem,
 };
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
@@ -22,9 +26,12 @@ use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
 use moneymarket::market::EpochStateResponse;
 use moneymarket::market::ExecuteMsg as MarketExecuteMsg;
 use moneymarket::overseer::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
+    ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, WhitelistResponse,
+    WhitelistResponseElem,
 };
 use moneymarket::querier::{deduct_tax, query_balance};
+
+pub const BLOCKS_PER_YEAR: u128 = 4656810;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -51,6 +58,17 @@ pub fn instantiate(
         },
     )?;
 
+    store_dynrate_config(
+        deps.storage,
+        &DynrateConfig {
+            dyn_rate_epoch: msg.dyn_rate_epoch,
+            dyn_rate_maxchange: msg.dyn_rate_maxchange,
+            dyn_rate_yr_increase_expectation: msg.dyn_rate_yr_increase_expectation,
+            dyn_rate_min: msg.dyn_rate_min,
+            dyn_rate_max: msg.dyn_rate_max,
+        },
+    )?;
+
     store_epoch_state(
         deps.storage,
         &EpochState {
@@ -62,6 +80,42 @@ pub fn instantiate(
         },
     )?;
 
+    store_dynrate_state(
+        deps.storage,
+        &DynrateState {
+            last_executed_height: env.block.height,
+            prev_yield_reserve: Decimal256::zero(),
+        },
+    )?;
+
+    Ok(Response::default())
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    store_dynrate_config(
+        deps.storage,
+        &DynrateConfig {
+            dyn_rate_epoch: msg.dyn_rate_epoch,
+            dyn_rate_maxchange: msg.dyn_rate_maxchange,
+            dyn_rate_yr_increase_expectation: msg.dyn_rate_yr_increase_expectation,
+            dyn_rate_min: msg.dyn_rate_min,
+            dyn_rate_max: msg.dyn_rate_max,
+        },
+    )?;
+    let config = read_config(deps.storage)?;
+    let prev_yield_reserve = query_balance(
+        deps.as_ref(),
+        env.contract.address.clone(),
+        config.stable_denom,
+    )?;
+    store_dynrate_state(
+        deps.storage,
+        &DynrateState {
+            last_executed_height: env.block.height,
+            prev_yield_reserve: Decimal256::from_ratio(prev_yield_reserve, 1),
+        },
+    )?;
     Ok(Response::default())
 }
 
@@ -83,6 +137,11 @@ pub fn execute(
             anc_purchase_factor,
             epoch_period,
             price_timeframe,
+            dyn_rate_epoch,
+            dyn_rate_maxchange,
+            dyn_rate_yr_increase_expectation,
+            dyn_rate_min,
+            dyn_rate_max,
         } => {
             let api = deps.api;
             update_config(
@@ -97,6 +156,11 @@ pub fn execute(
                 anc_purchase_factor,
                 epoch_period,
                 price_timeframe,
+                dyn_rate_epoch,
+                dyn_rate_maxchange,
+                dyn_rate_yr_increase_expectation,
+                dyn_rate_min,
+                dyn_rate_max,
             )
         }
         ExecuteMsg::Whitelist {
@@ -160,8 +224,14 @@ pub fn update_config(
     anc_purchase_factor: Option<Decimal256>,
     epoch_period: Option<u64>,
     price_timeframe: Option<u64>,
+    dyn_rate_epoch: Option<u64>,
+    dyn_rate_maxchange: Option<Decimal256>,
+    dyn_rate_yr_increase_expectation: Option<Decimal256>,
+    dyn_rate_min: Option<Decimal256>,
+    dyn_rate_max: Option<Decimal256>,
 ) -> Result<Response, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
+    let mut dynrate_config: DynrateConfig = read_dynrate_config(deps.storage)?;
 
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
         return Err(ContractError::Unauthorized {});
@@ -205,7 +275,28 @@ pub fn update_config(
         config.price_timeframe = price_timeframe;
     }
 
+    if let Some(dyn_rate_epoch) = dyn_rate_epoch {
+        dynrate_config.dyn_rate_epoch = dyn_rate_epoch;
+    }
+
+    if let Some(dyn_rate_maxchange) = dyn_rate_maxchange {
+        dynrate_config.dyn_rate_maxchange = dyn_rate_maxchange;
+    }
+
+    if let Some(dyn_rate_yr_increase_expectation) = dyn_rate_yr_increase_expectation {
+        dynrate_config.dyn_rate_yr_increase_expectation = dyn_rate_yr_increase_expectation;
+    }
+
+    if let Some(dyn_rate_min) = dyn_rate_min {
+        dynrate_config.dyn_rate_min = dyn_rate_min;
+    }
+
+    if let Some(dyn_rate_max) = dyn_rate_max {
+        dynrate_config.dyn_rate_max = dyn_rate_max;
+    }
+
     store_config(deps.storage, &config)?;
+    store_dynrate_config(deps.storage, &dynrate_config)?;
 
     Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
 }
@@ -285,6 +376,90 @@ pub fn update_whitelist(
         ),
         attr("LTV", whitelist_elem.max_ltv.to_string()),
     ]))
+}
+
+fn update_deposit_rate(deps: DepsMut, env: Env) -> StdResult<()> {
+    let dynrate_config: DynrateConfig = read_dynrate_config(deps.storage)?;
+    let dynrate_state: DynrateState = read_dynrate_state(deps.storage)?;
+    let mut config: Config = read_config(deps.storage)?;
+
+    // check whether its time to re-evaluate rate
+    if env.block.height >= dynrate_state.last_executed_height + dynrate_config.dyn_rate_epoch {
+        // retrieve interest buffer
+        let interest_buffer = query_balance(
+            deps.as_ref(),
+            env.contract.address.clone(),
+            config.stable_denom.to_string(),
+        )?;
+        // convert block rate into yearly rate
+        let blocks_per_year = Decimal256::from_ratio(Uint256::from(BLOCKS_PER_YEAR), 1);
+        let current_rate = config.threshold_deposit_rate * blocks_per_year;
+
+        let yield_reserve = Decimal256::from_uint256(interest_buffer);
+        let mut yr_went_up = yield_reserve > dynrate_state.prev_yield_reserve;
+
+        // amount yield reserve changed in notional terms
+        let yield_reserve_delta = if yr_went_up {
+            yield_reserve - dynrate_state.prev_yield_reserve
+        } else {
+            dynrate_state.prev_yield_reserve - yield_reserve
+        };
+
+        // amount yield reserve changed in percentage terms
+        // if the prev yield reserve was zero; assume either a 100% decrease
+        // or a 100% increase, but this should be very rare
+        let mut yield_reserve_change = if dynrate_state.prev_yield_reserve.is_zero() {
+            Decimal256::one()
+        } else {
+            yield_reserve_delta / dynrate_state.prev_yield_reserve
+        };
+
+        // decreases the yield reserve change by dyn_rate_yr_increase_expectation
+        // (assume (yr_went_up, yield_reserve_change) is one signed integer, this just subtracts
+        // that integer by dynrate_config.dyn_rate_yr_increase_expectation)
+        let increase_expectation = dynrate_config.dyn_rate_yr_increase_expectation;
+        yield_reserve_change = if !yr_went_up {
+            yield_reserve_change + increase_expectation
+        } else if yield_reserve_change > increase_expectation {
+            yield_reserve_change - increase_expectation
+        } else {
+            yr_went_up = !yr_went_up;
+            increase_expectation - yield_reserve_change
+        };
+
+        yield_reserve_change = min(yield_reserve_change, dynrate_config.dyn_rate_maxchange);
+
+        let mut new_rate = if yr_went_up {
+            current_rate + yield_reserve_change
+        } else if current_rate > yield_reserve_change {
+            current_rate - yield_reserve_change
+        } else {
+            Decimal256::zero()
+        };
+
+        // convert from yearly rate to block rate
+        new_rate = new_rate / blocks_per_year;
+
+        // clamp new rate
+        new_rate = max(
+            min(new_rate, dynrate_config.dyn_rate_max),
+            dynrate_config.dyn_rate_min,
+        );
+
+        config.target_deposit_rate = new_rate;
+        config.threshold_deposit_rate = new_rate;
+        store_config(deps.storage, &config)?;
+
+        // store updated epoch state
+        store_dynrate_state(
+            deps.storage,
+            &DynrateState {
+                last_executed_height: env.block.height,
+                prev_yield_reserve: yield_reserve,
+            },
+        )?;
+    };
+    Ok(())
 }
 
 pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> Result<Response, ContractError> {
@@ -459,16 +634,22 @@ pub fn update_epoch_state(
         },
     )?;
 
+    // use unchanged rates to build msg
+    let response_msg = to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
+        deposit_rate,
+        target_deposit_rate: config.target_deposit_rate,
+        threshold_deposit_rate: config.threshold_deposit_rate,
+        distributed_interest,
+    })?;
+
+    // proceed with deposit rate update
+    update_deposit_rate(deps, env)?;
+
     Ok(Response::new()
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: market_contract.to_string(),
             funds: vec![],
-            msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
-                deposit_rate,
-                target_deposit_rate: config.target_deposit_rate,
-                threshold_deposit_rate: config.threshold_deposit_rate,
-                distributed_interest,
-            })?,
+            msg: response_msg,
         }))
         .add_attributes(vec![
             attr("action", "update_epoch_state"),
@@ -514,11 +695,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             deps.api.addr_validate(&borrower)?,
             block_time,
         )?),
+        QueryMsg::DynrateState {} => to_binary(&query_dynrate_state(deps)?),
     }
 }
 
 pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config: Config = read_config(deps.storage)?;
+    let dynrate_config: DynrateConfig = read_dynrate_config(deps.storage)?;
     Ok(ConfigResponse {
         owner_addr: deps.api.addr_humanize(&config.owner_addr)?.to_string(),
         oracle_contract: deps.api.addr_humanize(&config.oracle_contract)?.to_string(),
@@ -538,11 +721,20 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         buffer_distribution_factor: config.buffer_distribution_factor,
         anc_purchase_factor: config.anc_purchase_factor,
         price_timeframe: config.price_timeframe,
+        dyn_rate_epoch: dynrate_config.dyn_rate_epoch,
+        dyn_rate_maxchange: dynrate_config.dyn_rate_maxchange,
+        dyn_rate_yr_increase_expectation: dynrate_config.dyn_rate_yr_increase_expectation,
+        dyn_rate_min: dynrate_config.dyn_rate_min,
+        dyn_rate_max: dynrate_config.dyn_rate_max,
     })
 }
 
 pub fn query_state(deps: Deps) -> StdResult<EpochState> {
     read_epoch_state(deps.storage)
+}
+
+pub fn query_dynrate_state(deps: Deps) -> StdResult<DynrateState> {
+    read_dynrate_state(deps.storage)
 }
 
 pub fn query_whitelist(

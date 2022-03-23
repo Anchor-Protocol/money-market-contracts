@@ -35,10 +35,34 @@ pub struct InstantiateMsg {
     pub anc_purchase_factor: Decimal256,
     /// Valid oracle price timeframe
     pub price_timeframe: u64,
+    /// # of blocks per each dynamic rate change period
+    pub dyn_rate_epoch: u64,
+    /// maximum rate change during update
+    pub dyn_rate_maxchange: Decimal256,
+    /// amount of slack in yr change to trigger rate update
+    pub dyn_rate_yr_increase_expectation: Decimal256,
+    /// clamps for dyn rate
+    pub dyn_rate_min: Decimal256,
+    pub dyn_rate_max: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub struct MigrateMsg {
+    /// Period of time in blocks when rate is evaluated/changed
+    pub dyn_rate_epoch: u64,
+    /// Maximum allowed rate change per epoch
+    pub dyn_rate_maxchange: Decimal256,
+    /// Margin to define expectation of rate increase
+    pub dyn_rate_yr_increase_expectation: Decimal256,
+
+    pub dyn_rate_min: Decimal256,
+    pub dyn_rate_max: Decimal256,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub enum ExecuteMsg {
     ////////////////////
     /// Owner operations
@@ -55,8 +79,12 @@ pub enum ExecuteMsg {
         anc_purchase_factor: Option<Decimal256>,
         epoch_period: Option<u64>,
         price_timeframe: Option<u64>,
+        dyn_rate_epoch: Option<u64>,
+        dyn_rate_maxchange: Option<Decimal256>,
+        dyn_rate_yr_increase_expectation: Option<Decimal256>,
+        dyn_rate_min: Option<Decimal256>,
+        dyn_rate_max: Option<Decimal256>,
     },
-
     /// Create new custody contract for the given collateral token
     Whitelist {
         name: String,             // bAsset name
@@ -104,6 +132,7 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     Config {},
     EpochState {},
+    DynrateState {},
     Whitelist {
         collateral_token: Option<String>,
         start_after: Option<String>,
@@ -137,6 +166,11 @@ pub struct ConfigResponse {
     pub stable_denom: String,
     pub epoch_period: u64,
     pub price_timeframe: u64,
+    pub dyn_rate_epoch: u64,
+    pub dyn_rate_maxchange: Decimal256,
+    pub dyn_rate_yr_increase_expectation: Decimal256,
+    pub dyn_rate_min: Decimal256,
+    pub dyn_rate_max: Decimal256,
 }
 
 // We define a custom struct for each query response
