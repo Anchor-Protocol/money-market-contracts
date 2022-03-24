@@ -125,6 +125,8 @@ pub enum ExecuteMsg {
     /// Permissionless operations
     /////////////////////////////
     LiquidateCollateral { borrower: String },
+
+    FundReserve {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

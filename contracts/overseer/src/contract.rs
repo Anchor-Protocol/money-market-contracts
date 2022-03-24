@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    Response, StdResult, WasmMsg,
+    Response, StdResult, Uint128, WasmMsg,
 };
 use std::cmp::{max, min};
 
@@ -103,11 +103,11 @@ pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> 
             dyn_rate_max: msg.dyn_rate_max,
         },
     )?;
-    let config = read_config(deps.storage)?;
+    let mut config = read_config(deps.storage)?;
     let prev_yield_reserve = query_balance(
         deps.as_ref(),
         env.contract.address.clone(),
-        config.stable_denom,
+        config.stable_denom.clone(),
     )?;
     store_dynrate_state(
         deps.storage,
@@ -116,6 +116,13 @@ pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> 
             prev_yield_reserve: Decimal256::from_ratio(prev_yield_reserve, 1),
         },
     )?;
+    let new_rate = max(
+        min(config.threshold_deposit_rate, msg.dyn_rate_max),
+        msg.dyn_rate_min,
+    );
+    config.threshold_deposit_rate = new_rate;
+    config.target_deposit_rate = new_rate;
+    store_config(deps.storage, &config)?;
     Ok(Response::default())
 }
 
@@ -208,6 +215,7 @@ pub fn execute(
             let api = deps.api;
             liquidate_collateral(deps, env, info, api.addr_validate(&borrower)?)
         }
+        ExecuteMsg::FundReserve {} => fund_reserve(deps, info),
     }
 }
 
@@ -661,6 +669,26 @@ pub fn update_epoch_state(
             ),
             attr("interest_buffer", interest_buffer),
         ]))
+}
+
+pub fn fund_reserve(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    let sent_uusd = match info.funds.iter().find(|x| x.denom == "uusd") {
+        Some(coin) => coin.amount,
+        None => Uint128::zero(),
+    };
+
+    let mut overseer_epoch_state: EpochState = read_epoch_state(deps.storage)?;
+    overseer_epoch_state.prev_interest_buffer += Uint256::from(sent_uusd);
+    store_epoch_state(deps.storage, &overseer_epoch_state)?;
+
+    let mut dyn_rate_state: DynrateState = read_dynrate_state(deps.storage)?;
+    dyn_rate_state.prev_yield_reserve += Decimal256::from_ratio(Uint256::from(sent_uusd), 1);
+    store_dynrate_state(deps.storage, &dyn_rate_state)?;
+
+    Ok(Response::new().add_attributes(vec![
+        attr("action", "fund_reserve"),
+        attr("funded_amount", sent_uusd.to_string()),
+    ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
