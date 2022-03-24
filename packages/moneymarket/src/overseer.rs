@@ -124,7 +124,9 @@ pub enum ExecuteMsg {
     /////////////////////////////
     /// Permissionless operations
     /////////////////////////////
-    LiquidateCollateral { borrower: String },
+    LiquidateCollateral {
+        borrower: String,
+    },
 
     FundReserve {},
 }
