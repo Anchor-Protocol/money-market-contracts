@@ -9,7 +9,9 @@ use moneymarket::overseer::{CollateralsResponse, WhitelistResponseElem};
 use moneymarket::tokens::Tokens;
 
 const KEY_CONFIG: &[u8] = b"config";
+const KEY_DYNRATE_CONFIG: &[u8] = b"dynrate_config";
 const KEY_EPOCH_STATE: &[u8] = b"epoch_state";
+const KEY_DYNRATE_STATE: &[u8] = b"dynrate_state";
 
 const PREFIX_WHITELIST: &[u8] = b"whitelist";
 const PREFIX_COLLATERALS: &[u8] = b"collateral";
@@ -31,12 +33,28 @@ pub struct Config {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct DynrateConfig {
+    pub dyn_rate_epoch: u64,
+    pub dyn_rate_maxchange: Decimal256,
+    pub dyn_rate_yr_increase_expectation: Decimal256,
+    // clamps the deposit rate (in blocks)
+    pub dyn_rate_min: Decimal256,
+    pub dyn_rate_max: Decimal256,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct EpochState {
     pub deposit_rate: Decimal256,
     pub prev_aterra_supply: Uint256,
     pub prev_exchange_rate: Decimal256,
     pub prev_interest_buffer: Uint256,
     pub last_executed_height: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct DynrateState {
+    pub last_executed_height: u64,
+    pub prev_yield_reserve: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -55,12 +73,28 @@ pub fn read_config(storage: &dyn Storage) -> StdResult<Config> {
     ReadonlySingleton::new(storage, KEY_CONFIG).load()
 }
 
+pub fn store_dynrate_config(storage: &mut dyn Storage, data: &DynrateConfig) -> StdResult<()> {
+    Singleton::new(storage, KEY_DYNRATE_CONFIG).save(data)
+}
+
+pub fn read_dynrate_config(storage: &dyn Storage) -> StdResult<DynrateConfig> {
+    ReadonlySingleton::new(storage, KEY_DYNRATE_CONFIG).load()
+}
+
 pub fn store_epoch_state(storage: &mut dyn Storage, data: &EpochState) -> StdResult<()> {
     Singleton::new(storage, KEY_EPOCH_STATE).save(data)
 }
 
 pub fn read_epoch_state(storage: &dyn Storage) -> StdResult<EpochState> {
     ReadonlySingleton::new(storage, KEY_EPOCH_STATE).load()
+}
+
+pub fn store_dynrate_state(storage: &mut dyn Storage, data: &DynrateState) -> StdResult<()> {
+    Singleton::new(storage, KEY_DYNRATE_STATE).save(data)
+}
+
+pub fn read_dynrate_state(storage: &dyn Storage) -> StdResult<DynrateState> {
+    ReadonlySingleton::new(storage, KEY_DYNRATE_STATE).load()
 }
 
 pub fn store_whitelist_elem(

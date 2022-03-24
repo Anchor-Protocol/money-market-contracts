@@ -9,6 +9,8 @@ use cosmwasm_std::Api;
 use moneymarket::overseer::{ExecuteMsg, InstantiateMsg};
 use moneymarket::tokens::{Token, Tokens};
 
+use std::str::FromStr;
+
 #[test]
 fn proper_compute_borrow_limit() {
     let mut deps = mock_dependencies(&[]);
@@ -28,6 +30,11 @@ fn proper_compute_borrow_limit() {
         buffer_distribution_factor: Decimal256::percent(20),
         anc_purchase_factor: Decimal256::percent(20),
         price_timeframe: 60u64,
+        dyn_rate_epoch: 86400u64,
+        dyn_rate_maxchange: Decimal256::from_str("0.03").unwrap(),
+        dyn_rate_yr_increase_expectation: Decimal256::from_str("0.01").unwrap(),
+        dyn_rate_min: Decimal256::zero(),
+        dyn_rate_max: Decimal256::one(),
     };
 
     // we can just call .unwrap() to assert this was a success

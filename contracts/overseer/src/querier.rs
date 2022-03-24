@@ -2,8 +2,25 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{to_binary, Addr, Deps, QueryRequest, StdResult, WasmQuery};
 
 use moneymarket::liquidation::{LiquidationAmountResponse, QueryMsg as LiquidationQueryMsg};
-use moneymarket::market::{BorrowerInfoResponse, EpochStateResponse, QueryMsg as MarketQueryMsg};
+use moneymarket::market::{
+    BorrowerInfoResponse, EpochStateResponse, QueryMsg as MarketQueryMsg, StateResponse,
+};
 use moneymarket::tokens::TokensHuman;
+
+pub fn query_market_state(
+    deps: Deps,
+    market_addr: Addr,
+    block_height: u64,
+) -> StdResult<StateResponse> {
+    let epoch_state: StateResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: market_addr.to_string(),
+        msg: to_binary(&MarketQueryMsg::State {
+            block_height: Some(block_height),
+        })?,
+    }))?;
+
+    Ok(epoch_state)
+}
 
 pub fn query_epoch_state(
     deps: Deps,
