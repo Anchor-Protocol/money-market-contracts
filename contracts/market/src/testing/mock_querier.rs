@@ -267,6 +267,17 @@ impl WasmMockQuerier {
                             stable_denom: "uusd".to_string(),
                             epoch_period: 100u64,
                             price_timeframe: 100u64,
+                            dyn_rate_epoch: 8600u64,
+                            dyn_rate_maxchange: Decimal256::permille(5),
+                            dyn_rate_yr_increase_expectation: Decimal256::permille(1),
+                            dyn_rate_min: Decimal256::from_ratio(
+                                1000000000000u64,
+                                1000000000000000000u64,
+                            ),
+                            dyn_rate_max: Decimal256::from_ratio(
+                                1200000000000u64,
+                                1000000000000000000u64,
+                            ),
                         })))
                     }
                     QueryMsg::TokenInfo {} => {
