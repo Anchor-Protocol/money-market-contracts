@@ -15,7 +15,9 @@ use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20ReceiveMsg;
 use moneymarket::common::optional_addr_validate;
-use moneymarket::custody::{ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
+use moneymarket::custody::{
+    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+};
 use terra_cosmwasm::TerraMsgWrapper;
 
 pub const CLAIM_REWARDS_OPERATION: u64 = 1u64;
@@ -185,4 +187,9 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         stable_denom: config.stable_denom,
         basset_info: config.basset_info,
     })
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    Ok(Response::default())
 }
