@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InstantiateMsg",
+  "type": "object",
+  "required": [
+    "basset_info",
+    "collateral_token",
+    "liquidation_contract",
+    "market_contract",
+    "overseer_contract",
+    "owner",
+    "reward_contract",
+    "stable_denom"
+  ],
+  "properties": {
+    "basset_info": {
+      "$ref": "#/definitions/BAssetInfo"
+    },
+    "collateral_token": {
+      "description": "bAsset token address",
+      "type": "string"
+    },
+    "liquidation_contract": {
+      "description": "liquidation contract address",
+      "type": "string"
+    },
+    "market_contract": {
+      "description": "market contract address",
+      "type": "string"
+    },
+    "overseer_contract": {
+      "description": "overseer contract address",
+      "type": "string"
+    },
+    "owner": {
+      "description": "owner address",
+      "type": "string"
+    },
+    "reward_contract": {
+      "description": "bAsset rewrad contract",
+      "type": "string"
+    },
+    "stable_denom": {
+      "description": "Expected reward denom. If bAsset reward is not same with it, we try to convert the reward to the `stable_denom`.",
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "BAssetInfo": {
+      "type": "object",
+      "required": [
+        "decimals",
+        "name",
+        "symbol"
+      ],
+      "properties": {
+        "decimals": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "name": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

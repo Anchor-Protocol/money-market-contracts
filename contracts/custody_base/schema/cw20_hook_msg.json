@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Cw20HookMsg",
+  "oneOf": [
+    {
+      "description": "Deposit collateral token",
+      "type": "object",
+      "required": [
+        "deposit_collateral"
+      ],
+      "properties": {
+        "deposit_collateral": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}
