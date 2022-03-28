@@ -98,7 +98,7 @@ pub fn swap_to_stable_denom(
 ) -> Result<Response<TerraMsgWrapper>, ContractError> {
     let config: Config = read_config(deps.storage)?;
 
-    let contract_addr = env.contract.address;
+    let contract_addr = env.contract.address.clone();
     let balances: Vec<Coin> = query_all_balances(deps.as_ref(), contract_addr)?;
     let mut messages: Vec<SubMsg<TerraMsgWrapper>> = balances
         .iter()
@@ -109,6 +109,8 @@ pub fn swap_to_stable_denom(
     if let Some(last) = messages.last_mut() {
         last.id = SWAP_TO_STABLE_OPERATION;
         last.reply_on = ReplyOn::Success;
+    } else {
+        return distribute_hook(deps, env);
     }
 
     Ok(Response::new().add_submessages(messages))
