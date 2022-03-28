@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfigResponse",
+  "type": "object",
+  "required": [
+    "basset_info",
+    "collateral_token",
+    "liquidation_contract",
+    "market_contract",
+    "overseer_contract",
+    "owner",
+    "reward_contract",
+    "stable_denom"
+  ],
+  "properties": {
+    "basset_info": {
+      "$ref": "#/definitions/BAssetInfo"
+    },
+    "collateral_token": {
+      "type": "string"
+    },
+    "liquidation_contract": {
+      "type": "string"
+    },
+    "market_contract": {
+      "type": "string"
+    },
+    "overseer_contract": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "reward_contract": {
+      "type": "string"
+    },
+    "stable_denom": {
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "BAssetInfo": {
+      "type": "object",
+      "required": [
+        "decimals",
+        "name",
+        "symbol"
+      ],
+      "properties": {
+        "decimals": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "name": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
