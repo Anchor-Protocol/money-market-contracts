@@ -73,12 +73,6 @@ pub enum ExecuteMsg {
     ////////////////////
     /// User operations
     ////////////////////
-    /// Bond aterra and release ve_aterra
-    BondATerra {},
-
-    /// Burn ve_aterra and entitle sender to claim corresponding aterra after 30 day waiting period
-    UnbondVeATerra {},
-
     /// Claim `amount` of aterra unbonded 30 days before `block_height`
     ClaimATerra {
         amount: Uint256,
@@ -109,6 +103,12 @@ pub enum Cw20HookMsg {
     /// Return stable coins to a user
     /// according to exchange rate
     RedeemStable {},
+
+    /// Bond aterra and release ve_aterra
+    BondATerra {},
+
+    /// Burn ve_aterra and entitle sender to claim corresponding aterra after 30 day waiting period
+    UnbondVeATerra {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

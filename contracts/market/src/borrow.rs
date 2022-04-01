@@ -436,16 +436,6 @@ fn assert_max_borrow_factor(
     let current_balance = Decimal256::from_uint256(current_balance);
     let borrow_amount = Decimal256::from_uint256(borrow_amount);
 
-    dbg!(
-        state.total_liabilities,
-        borrow_amount,
-        current_balance,
-        state.total_reserves,
-        config.max_borrow_factor,
-        state.total_liabilities + borrow_amount,
-        (current_balance + state.total_liabilities - state.total_reserves)
-            * config.max_borrow_factor
-    );
     // Assert max borrow factor
     if state.total_liabilities + borrow_amount
         > (current_balance + state.total_liabilities - state.total_reserves)

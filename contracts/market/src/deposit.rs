@@ -13,45 +13,49 @@ use crate::borrow::{compute_interest, compute_reward};
 use crate::error::ContractError;
 use crate::state::{
     read_config, read_state, read_ve_aterra_staker_infos, store_state, store_ve_stacker_infos,
-    Config, State, ATERRA_NAME, VE_ATERRA_NAME,
+    Config, State,
 };
 
-pub fn bond_aterra(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
+pub fn bond_aterra(
+    deps: DepsMut,
+    env: Env,
+    sender: Addr,
+    bond_amount: Uint256,
+) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     let mut state: State = read_state(deps.storage)?;
 
     compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
     compute_reward(&mut state, env.block.height);
 
-    let bond_amount = extract_coin_amount(&info, ATERRA_NAME)?;
-    let exchange_rate = compute_ve_exchange_rate(&state, env.block.height);
+    let exchange_rate = dbg!(compute_ve_exchange_rate(&state, env.block.height));
 
-    let ve_aterra_amount = bond_amount / exchange_rate;
-    state.prev_aterra_supply = state.prev_aterra_supply - bond_amount;
+    let ve_aterra_amount = dbg!(bond_amount / exchange_rate);
+    state.prev_aterra_supply = dbg!(state.prev_aterra_supply - bond_amount);
     state.prev_ve_aterra_supply += ve_aterra_amount;
     store_state(deps.storage, &state)?;
 
     Ok(Response::new()
         .add_messages([
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.into(),
+                contract_addr: dbg!(deps.api.addr_humanize(&config.aterra_contract)?.into()),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Burn {
                     amount: bond_amount.into(),
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.addr_humanize(&config.ve_aterra_contract)?.into(),
+                contract_addr: dbg!(deps.api.addr_humanize(&config.ve_aterra_contract)?.into()),
                 funds: vec![],
-                msg: to_binary(&Cw20ExecuteMsg::Mint {
-                    recipient: info.sender.to_string(),
+                msg: to_binary(dbg!(&Cw20ExecuteMsg::Mint {
+                    recipient: sender.to_string(),
                     amount: ve_aterra_amount.into(),
-                })?,
+                }))?,
             }),
         ])
         .add_attributes([
             attr("action", "bond_aterra"),
-            attr("depositor", info.sender),
+            attr("depositor", sender),
             attr("bond_amount", bond_amount),
             attr("mint_amount", ve_aterra_amount),
         ]))
@@ -60,7 +64,8 @@ pub fn bond_aterra(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Respons
 pub fn unbond_ve_aterra(
     deps: DepsMut,
     env: Env,
-    info: MessageInfo,
+    sender: Addr,
+    unbond_amount: Uint256,
 ) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     let mut state: State = read_state(deps.storage)?;
@@ -68,7 +73,6 @@ pub fn unbond_ve_aterra(
     compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
     compute_reward(&mut state, env.block.height);
 
-    let unbond_amount = extract_coin_amount(&info, VE_ATERRA_NAME)?;
     let exchange_rate = compute_ve_exchange_rate(&state, env.block.height);
 
     let aterra_mint_amount = unbond_amount * exchange_rate;
@@ -89,14 +93,14 @@ pub fn unbond_ve_aterra(
                 contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.into(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Mint {
-                    recipient: info.sender.to_string(),
+                    recipient: sender.to_string(),
                     amount: aterra_mint_amount.into(),
                 })?,
             }),
         ])
         .add_attributes([
             attr("action", "unbond_ve_aterra"),
-            attr("depositor", info.sender),
+            attr("depositor", sender.to_string()),
             attr("unbond_amount", unbond_amount),
             attr("mint_amount", aterra_mint_amount),
         ]))
@@ -295,7 +299,11 @@ fn extract_coin_amount(info: &MessageInfo, coin: &str) -> Result<Uint256, Contra
 
 pub(crate) fn compute_ve_exchange_rate(state: &State, block_height: u64) -> Decimal256 {
     let blocks_elapses = Decimal256::from_ratio(block_height - state.last_ve_aterra_updated, 1);
-    state.prev_ve_aterra_exchange_rate * blocks_elapses * state.ve_aterra_premium_rate
+    if blocks_elapses.is_zero() {
+        state.prev_ve_aterra_exchange_rate
+    } else {
+        state.prev_ve_aterra_exchange_rate * blocks_elapses * state.ve_aterra_premium_rate
+    }
 }
 
 pub(crate) fn compute_exchange_rate(

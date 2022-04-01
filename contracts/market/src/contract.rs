@@ -203,8 +203,6 @@ pub fn execute(
             threshold_deposit_rate,
             distributed_interest,
         ),
-        ExecuteMsg::BondATerra {} => bond_aterra(deps, env, info),
-        ExecuteMsg::UnbondVeATerra {} => unbond_ve_aterra(deps, env, info),
         ExecuteMsg::ClaimATerra {
             amount,
             block_height,
@@ -289,6 +287,26 @@ pub fn receive_cw20(
 
             let cw20_sender_addr = deps.api.addr_validate(&cw20_msg.sender)?;
             redeem_stable(deps, env, cw20_sender_addr, cw20_msg.amount)
+        }
+        Ok(Cw20HookMsg::UnbondVeATerra {}) => {
+            // only asset contract can execute this message
+            let config: Config = read_config(deps.storage)?;
+            if deps.api.addr_canonicalize(contract_addr.as_str())? != config.ve_aterra_contract {
+                return Err(ContractError::Unauthorized {});
+            }
+
+            let cw20_sender_addr = deps.api.addr_validate(&cw20_msg.sender)?;
+            unbond_ve_aterra(deps, env, cw20_sender_addr, Uint256::from(cw20_msg.amount))
+        }
+        Ok(Cw20HookMsg::BondATerra {}) => {
+            // only asset contract can execute this message
+            let config: Config = read_config(deps.storage)?;
+            if deps.api.addr_canonicalize(contract_addr.as_str())? != config.aterra_contract {
+                return Err(ContractError::Unauthorized {});
+            }
+
+            let cw20_sender_addr = deps.api.addr_validate(&cw20_msg.sender)?;
+            bond_aterra(deps, env, cw20_sender_addr, Uint256::from(cw20_msg.amount))
         }
         _ => Err(ContractError::MissingRedeemStableHook {}),
     }
