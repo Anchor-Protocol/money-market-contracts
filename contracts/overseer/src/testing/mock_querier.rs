@@ -251,7 +251,7 @@ impl WasmMockQuerier {
                                     global_reward_index: Decimal256::zero(),
                                     anc_emission_rate: Decimal256::zero(),
                                     prev_aterra_supply: Uint256::zero(),
-                                    prev_exchange_rate: Decimal256::zero(),
+                                    prev_aterra_exchange_rate: Decimal256::zero(),
                                 })))
                             }
                             None => SystemResult::Err(SystemError::InvalidRequest {

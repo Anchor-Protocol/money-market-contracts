@@ -2,14 +2,14 @@ use crate::contract::{execute, instantiate, query, reply, INITIAL_DEPOSIT_AMOUNT
 use crate::error::ContractError;
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_borrower_infos, read_state, store_state, State};
-use crate::testing::mock_querier::mock_dependencies;
+use crate::testing::mock_querier::{mock_dependencies, WasmMockQuerier};
 
 use anchor_token::distributor::ExecuteMsg as FaucetExecuteMsg;
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Addr, BankMsg, Coin, ContractResult, CosmosMsg, Decimal, Reply,
-    SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
+    attr, from_binary, to_binary, Addr, BankMsg, Coin, ContractResult, CosmosMsg, Decimal,
+    OwnedDeps, Reply, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
 use cw20::{Cw20Coin, Cw20ExecuteMsg, Cw20ReceiveMsg, MinterResponse};
 use moneymarket::market::{
@@ -32,6 +32,7 @@ fn proper_initialization() {
         owner_addr: "owner".to_string(),
         stable_denom: "uusd".to_string(),
         aterra_code_id: 123u64,
+        ve_aterra_code_id: 456u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -48,29 +49,54 @@ fn proper_initialization() {
     let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![SubMsg::reply_on_success(
-            CosmosMsg::Wasm(WasmMsg::Instantiate {
-                admin: None,
-                code_id: 123u64,
-                funds: vec![],
-                label: "".to_string(),
-                msg: to_binary(&TokenInstantiateMsg {
-                    name: "Anchor Terra USD".to_string(),
-                    symbol: "aUST".to_string(),
-                    decimals: 6u8,
-                    initial_balances: vec![Cw20Coin {
-                        address: MOCK_CONTRACT_ADDR.to_string(),
-                        amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
-                    }],
-                    mint: Some(MinterResponse {
-                        minter: MOCK_CONTRACT_ADDR.to_string(),
-                        cap: None,
-                    }),
-                })
-                .unwrap(),
-            }),
-            1
-        )]
+        vec![
+            SubMsg::reply_on_success(
+                CosmosMsg::Wasm(WasmMsg::Instantiate {
+                    admin: None,
+                    code_id: 123u64,
+                    funds: vec![],
+                    label: "".to_string(),
+                    msg: to_binary(&TokenInstantiateMsg {
+                        name: "Anchor Terra USD".to_string(),
+                        symbol: "aUST".to_string(),
+                        decimals: 6u8,
+                        initial_balances: vec![Cw20Coin {
+                            address: MOCK_CONTRACT_ADDR.to_string(),
+                            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+                        }],
+                        mint: Some(MinterResponse {
+                            minter: MOCK_CONTRACT_ADDR.to_string(),
+                            cap: None,
+                        }),
+                    })
+                    .unwrap(),
+                }),
+                1
+            ),
+            SubMsg::reply_on_success(
+                CosmosMsg::Wasm(WasmMsg::Instantiate {
+                    admin: None,
+                    code_id: 456u64,
+                    funds: vec![],
+                    label: "".to_string(),
+                    msg: to_binary(&TokenInstantiateMsg {
+                        name: "Vote Escrow Anchor Terra USD".to_string(),
+                        symbol: "veaUST".to_string(),
+                        decimals: 6u8,
+                        initial_balances: vec![Cw20Coin {
+                            address: MOCK_CONTRACT_ADDR.to_string(),
+                            amount: Uint128::zero(),
+                        }],
+                        mint: Some(MinterResponse {
+                            minter: MOCK_CONTRACT_ADDR.to_string(),
+                            cap: None,
+                        }),
+                    })
+                    .unwrap(),
+                }),
+                2
+            )
+        ]
     );
 
     // Register anchor token contract
@@ -135,7 +161,7 @@ fn proper_initialization() {
     assert_eq!(Decimal256::one(), state.global_interest_index);
     assert_eq!(Decimal256::one(), state.anc_emission_rate);
     assert_eq!(Uint256::zero(), state.prev_aterra_supply);
-    assert_eq!(Decimal256::one(), state.prev_exchange_rate);
+    assert_eq!(Decimal256::one(), state.prev_aterra_exchange_rate);
 }
 
 #[test]
@@ -147,13 +173,7 @@ fn update_config() {
     deps.querier
         .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
 
-    let msg = InstantiateMsg {
-        owner_addr: "owner".to_string(),
-        stable_denom: "uusd".to_string(),
-        aterra_code_id: 123u64,
-        anc_emission_rate: Decimal256::one(),
-        max_borrow_factor: Decimal256::one(),
-    };
+    let msg = get_mock_instantiate_msg();
 
     let info = mock_info(
         "addr0000",
@@ -242,6 +262,35 @@ fn update_config() {
     }
 }
 
+fn register_anchor_token_contracts(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) {
+    {
+        // Register anchor token contract
+        let mut token_inst_res = MsgInstantiateContractResponse::new();
+        token_inst_res.set_contract_address("AT-uusd".to_string());
+        let reply_msg = Reply {
+            id: 1,
+            result: ContractResult::Ok(SubMsgExecutionResponse {
+                events: vec![],
+                data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+            }),
+        };
+        let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+    }
+    {
+        // Register ve anchor token contract
+        let mut token_inst_res = MsgInstantiateContractResponse::new();
+        token_inst_res.set_contract_address("ve-AT-uusd".to_string());
+        let reply_msg = Reply {
+            id: 2,
+            result: ContractResult::Ok(SubMsgExecutionResponse {
+                events: vec![],
+                data: Some(token_inst_res.write_to_bytes().unwrap().into()),
+            }),
+        };
+        let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+    }
+}
+
 #[test]
 fn deposit_stable_huge_amount() {
     let mut deps = mock_dependencies(&[Coin {
@@ -253,6 +302,7 @@ fn deposit_stable_huge_amount() {
         owner_addr: "owner".to_string(),
         stable_denom: "uusd".to_string(),
         aterra_code_id: 123u64,
+        ve_aterra_code_id: 456u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -268,28 +318,7 @@ fn deposit_stable_huge_amount() {
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // Register anchor token contract
-    let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
-    let reply_msg = Reply {
-        id: 1,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
-        }),
-    };
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
-
-    // Register overseer contract
-    let msg = ExecuteMsg::RegisterContracts {
-        overseer_contract: "overseer".to_string(),
-        interest_model: "interest".to_string(),
-        distribution_model: "distribution".to_string(),
-        collector_contract: "collector".to_string(),
-        distributor_contract: "distributor".to_string(),
-    };
-    let info = mock_info("addr0000", &[]);
-    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    register_anchor_token_contracts(&mut deps);
 
     // Must deposit stable_denom
     let msg = ExecuteMsg::DepositStable {};
@@ -409,6 +438,7 @@ fn deposit_stable() {
         owner_addr: "owner".to_string(),
         stable_denom: "uusd".to_string(),
         aterra_code_id: 123u64,
+        ve_aterra_code_id: 456u64,
         anc_emission_rate: Decimal256::one(),
         max_borrow_factor: Decimal256::one(),
     };
@@ -424,17 +454,7 @@ fn deposit_stable() {
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // Register anchor token contract
-    let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
-    let reply_msg = Reply {
-        id: 1,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
-        }),
-    };
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+    register_anchor_token_contracts(&mut deps);
 
     // Register overseer contract
     let msg = ExecuteMsg::RegisterContracts {
@@ -512,15 +532,10 @@ fn deposit_stable() {
     assert_eq!(
         read_state(deps.as_ref().storage).unwrap(),
         State {
-            global_interest_index: Decimal256::one(),
-            global_reward_index: Decimal256::zero(),
-            total_liabilities: Decimal256::zero(),
-            total_reserves: Decimal256::zero(),
             last_interest_updated: mock_env().block.height,
             last_reward_updated: mock_env().block.height,
-            anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(1000000u64),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         }
     );
 
@@ -555,11 +570,8 @@ fn deposit_stable() {
             total_reserves: Decimal256::from_uint256(550000u128),
             last_interest_updated: mock_env().block.height,
             last_reward_updated: mock_env().block.height,
-            global_interest_index: Decimal256::one(),
-            global_reward_index: Decimal256::zero(),
-            anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            prev_aterra_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            ..Default::default()
         },
     )
     .unwrap();
@@ -605,11 +617,8 @@ fn deposit_stable() {
             total_reserves: Decimal256::from_uint256(550000u128),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
-            global_interest_index: Decimal256::one(),
-            global_reward_index: Decimal256::zero(),
-            anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            prev_aterra_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            ..Default::default()
         },
     )
     .unwrap();
@@ -636,9 +645,21 @@ fn deposit_stable() {
             last_reward_updated: env.block.height,
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT + 1818181),
-            prev_exchange_rate: Decimal256::from_ratio(55u64, 100u64),
+            prev_aterra_exchange_rate: Decimal256::from_ratio(55u64, 100u64),
+            ..Default::default()
         }
     );
+}
+
+fn get_mock_instantiate_msg() -> InstantiateMsg {
+    InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        stable_denom: "uusd".to_string(),
+        aterra_code_id: 123u64,
+        ve_aterra_code_id: 456u64,
+        anc_emission_rate: Decimal256::one(),
+        max_borrow_factor: Decimal256::one(),
+    }
 }
 
 #[test]
@@ -647,14 +668,6 @@ fn redeem_stable() {
         denom: "uusd".to_string(),
         amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
     }]);
-
-    let msg = InstantiateMsg {
-        owner_addr: "owner".to_string(),
-        stable_denom: "uusd".to_string(),
-        aterra_code_id: 123u64,
-        anc_emission_rate: Decimal256::one(),
-        max_borrow_factor: Decimal256::one(),
-    };
 
     let info = mock_info(
         "addr0000",
@@ -665,19 +678,9 @@ fn redeem_stable() {
     );
 
     // we can just call .unwrap() to assert this was a success
-    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let _res = instantiate(deps.as_mut(), mock_env(), info, get_mock_instantiate_msg()).unwrap();
 
-    // Register anchor token contract
-    let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
-    let reply_msg = Reply {
-        id: 1,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
-        }),
-    };
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+    register_anchor_token_contracts(&mut deps);
 
     // Register overseer contract
     let msg = ExecuteMsg::RegisterContracts {
@@ -769,11 +772,8 @@ fn redeem_stable() {
             total_reserves: Decimal256::from_uint256(100000u128),
             last_interest_updated: mock_env().block.height,
             last_reward_updated: mock_env().block.height,
-            global_interest_index: Decimal256::one(),
-            global_reward_index: Decimal256::zero(),
-            anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(2000000u64),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         },
     )
     .unwrap();
@@ -840,13 +840,7 @@ fn borrow_stable() {
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
 
-    let msg = InstantiateMsg {
-        owner_addr: "owner".to_string(),
-        stable_denom: "uusd".to_string(),
-        aterra_code_id: 123u64,
-        anc_emission_rate: Decimal256::one(),
-        max_borrow_factor: Decimal256::one(),
-    };
+    let msg = get_mock_instantiate_msg();
 
     let info = mock_info(
         "addr0000",
@@ -859,17 +853,7 @@ fn borrow_stable() {
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // Register anchor token contract
-    let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
-    let reply_msg = Reply {
-        id: 1,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
-        }),
-    };
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+    register_anchor_token_contracts(&mut deps);
 
     // Register overseer contract
     let msg = ExecuteMsg::RegisterContracts {
@@ -892,14 +876,9 @@ fn borrow_stable() {
         deps.as_mut().storage,
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
-            global_interest_index: Decimal256::one(),
-            global_reward_index: Decimal256::zero(),
-            anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         },
     )
     .unwrap();
@@ -957,14 +936,11 @@ fn borrow_stable() {
         .unwrap(),
         State {
             total_liabilities: Decimal256::from_uint256(2500000u128),
-            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
             global_interest_index: Decimal256::from_uint256(2u128),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
-            anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         }
     );
 
@@ -988,9 +964,7 @@ fn borrow_stable() {
             last_reward_updated: env.block.height + 1u64,
             global_interest_index: Decimal256::from_str("2.02").unwrap(),
             global_reward_index: Decimal256::from_str("0.0001008").unwrap(),
-            anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         }
     );
 
@@ -1085,13 +1059,8 @@ fn assert_max_borrow_factor() {
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
 
-    let msg = InstantiateMsg {
-        owner_addr: "owner".to_string(),
-        stable_denom: "uusd".to_string(),
-        aterra_code_id: 123u64,
-        anc_emission_rate: Decimal256::one(),
-        max_borrow_factor: Decimal256::percent(1),
-    };
+    let mut msg = get_mock_instantiate_msg();
+    msg.max_borrow_factor = Decimal256::percent(1);
 
     let info = mock_info(
         "addr0000",
@@ -1104,17 +1073,7 @@ fn assert_max_borrow_factor() {
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // Register anchor token contract
-    let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
-    let reply_msg = Reply {
-        id: 1,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
-        }),
-    };
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+    register_anchor_token_contracts(&mut deps);
 
     // Register overseer contract
     let msg = ExecuteMsg::RegisterContracts {
@@ -1125,7 +1084,7 @@ fn assert_max_borrow_factor() {
         distributor_contract: "distributor".to_string(),
     };
     let info = mock_info("addr0000", &[]);
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
     deps.querier
         .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
@@ -1135,15 +1094,9 @@ fn assert_max_borrow_factor() {
     store_state(
         deps.as_mut().storage,
         &State {
-            total_liabilities: Decimal256::zero(),
-            total_reserves: Decimal256::zero(),
             last_interest_updated: mock_env().block.height,
             last_reward_updated: mock_env().block.height,
-            global_interest_index: Decimal256::one(),
-            global_reward_index: Decimal256::zero(),
-            anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         },
     )
     .unwrap();
@@ -1195,13 +1148,7 @@ fn repay_stable() {
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
 
-    let msg = InstantiateMsg {
-        owner_addr: "owner".to_string(),
-        stable_denom: "uusd".to_string(),
-        aterra_code_id: 123u64,
-        anc_emission_rate: Decimal256::one(),
-        max_borrow_factor: Decimal256::one(),
-    };
+    let msg = get_mock_instantiate_msg();
 
     let info = mock_info(
         "addr0000",
@@ -1214,17 +1161,7 @@ fn repay_stable() {
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // Register anchor token contract
-    let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
-    let reply_msg = Reply {
-        id: 1,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
-        }),
-    };
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+    register_anchor_token_contracts(&mut deps);
 
     // Register overseer contract
     let msg = ExecuteMsg::RegisterContracts {
@@ -1247,14 +1184,9 @@ fn repay_stable() {
         deps.as_mut().storage,
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
-            global_interest_index: Decimal256::one(),
-            global_reward_index: Decimal256::zero(),
-            anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         },
     )
     .unwrap();
@@ -1378,13 +1310,7 @@ fn repay_stable_from_liquidation() {
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
 
-    let msg = InstantiateMsg {
-        owner_addr: "owner".to_string(),
-        stable_denom: "uusd".to_string(),
-        aterra_code_id: 123u64,
-        anc_emission_rate: Decimal256::one(),
-        max_borrow_factor: Decimal256::one(),
-    };
+    let msg = get_mock_instantiate_msg();
 
     let info = mock_info(
         "addr0000",
@@ -1397,17 +1323,7 @@ fn repay_stable_from_liquidation() {
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // Register anchor token contract
-    let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
-    let reply_msg = Reply {
-        id: 1,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
-        }),
-    };
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+    register_anchor_token_contracts(&mut deps);
 
     // Register overseer contract
     let msg = ExecuteMsg::RegisterContracts {
@@ -1430,14 +1346,9 @@ fn repay_stable_from_liquidation() {
         deps.as_mut().storage,
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
-            global_interest_index: Decimal256::one(),
-            global_reward_index: Decimal256::zero(),
-            anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         },
     )
     .unwrap();
@@ -1549,13 +1460,7 @@ fn claim_rewards() {
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
 
-    let msg = InstantiateMsg {
-        owner_addr: "owner".to_string(),
-        stable_denom: "uusd".to_string(),
-        aterra_code_id: 123u64,
-        anc_emission_rate: Decimal256::one(),
-        max_borrow_factor: Decimal256::one(),
-    };
+    let msg = get_mock_instantiate_msg();
 
     let info = mock_info(
         "addr0000",
@@ -1568,17 +1473,7 @@ fn claim_rewards() {
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // Register anchor token contract
-    let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
-    let reply_msg = Reply {
-        id: 1,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
-        }),
-    };
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+    register_anchor_token_contracts(&mut deps);
 
     // Register overseer contract
     let msg = ExecuteMsg::RegisterContracts {
@@ -1601,14 +1496,9 @@ fn claim_rewards() {
         deps.as_mut().storage,
         &State {
             total_liabilities: Decimal256::from_uint256(1000000u128),
-            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
-            global_interest_index: Decimal256::one(),
-            global_reward_index: Decimal256::zero(),
-            anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         },
     )
     .unwrap();
@@ -1680,13 +1570,7 @@ fn execute_epoch_operations() {
         &[(&"uusd".to_string(), &Uint128::from(1000000u128))],
     );
 
-    let msg = InstantiateMsg {
-        owner_addr: "owner".to_string(),
-        stable_denom: "uusd".to_string(),
-        aterra_code_id: 123u64,
-        anc_emission_rate: Decimal256::one(),
-        max_borrow_factor: Decimal256::one(),
-    };
+    let msg = get_mock_instantiate_msg();
 
     let info = mock_info(
         "addr0000",
@@ -1699,17 +1583,7 @@ fn execute_epoch_operations() {
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // Register anchor token contract
-    let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
-    let reply_msg = Reply {
-        id: 1,
-        result: ContractResult::Ok(SubMsgExecutionResponse {
-            events: vec![],
-            data: Some(token_inst_res.write_to_bytes().unwrap().into()),
-        }),
-    };
-    let _res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
+    register_anchor_token_contracts(&mut deps);
 
     // Register overseer contract
     let msg = ExecuteMsg::RegisterContracts {
@@ -1735,11 +1609,7 @@ fn execute_epoch_operations() {
             total_reserves: Decimal256::from_uint256(3000u128),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
-            global_interest_index: Decimal256::one(),
-            global_reward_index: Decimal256::zero(),
-            anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         },
     )
     .unwrap();
@@ -1779,14 +1649,12 @@ fn execute_epoch_operations() {
         state,
         State {
             total_liabilities: Decimal256::from_uint256(2000000u128),
-            total_reserves: Decimal256::zero(),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
             global_interest_index: Decimal256::from_uint256(2u64),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         }
     );
 
@@ -1809,11 +1677,7 @@ fn execute_epoch_operations() {
             total_reserves: Decimal256::from_uint256(3000u128),
             last_interest_updated: env.block.height,
             last_reward_updated: env.block.height,
-            global_interest_index: Decimal256::one(),
-            global_reward_index: Decimal256::zero(),
-            anc_emission_rate: Decimal256::one(),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         },
     )
     .unwrap();
@@ -1842,8 +1706,7 @@ fn execute_epoch_operations() {
             global_interest_index: Decimal256::from_uint256(2u64),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
-            prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            ..Default::default()
         }
     );
 }

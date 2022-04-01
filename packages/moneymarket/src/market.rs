@@ -1,8 +1,7 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cw20::Cw20ReceiveMsg;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -13,6 +12,8 @@ pub struct InstantiateMsg {
     pub stable_denom: String,
     /// Anchor token code ID used to instantiate
     pub aterra_code_id: u64,
+    /// VeAnchor token code ID used to instantiate
+    pub ve_aterra_code_id: u64,
     /// Anchor token distribution speed
     pub anc_emission_rate: Decimal256,
     /// Maximum allowed borrow rate over deposited stable balance
@@ -72,6 +73,18 @@ pub enum ExecuteMsg {
     ////////////////////
     /// User operations
     ////////////////////
+    /// Bond aterra and release ve_aterra
+    BondATerra {},
+
+    /// Burn ve_aterra and entitle sender to claim corresponding aterra after 30 day waiting period
+    UnbondVeATerra {},
+
+    /// Claim `amount` of aterra unbonded 30 days before `block_height`
+    ClaimATerra {
+        amount: Uint256,
+        block_height: u64,
+    },
+
     /// Deposit stable asset to get interest
     DepositStable {},
 
@@ -144,7 +157,12 @@ pub struct StateResponse {
     pub global_reward_index: Decimal256,
     pub anc_emission_rate: Decimal256,
     pub prev_aterra_supply: Uint256,
-    pub prev_exchange_rate: Decimal256,
+    pub prev_aterra_exchange_rate: Decimal256,
+
+    pub ve_aterra_premium_rate: Decimal256, // in blocks
+    pub prev_ve_aterra_supply: Uint256,
+    pub prev_ve_aterra_exchange_rate: Decimal256,
+    pub last_ve_aterra_updated: u64, // todo: if all updates always happen together, consider merging last updated blockstamps
 }
 
 // We define a custom struct for each query response

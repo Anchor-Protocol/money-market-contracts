@@ -253,6 +253,7 @@ pub fn compute_interest(
     }
 
     let aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.aterra_contract)?)?;
+    let ve_aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.ve_aterra_contract)?)?;
     let balance: Uint256 = query_balance(
         deps,
         deps.api.addr_humanize(&config.contract_addr)?,
@@ -275,6 +276,7 @@ pub fn compute_interest(
         block_height,
         balance,
         aterra_supply,
+        ve_aterra_supply,
         borrow_rate_res.rate,
         target_deposit_rate,
     );
@@ -292,6 +294,7 @@ pub fn compute_interest_raw(
     block_height: u64,
     balance: Uint256,
     aterra_supply: Uint256,
+    ve_aterra_supply: Uint256,
     borrow_rate: Decimal256,
     target_deposit_rate: Decimal256,
 ) {
@@ -308,25 +311,37 @@ pub fn compute_interest_raw(
         state.global_interest_index * (Decimal256::one() + interest_factor);
     state.total_liabilities += interest_accrued;
 
-    let mut exchange_rate = compute_exchange_rate_raw(state, aterra_supply, balance);
-    let effective_deposit_rate = exchange_rate / state.prev_exchange_rate;
+    let mut exchange_rate = compute_exchange_rate_raw(
+        state,
+        block_height,
+        aterra_supply,
+        ve_aterra_supply,
+        balance,
+    );
+    let effective_deposit_rate = exchange_rate / state.prev_aterra_exchange_rate;
     let deposit_rate = (effective_deposit_rate - Decimal256::one()) / passed_blocks;
 
     if deposit_rate > target_deposit_rate {
         // excess_deposit_rate(_per_block)
         let excess_deposit_rate = deposit_rate - target_deposit_rate;
         let prev_deposits =
-            Decimal256::from_uint256(state.prev_aterra_supply * state.prev_exchange_rate);
+            Decimal256::from_uint256(state.prev_aterra_supply * state.prev_aterra_exchange_rate);
 
         // excess_yield = prev_deposits * excess_deposit_rate(_per_block) * blocks
         let excess_yield = prev_deposits * passed_blocks * excess_deposit_rate;
 
         state.total_reserves += excess_yield;
-        exchange_rate = compute_exchange_rate_raw(state, aterra_supply, balance);
+        exchange_rate = compute_exchange_rate_raw(
+            state,
+            block_height,
+            aterra_supply,
+            ve_aterra_supply,
+            balance,
+        );
     }
 
     state.prev_aterra_supply = aterra_supply;
-    state.prev_exchange_rate = exchange_rate;
+    state.prev_aterra_exchange_rate = exchange_rate;
     state.last_interest_updated = block_height;
 }
 
@@ -421,6 +436,16 @@ fn assert_max_borrow_factor(
     let current_balance = Decimal256::from_uint256(current_balance);
     let borrow_amount = Decimal256::from_uint256(borrow_amount);
 
+    dbg!(
+        state.total_liabilities,
+        borrow_amount,
+        current_balance,
+        state.total_reserves,
+        config.max_borrow_factor,
+        state.total_liabilities + borrow_amount,
+        (current_balance + state.total_liabilities - state.total_reserves)
+            * config.max_borrow_factor
+    );
     // Assert max borrow factor
     if state.total_liabilities + borrow_amount
         > (current_balance + state.total_liabilities - state.total_reserves)

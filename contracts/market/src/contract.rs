@@ -1,22 +1,13 @@
+use cosmwasm_bignumber::{Decimal256, Uint256};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-
-use crate::borrow::{
-    borrow_stable, claim_rewards, compute_interest, compute_interest_raw, compute_reward,
-    query_borrower_info, query_borrower_infos, repay_stable, repay_stable_from_liquidation,
-};
-use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
-use crate::error::ContractError;
-use crate::querier::{query_anc_emission_rate, query_borrow_rate, query_target_deposit_rate};
-use crate::response::MsgInstantiateContractResponse;
-use crate::state::{read_config, read_state, store_config, store_state, Config, State};
-
-use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Deps,
     DepsMut, Env, MessageInfo, Reply, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw20::{Cw20Coin, Cw20ReceiveMsg, MinterResponse};
+use protobuf::Message;
+use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 
 use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::BorrowRateResponse;
@@ -25,8 +16,19 @@ use moneymarket::market::{
     StateResponse,
 };
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
-use protobuf::Message;
-use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
+
+use crate::borrow::{
+    borrow_stable, claim_rewards, compute_interest, compute_interest_raw, compute_reward,
+    query_borrower_info, query_borrower_infos, repay_stable, repay_stable_from_liquidation,
+};
+use crate::deposit::{
+    bond_aterra, claim_unlocked_aterra, compute_exchange_rate_raw, deposit_stable, redeem_stable,
+    unbond_ve_aterra,
+};
+use crate::error::ContractError;
+use crate::querier::{query_anc_emission_rate, query_borrow_rate, query_target_deposit_rate};
+use crate::response::MsgInstantiateContractResponse;
+use crate::state::{read_config, read_state, store_config, store_state, Config, State};
 
 pub const INITIAL_DEPOSIT_AMOUNT: u128 = 1000000;
 
@@ -57,6 +59,7 @@ pub fn instantiate(
             contract_addr: deps.api.addr_canonicalize(env.contract.address.as_str())?,
             owner_addr: deps.api.addr_canonicalize(&msg.owner_addr)?,
             aterra_contract: CanonicalAddr::from(vec![]),
+            ve_aterra_contract: CanonicalAddr::from(vec![]),
             overseer_contract: CanonicalAddr::from(vec![]),
             interest_model: CanonicalAddr::from(vec![]),
             distribution_model: CanonicalAddr::from(vec![]),
@@ -78,12 +81,16 @@ pub fn instantiate(
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: msg.anc_emission_rate,
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ve_aterra_premium_rate: Decimal256::one(),
+            prev_ve_aterra_exchange_rate: Decimal256::one(),
+            prev_ve_aterra_supply: Uint256::zero(),
+            last_ve_aterra_updated: 0,
         },
     )?;
 
-    Ok(
-        Response::new().add_submessages(vec![SubMsg::reply_on_success(
+    Ok(Response::new().add_submessages([
+        SubMsg::reply_on_success(
             CosmosMsg::Wasm(WasmMsg::Instantiate {
                 admin: None,
                 code_id: msg.aterra_code_id,
@@ -106,9 +113,37 @@ pub fn instantiate(
                     }),
                 })?,
             }),
-            1,
-        )]),
-    )
+            REGISTER_ATERRA_REPLY_ID,
+        ),
+        SubMsg::reply_on_success(
+            CosmosMsg::Wasm(WasmMsg::Instantiate {
+                admin: None,
+                code_id: msg.ve_aterra_code_id,
+                funds: vec![],
+                label: "".to_string(),
+                msg: to_binary(&TokenInstantiateMsg {
+                    name: format!(
+                        "Vote Escrow Anchor Terra {}",
+                        msg.stable_denom[1..].to_uppercase()
+                    ),
+                    symbol: format!(
+                        "vea{}T",
+                        msg.stable_denom[1..(msg.stable_denom.len() - 1)].to_uppercase()
+                    ),
+                    decimals: 6u8,
+                    initial_balances: vec![Cw20Coin {
+                        address: env.contract.address.to_string(),
+                        amount: Uint128::zero(),
+                    }],
+                    mint: Some(MinterResponse {
+                        minter: env.contract.address.to_string(),
+                        cap: None,
+                    }),
+                })?,
+            }),
+            REGISTER_VE_ATERRA_REPLY_ID,
+        ),
+    ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -168,6 +203,12 @@ pub fn execute(
             threshold_deposit_rate,
             distributed_interest,
         ),
+        ExecuteMsg::BondATerra {} => bond_aterra(deps, env, info),
+        ExecuteMsg::UnbondVeATerra {} => unbond_ve_aterra(deps, env, info),
+        ExecuteMsg::ClaimATerra {
+            amount,
+            block_height,
+        } => claim_unlocked_aterra(deps, env, info, block_height, amount),
         ExecuteMsg::DepositStable {} => deposit_stable(deps, env, info),
         ExecuteMsg::BorrowStable { borrow_amount, to } => {
             let api = deps.api;
@@ -200,26 +241,35 @@ pub fn execute(
     }
 }
 
+const REGISTER_ATERRA_REPLY_ID: u64 = 1;
+const REGISTER_VE_ATERRA_REPLY_ID: u64 = 2;
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
         1 => {
-            // get new token's contract address
-            let res: MsgInstantiateContractResponse = Message::parse_from_bytes(
-                msg.result.unwrap().data.unwrap().as_slice(),
-            )
-            .map_err(|_| {
-                ContractError::Std(StdError::parse_err(
-                    "MsgInstantiateContractResponse",
-                    "failed to parse data",
-                ))
-            })?;
-            let token_addr = Addr::unchecked(res.get_contract_address());
-
+            // get new aterra token's contract address
+            let token_addr = extract_token_addr(msg)?;
             register_aterra(deps, token_addr)
+        }
+        2 => {
+            // get new ve_aterra token's contract address
+            let token_addr = extract_token_addr(msg)?;
+            register_ve_aterra(deps, token_addr)
         }
         _ => Err(ContractError::InvalidReplyId {}),
     }
+}
+
+fn extract_token_addr(msg: Reply) -> Result<Addr, ContractError> {
+    let res: MsgInstantiateContractResponse =
+        Message::parse_from_bytes(msg.result.unwrap().data.unwrap().as_slice()).map_err(|_| {
+            ContractError::Std(StdError::parse_err(
+                "MsgInstantiateContractResponse",
+                "failed to parse data",
+            ))
+        })?;
+    Ok(Addr::unchecked(res.get_contract_address()))
 }
 
 pub fn receive_cw20(
@@ -254,6 +304,18 @@ pub fn register_aterra(deps: DepsMut, token_addr: Addr) -> Result<Response, Cont
     store_config(deps.storage, &config)?;
 
     Ok(Response::new().add_attributes(vec![attr("aterra", token_addr)]))
+}
+
+pub fn register_ve_aterra(deps: DepsMut, token_addr: Addr) -> Result<Response, ContractError> {
+    let mut config: Config = read_config(deps.storage)?;
+    if config.ve_aterra_contract != CanonicalAddr::from(vec![]) {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    config.ve_aterra_contract = deps.api.addr_canonicalize(token_addr.as_str())?;
+    store_config(deps.storage, &config)?;
+
+    Ok(Response::new().add_attributes(vec![attr("ve_aterra", token_addr)]))
 }
 
 pub fn register_contracts(
@@ -347,6 +409,10 @@ pub fn execute_epoch_operations(
         deps.as_ref(),
         deps.api.addr_humanize(&config.aterra_contract)?,
     )?;
+    let ve_aterra_supply = query_supply(
+        deps.as_ref(),
+        deps.api.addr_humanize(&config.ve_aterra_contract)?,
+    )?;
     let balance: Uint256 = query_balance(
         deps.as_ref(),
         deps.api.addr_humanize(&config.contract_addr)?,
@@ -366,13 +432,19 @@ pub fn execute_epoch_operations(
         env.block.height,
         balance,
         aterra_supply,
+        ve_aterra_supply,
         borrow_rate_res.rate,
         target_deposit_rate,
     );
 
     // recompute prev_exchange_rate with distributed_interest
-    state.prev_exchange_rate =
-        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest);
+    state.prev_aterra_exchange_rate = compute_exchange_rate_raw(
+        &state,
+        env.block.height,
+        aterra_supply,
+        ve_aterra_supply,
+        balance + distributed_interest,
+    );
 
     compute_reward(&mut state, env.block.height);
 
@@ -515,7 +587,11 @@ pub fn query_state(deps: Deps, env: Env, block_height: Option<u64>) -> StdResult
         global_reward_index: state.global_reward_index,
         anc_emission_rate: state.anc_emission_rate,
         prev_aterra_supply: state.prev_aterra_supply,
-        prev_exchange_rate: state.prev_exchange_rate,
+        prev_aterra_exchange_rate: state.prev_aterra_exchange_rate,
+        ve_aterra_premium_rate: state.ve_aterra_premium_rate,
+        prev_ve_aterra_supply: state.prev_ve_aterra_supply,
+        prev_ve_aterra_exchange_rate: state.prev_ve_aterra_exchange_rate,
+        last_ve_aterra_updated: state.last_ve_aterra_updated,
     })
 }
 
@@ -529,6 +605,7 @@ pub fn query_epoch_state(
 
     let distributed_interest = distributed_interest.unwrap_or_else(Uint256::zero);
     let aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.aterra_contract)?)?;
+    let ve_aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.ve_aterra_contract)?)?;
     let balance = query_balance(
         deps,
         deps.api.addr_humanize(&config.contract_addr)?,
@@ -559,15 +636,21 @@ pub fn query_epoch_state(
             block_height,
             balance,
             aterra_supply,
+            ve_aterra_supply,
             borrow_rate_res.rate,
             target_deposit_rate,
         );
     }
 
-    // compute_interest_raw store current exchange rate
+    // compute_interest_raw stores current exchange rate
     // as prev_exchange_rate, so just return prev_exchange_rate
-    let exchange_rate =
-        compute_exchange_rate_raw(&state, aterra_supply, balance + distributed_interest);
+    let exchange_rate = compute_exchange_rate_raw(
+        &state,
+        state.last_interest_updated, // todo: what should we do here? A stale premium rate isn't catastrophic, but why would we sometimes not have access to the block_height here??
+        aterra_supply,
+        ve_aterra_supply,
+        balance + distributed_interest,
+    );
 
     Ok(EpochStateResponse {
         exchange_rate,
