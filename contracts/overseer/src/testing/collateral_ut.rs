@@ -35,6 +35,15 @@ fn proper_compute_borrow_limit() {
         dyn_rate_yr_increase_expectation: Decimal256::from_str("0.01").unwrap(),
         dyn_rate_min: Decimal256::zero(),
         dyn_rate_max: Decimal256::one(),
+        max_pos_change: Decimal256::percent(1),
+        max_neg_change: Decimal256::percent(1),
+        max_rate: Decimal256::one() + Decimal256::percent(20),
+        min_rate: Decimal256::one() + Decimal256::percent(1),
+        diff_multiplier: Decimal256::permille(1),
+        target_transition_amount: Decimal256::permille(1),
+        initial_premium_rate: Decimal256::percent(2),
+        target_transition_epoch: 86400u64,
+        end_goal_ve_share: Decimal256::percent(80),
     };
 
     // we can just call .unwrap() to assert this was a success

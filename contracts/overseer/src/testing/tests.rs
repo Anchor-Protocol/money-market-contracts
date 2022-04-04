@@ -44,6 +44,15 @@ fn proper_initialization() {
         dyn_rate_yr_increase_expectation: Decimal256::permille(1),
         dyn_rate_min: Decimal256::from_ratio(1000000000000u64, 1000000000000000000u64),
         dyn_rate_max: Decimal256::from_ratio(1200000000000u64, 1000000000000000000u64),
+        max_pos_change: Decimal256::percent(1),
+        max_neg_change: Decimal256::percent(1),
+        max_rate: Decimal256::one() + Decimal256::percent(20),
+        min_rate: Decimal256::one() + Decimal256::percent(1),
+        diff_multiplier: Decimal256::permille(1),
+        target_transition_amount: Decimal256::permille(1),
+        initial_premium_rate: Decimal256::percent(2),
+        target_transition_epoch: 86400u64,
+        end_goal_ve_share: Decimal256::percent(80),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -113,6 +122,15 @@ fn update_config() {
         dyn_rate_yr_increase_expectation: Decimal256::from_str("0.01").unwrap(),
         dyn_rate_min: Decimal256::zero(),
         dyn_rate_max: Decimal256::one(),
+        max_pos_change: Decimal256::percent(1),
+        max_neg_change: Decimal256::percent(1),
+        max_rate: Decimal256::one() + Decimal256::percent(20),
+        min_rate: Decimal256::one() + Decimal256::percent(1),
+        diff_multiplier: Decimal256::permille(1),
+        target_transition_amount: Decimal256::permille(1),
+        initial_premium_rate: Decimal256::percent(2),
+        target_transition_epoch: 86400u64,
+        end_goal_ve_share: Decimal256::percent(80),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -238,6 +256,15 @@ fn whitelist() {
         dyn_rate_yr_increase_expectation: Decimal256::from_str("0.01").unwrap(),
         dyn_rate_min: Decimal256::zero(),
         dyn_rate_max: Decimal256::one(),
+        max_pos_change: Decimal256::percent(1),
+        max_neg_change: Decimal256::percent(1),
+        max_rate: Decimal256::one() + Decimal256::percent(20),
+        min_rate: Decimal256::one() + Decimal256::percent(1),
+        diff_multiplier: Decimal256::permille(1),
+        target_transition_amount: Decimal256::permille(1),
+        initial_premium_rate: Decimal256::percent(2),
+        target_transition_epoch: 86400u64,
+        end_goal_ve_share: Decimal256::percent(80),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -389,6 +416,15 @@ fn execute_epoch_operations() {
         dyn_rate_yr_increase_expectation: Decimal256::from_str("0.01").unwrap(),
         dyn_rate_min: Decimal256::zero(),
         dyn_rate_max: Decimal256::one(),
+        max_pos_change: Decimal256::percent(1),
+        max_neg_change: Decimal256::percent(1),
+        max_rate: Decimal256::one() + Decimal256::percent(20),
+        min_rate: Decimal256::one() + Decimal256::percent(1),
+        diff_multiplier: Decimal256::permille(1),
+        target_transition_amount: Decimal256::permille(1),
+        initial_premium_rate: Decimal256::percent(2),
+        target_transition_epoch: 86400u64,
+        end_goal_ve_share: Decimal256::percent(80),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -618,6 +654,15 @@ fn update_epoch_state() {
         dyn_rate_yr_increase_expectation: Decimal256::from_str("0.01").unwrap(),
         dyn_rate_min: Decimal256::zero(),
         dyn_rate_max: Decimal256::one(),
+        max_pos_change: Decimal256::percent(1),
+        max_neg_change: Decimal256::percent(1),
+        max_rate: Decimal256::one() + Decimal256::percent(20),
+        min_rate: Decimal256::one() + Decimal256::percent(1),
+        diff_multiplier: Decimal256::permille(1),
+        target_transition_amount: Decimal256::permille(1),
+        initial_premium_rate: Decimal256::percent(2),
+        target_transition_epoch: 86400u64,
+        end_goal_ve_share: Decimal256::percent(80),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -769,6 +814,15 @@ fn lock_collateral() {
         dyn_rate_yr_increase_expectation: Decimal256::from_str("0.01").unwrap(),
         dyn_rate_min: Decimal256::zero(),
         dyn_rate_max: Decimal256::one(),
+        max_pos_change: Decimal256::percent(1),
+        max_neg_change: Decimal256::percent(1),
+        max_rate: Decimal256::one() + Decimal256::percent(20),
+        min_rate: Decimal256::one() + Decimal256::percent(1),
+        diff_multiplier: Decimal256::permille(1),
+        target_transition_amount: Decimal256::permille(1),
+        initial_premium_rate: Decimal256::percent(2),
+        target_transition_epoch: 86400u64,
+        end_goal_ve_share: Decimal256::percent(80),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -928,6 +982,15 @@ fn unlock_collateral() {
         dyn_rate_yr_increase_expectation: Decimal256::from_str("0.01").unwrap(),
         dyn_rate_min: Decimal256::zero(),
         dyn_rate_max: Decimal256::one(),
+        max_pos_change: Default::default(),
+        max_neg_change: Default::default(),
+        max_rate: Default::default(),
+        min_rate: Default::default(),
+        diff_multiplier: Default::default(),
+        target_transition_amount: Default::default(),
+        initial_premium_rate: Default::default(),
+        target_transition_epoch: 0,
+        end_goal_ve_share: Default::default(),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -1143,6 +1206,15 @@ fn liquidate_collateral() {
         dyn_rate_yr_increase_expectation: Decimal256::from_str("0.01").unwrap(),
         dyn_rate_min: Decimal256::zero(),
         dyn_rate_max: Decimal256::one(),
+        max_pos_change: Decimal256::percent(1),
+        max_neg_change: Decimal256::percent(1),
+        max_rate: Decimal256::one() + Decimal256::percent(20),
+        min_rate: Decimal256::one() + Decimal256::percent(1),
+        diff_multiplier: Decimal256::permille(1),
+        target_transition_amount: Decimal256::permille(1),
+        initial_premium_rate: Decimal256::percent(2),
+        target_transition_epoch: 86400u64,
+        end_goal_ve_share: Decimal256::percent(80),
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -1315,6 +1387,15 @@ fn dynamic_rate_model() {
         dyn_rate_yr_increase_expectation: Decimal256::permille(1),
         dyn_rate_min: Decimal256::from_ratio(1000000000000u64, 1000000000000000000u64),
         dyn_rate_max: Decimal256::from_ratio(1200000000000u64, 1000000000000000000u64),
+        max_pos_change: Decimal256::percent(1),
+        max_neg_change: Decimal256::percent(1),
+        max_rate: Decimal256::one() + Decimal256::percent(20),
+        min_rate: Decimal256::one() + Decimal256::percent(1),
+        diff_multiplier: Decimal256::permille(1),
+        target_transition_amount: Decimal256::permille(1),
+        initial_premium_rate: Decimal256::percent(2),
+        target_transition_epoch: 86400u64,
+        end_goal_ve_share: Decimal256::percent(80),
     };
 
     // we can just call .unwrap() to assert this was a success

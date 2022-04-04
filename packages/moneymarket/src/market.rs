@@ -69,6 +69,7 @@ pub enum ExecuteMsg {
         target_deposit_rate: Decimal256,
         threshold_deposit_rate: Decimal256,
         distributed_interest: Uint256,
+        premium_rate: Decimal256,
     },
 
     ////////////////////

@@ -44,6 +44,18 @@ pub struct InstantiateMsg {
     /// clamps for dyn rate
     pub dyn_rate_min: Decimal256,
     pub dyn_rate_max: Decimal256,
+
+    pub max_pos_change: Decimal256,
+    pub max_neg_change: Decimal256,
+    pub max_rate: Decimal256,
+    pub min_rate: Decimal256,
+    pub diff_multiplier: Decimal256,
+    /// percentage points target_share moves towards end_goal_share per epoch
+    pub target_transition_amount: Decimal256,
+    pub initial_premium_rate: Decimal256,
+    pub target_transition_epoch: u64,
+    /// End goal for percent of total deposits held as ve_aterra compared to aterra
+    pub end_goal_ve_share: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

@@ -1,26 +1,13 @@
+use std::cmp::{max, min, Ordering};
+
+use cosmwasm_bignumber::{Decimal256, Uint256};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
     Response, StdResult, Uint128, WasmMsg,
 };
-use std::cmp::{max, min};
 
-use crate::collateral::{
-    liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
-    query_collaterals, unlock_collateral,
-};
-use crate::error::ContractError;
-use crate::querier::query_epoch_state;
-
-use crate::state::{
-    read_config, read_dynrate_config, read_dynrate_state, read_epoch_state, read_whitelist,
-    read_whitelist_elem, store_config, store_dynrate_config, store_dynrate_state,
-    store_epoch_state, store_whitelist_elem, Config, DynrateConfig, DynrateState, EpochState,
-    WhitelistElem,
-};
-
-use cosmwasm_bignumber::{Decimal256, Uint256};
 use moneymarket::common::optional_addr_validate;
 use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
 use moneymarket::market::EpochStateResponse;
@@ -30,6 +17,21 @@ use moneymarket::overseer::{
     WhitelistResponseElem,
 };
 use moneymarket::querier::{deduct_tax, query_balance};
+
+use crate::collateral::{
+    liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
+    query_collaterals, unlock_collateral,
+};
+use crate::error::ContractError;
+use crate::querier::{query_epoch_state, query_market_state};
+use crate::state::{
+    read_config, read_dynrate_config, read_dynrate_state, read_epoch_state,
+    read_ve_premium_rate_config, read_ve_premium_rate_state, read_whitelist, read_whitelist_elem,
+    store_config, store_dynrate_config, store_dynrate_state, store_epoch_state,
+    store_ve_premium_rate_config, store_ve_premium_rate_state, store_whitelist_elem, Config,
+    DynrateConfig, DynrateState, EpochState, VePremiumRateConfig, VePremiumRateState,
+    WhitelistElem,
+};
 
 pub const BLOCKS_PER_YEAR: u128 = 4656810;
 
@@ -69,6 +71,19 @@ pub fn instantiate(
         },
     )?;
 
+    store_ve_premium_rate_config(
+        deps.storage,
+        &VePremiumRateConfig {
+            max_pos_change: msg.max_pos_change,
+            max_neg_change: msg.max_neg_change,
+            max_rate: msg.max_rate,
+            min_rate: msg.min_rate,
+            diff_multiplier: msg.diff_multiplier,
+            target_transition_amount: msg.target_transition_amount,
+            target_transition_epoch: msg.target_transition_epoch,
+        },
+    )?;
+
     store_epoch_state(
         deps.storage,
         &EpochState {
@@ -85,6 +100,16 @@ pub fn instantiate(
         &DynrateState {
             last_executed_height: env.block.height,
             prev_yield_reserve: Decimal256::zero(),
+        },
+    )?;
+
+    store_ve_premium_rate_state(
+        deps.storage,
+        &VePremiumRateState {
+            last_executed_height: env.block.height,
+            target_share: Decimal256::zero(),
+            end_goal_share: msg.end_goal_ve_share,
+            premium_rate: msg.initial_premium_rate,
         },
     )?;
 
@@ -152,6 +177,7 @@ pub fn execute(
         } => {
             let api = deps.api;
             update_config(
+                // todo: update this to include ve_premium_rate_config
                 deps,
                 info,
                 optional_addr_validate(api, owner_addr)?,
@@ -386,7 +412,7 @@ pub fn update_whitelist(
     ]))
 }
 
-fn update_deposit_rate(deps: DepsMut, env: Env) -> StdResult<()> {
+fn update_deposit_rate(deps: &mut DepsMut, env: Env) -> StdResult<()> {
     let dynrate_config: DynrateConfig = read_dynrate_config(deps.storage)?;
     let dynrate_state: DynrateState = read_dynrate_state(deps.storage)?;
     let mut config: Config = read_config(deps.storage)?;
@@ -597,7 +623,7 @@ pub fn execute_epoch_operations(deps: DepsMut, env: Env) -> Result<Response, Con
 }
 
 pub fn update_epoch_state(
-    deps: DepsMut,
+    mut deps: DepsMut,
     env: Env,
     info: MessageInfo,
     // To store interest buffer before receiving epoch staking rewards,
@@ -642,16 +668,21 @@ pub fn update_epoch_state(
         },
     )?;
 
+    // update ve premium rate
+    let premium_rate =
+        update_ve_premium_rate(&mut deps, env.block.height.clone(), market_contract.clone())?;
+
     // use unchanged rates to build msg
     let response_msg = to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
         deposit_rate,
         target_deposit_rate: config.target_deposit_rate,
         threshold_deposit_rate: config.threshold_deposit_rate,
         distributed_interest,
+        premium_rate,
     })?;
 
     // proceed with deposit rate update
-    update_deposit_rate(deps, env)?;
+    update_deposit_rate(&mut deps, env)?;
 
     Ok(Response::new()
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -689,6 +720,68 @@ pub fn fund_reserve(deps: DepsMut, info: MessageInfo) -> Result<Response, Contra
         attr("action", "fund_reserve"),
         attr("funded_amount", sent_uusd.to_string()),
     ]))
+}
+
+pub fn update_ve_premium_rate(
+    deps: &mut DepsMut,
+    block_height: u64,
+    market_contract: Addr,
+) -> StdResult<Decimal256> {
+    let state = read_ve_premium_rate_state(deps.storage)?;
+    let config = read_ve_premium_rate_config(deps.storage)?;
+    let current = current_ve_share(deps.as_ref(), block_height, market_contract)?;
+
+    let new_state = update_ve_premium_rate_raw(block_height, state, config, current);
+
+    store_ve_premium_rate_state(deps.storage, &new_state)?;
+    Ok(new_state.premium_rate)
+}
+
+pub fn update_ve_premium_rate_raw(
+    block_height: u64,
+    mut state: VePremiumRateState,
+    config: VePremiumRateConfig,
+    current_share: Decimal256,
+) -> VePremiumRateState {
+    // update target share only if target_transition_epoch has elapsed
+    if block_height + config.target_transition_epoch > block_height {
+        match state.target_share.cmp(&state.end_goal_share) {
+            Ordering::Less => {
+                state.target_share = (state.target_share + config.target_transition_amount)
+                    .min(state.end_goal_share);
+            }
+            Ordering::Equal => {}
+            Ordering::Greater => {
+                state.target_share = (state.target_share - config.target_transition_amount)
+                    .max(state.end_goal_share);
+            }
+        }
+    }
+
+    // update target_share every overseer epoch
+    let raw_rate = if state.target_share > current_share {
+        let delta = (config.diff_multiplier * (state.target_share - current_share))
+            .min(config.max_pos_change);
+        state.premium_rate + delta
+    } else {
+        let delta = (config.diff_multiplier * (current_share - state.target_share))
+            .min(config.max_neg_change);
+        state.premium_rate - delta
+    };
+    state.premium_rate = raw_rate.max(config.min_rate).max(config.max_rate);
+    state
+}
+
+pub fn current_ve_share(
+    deps: Deps,
+    block_height: u64,
+    market_contract: Addr,
+) -> StdResult<Decimal256> {
+    let state = query_market_state(deps, market_contract, block_height)?;
+    Ok(Decimal256::from_ratio(
+        state.prev_ve_aterra_supply * state.prev_ve_aterra_exchange_rate,
+        state.prev_aterra_supply.max(Uint256::one()),
+    ))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

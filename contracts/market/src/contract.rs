@@ -194,6 +194,7 @@ pub fn execute(
             target_deposit_rate,
             threshold_deposit_rate,
             distributed_interest,
+            premium_rate,
         } => execute_epoch_operations(
             deps,
             env,
@@ -202,6 +203,7 @@ pub fn execute(
             target_deposit_rate,
             threshold_deposit_rate,
             distributed_interest,
+            premium_rate,
         ),
         ExecuteMsg::ClaimATerra {
             amount,
@@ -414,6 +416,7 @@ pub fn execute_epoch_operations(
     target_deposit_rate: Decimal256,
     threshold_deposit_rate: Decimal256,
     distributed_interest: Uint256,
+    premium_rate: Decimal256,
 ) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
     if config.overseer_contract != deps.api.addr_canonicalize(info.sender.as_str())? {
@@ -421,6 +424,7 @@ pub fn execute_epoch_operations(
     }
 
     let mut state: State = read_state(deps.storage)?;
+    state.ve_aterra_premium_rate = premium_rate;
 
     // Compute interest and reward before updating anc_emission_rate
     let aterra_supply = query_supply(
