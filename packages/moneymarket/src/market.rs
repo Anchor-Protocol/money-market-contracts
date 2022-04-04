@@ -1,4 +1,5 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::Timestamp;
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -76,7 +77,7 @@ pub enum ExecuteMsg {
     /// Claim `amount` of aterra unbonded 30 days before `block_height`
     ClaimATerra {
         amount: Uint256,
-        block_height: u64,
+        unlock_time: Timestamp,
     },
 
     /// Deposit stable asset to get interest
@@ -162,7 +163,7 @@ pub struct StateResponse {
     pub ve_aterra_premium_rate: Decimal256, // in blocks
     pub prev_ve_aterra_supply: Uint256,
     pub prev_ve_aterra_exchange_rate: Decimal256,
-    pub last_ve_aterra_updated: u64, // todo: if all updates always happen together, consider merging last updated blockstamps
+    pub last_ve_aterra_updated: u64,
 }
 
 // We define a custom struct for each query response

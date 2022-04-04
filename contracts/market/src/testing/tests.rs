@@ -1,25 +1,29 @@
-use crate::contract::{execute, instantiate, query, reply, INITIAL_DEPOSIT_AMOUNT};
-use crate::error::ContractError;
-use crate::response::MsgInstantiateContractResponse;
-use crate::state::{read_borrower_infos, read_state, store_state, State};
-use crate::testing::mock_querier::{mock_dependencies, WasmMockQuerier};
+use std::str::FromStr;
 
 use anchor_token::distributor::ExecuteMsg as FaucetExecuteMsg;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Addr, BankMsg, Coin, ContractResult, CosmosMsg, Decimal,
+    attr, from_binary, to_binary, Addr, Api, BankMsg, Coin, ContractResult, CosmosMsg, Decimal,
     OwnedDeps, Reply, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
 use cw20::{Cw20Coin, Cw20ExecuteMsg, Cw20ReceiveMsg, MinterResponse};
+use protobuf::Message;
+use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
+
 use moneymarket::market::{
     BorrowerInfoResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
     StateResponse,
 };
 use moneymarket::querier::deduct_tax;
-use protobuf::Message;
-use std::str::FromStr;
-use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
+
+use crate::contract::{execute, instantiate, query, reply, INITIAL_DEPOSIT_AMOUNT};
+use crate::error::ContractError;
+use crate::response::MsgInstantiateContractResponse;
+use crate::state::{
+    read_borrower_infos, read_state, read_ve_aterra_staker_infos, store_state, State,
+};
+use crate::testing::mock_querier::{mock_dependencies, WasmMockQuerier};
 
 #[test]
 fn proper_initialization() {
@@ -663,7 +667,7 @@ fn get_mock_instantiate_msg() -> InstantiateMsg {
 }
 
 #[test]
-fn redeem_ve_aterra() {
+fn bond_unbond_claim_ve_aterra() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
         amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
@@ -683,21 +687,19 @@ fn redeem_ve_aterra() {
     register_anchor_token_contracts(&mut deps);
 
     // make exchange rate to 50%
-    store_state(
-        deps.as_mut().storage,
-        &State {
-            total_liabilities: Decimal256::from_uint256(500000u128),
-            total_reserves: Decimal256::from_uint256(100000u128),
-            last_interest_updated: mock_env().block.height,
-            last_reward_updated: mock_env().block.height,
-            prev_aterra_supply: Uint256::from(1000000u64),
-            prev_ve_aterra_supply: Uint256::from(0u64),
-            prev_ve_aterra_exchange_rate: Decimal256::percent(100),
-            last_ve_aterra_updated: mock_env().block.height,
-            ..Default::default()
-        },
-    )
-    .unwrap();
+    let initial_state = State {
+        total_liabilities: Decimal256::from_uint256(5000u128),
+        total_reserves: Decimal256::from_uint256(1000u128),
+        last_interest_updated: mock_env().block.height,
+        last_reward_updated: mock_env().block.height,
+        prev_aterra_supply: Uint256::from(10_000u64),
+        prev_ve_aterra_supply: Uint256::from(0u64),
+        prev_ve_aterra_exchange_rate: Decimal256::percent(100),
+        last_ve_aterra_updated: mock_env().block.height,
+        ve_aterra_premium_rate: Decimal256::percent(5),
+        ..Default::default()
+    };
+    store_state(deps.as_mut().storage, &initial_state).unwrap();
 
     // Register overseer contract
     let msg = ExecuteMsg::RegisterContracts {
@@ -710,13 +712,19 @@ fn redeem_ve_aterra() {
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
+    {
+        let state = read_state(&deps.storage).unwrap();
+        assert_eq!(state.prev_ve_aterra_supply, Uint256::from(0u64));
+        assert_eq!(state.prev_aterra_supply, Uint256::from(10_000u64));
+    }
+
     // Deposit 1000000
     let msg = ExecuteMsg::DepositStable {};
     let info = mock_info(
         "addr0000",
         &[Coin {
             denom: "uusd".to_string(),
-            amount: Uint128::from(1000000u128),
+            amount: Uint128::from(10_000u128),
         }],
     );
 
@@ -724,13 +732,13 @@ fn redeem_ve_aterra() {
         .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
     deps.querier.with_token_balances(&[(
         &"AT-uusd".to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(10000u128))],
     )]);
     deps.querier.update_balance(
         MOCK_CONTRACT_ADDR.to_string(),
         vec![Coin {
             denom: "uusd".to_string(),
-            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 1000000u128),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 10000u128),
         }],
     );
 
@@ -738,13 +746,20 @@ fn redeem_ve_aterra() {
 
     deps.querier.with_token_balances(&[(
         &"AT-uusd".to_string(),
-        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(2000000u128))],
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(10_099u128))],
     )]);
 
-    // Bond 1_000_000
+    {
+        let state = read_state(&deps.storage).unwrap();
+        assert_eq!(state.prev_aterra_exchange_rate, Decimal256::one());
+        assert_eq!(state.prev_aterra_supply, Uint256::from(10_099u64));
+        assert_eq!(state.prev_ve_aterra_supply, Uint256::from(0u64));
+    }
+
+    // Bond 10_000
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: "addr0000".to_string(),
-        amount: Uint128::from(1000000u128),
+        amount: Uint128::from(10_000u128),
         msg: to_binary(&Cw20HookMsg::BondATerra {}).unwrap(),
     });
     let info = mock_info("addr0000", &[]);
@@ -763,7 +778,7 @@ fn redeem_ve_aterra() {
                 contract_addr: "AT-uusd".to_string(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Burn {
-                    amount: Uint128::from(1000000u128),
+                    amount: Uint128::from(10_000u128),
                 })
                 .unwrap()
             })),
@@ -771,7 +786,7 @@ fn redeem_ve_aterra() {
                 contract_addr: "ve-AT-uusd".to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Mint {
                     recipient: "addr0000".to_string(),
-                    amount: Uint128::from(1000000u64),
+                    amount: Uint128::from(10_000u64),
                 })
                 .unwrap(),
                 funds: vec![]
@@ -779,29 +794,101 @@ fn redeem_ve_aterra() {
         ]
     );
 
-    let mut env_5_blocks_later = mock_env();
-    env_5_blocks_later.block.height += 5;
+    {
+        let state = read_state(&deps.storage).unwrap();
+        assert_eq!(state.prev_ve_aterra_supply, Uint256::from(10_000u64));
+        assert_eq!(state.prev_aterra_supply, Uint256::from(99u64));
+    }
 
-    let blocks_per_year = Decimal256::from_ratio(Uint256::from(BLOCKS_PER_YEAR), 1);
-    store_state(
-        deps.as_mut().storage,
-        &State {
-            total_liabilities: Decimal256::from_uint256(500000u128),
-            total_reserves: Decimal256::from_uint256(100000u128),
-            last_interest_updated: mock_env().block.height,
-            last_reward_updated: mock_env().block.height,
-            prev_aterra_supply: Uint256::from(1000000u64),
-            last_ve_aterra_updated: mock_env().block.height,
+    deps.querier.with_token_balances(&[(
+        &"AT-uusd".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(99u64))],
+    )]);
 
-            ve_aterra_premium_rate: Decimal256::
-            prev_ve_aterra_supply: Uint256::from(10000000u64),
-            prev_ve_aterra_exchange_rate: Decimal256::percent(100),
-            ..Default::default()
-        },
-    )
-    .unwrap();
+    let mut env_1_block_later = mock_env();
+    env_1_block_later.block.height += 1;
+
+    // Unbond 10_000
+    let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+        sender: "addr0000".to_string(),
+        amount: Uint128::from(10_000u128),
+        msg: to_binary(&Cw20HookMsg::UnbondVeATerra {}).unwrap(),
+    });
+    let info = mock_info("ve-AT-uusd", &[]);
+    let res = execute(deps.as_mut(), env_1_block_later.clone(), info, msg.clone()).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "ve-AT-uusd".to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                    amount: Uint128::from(10_000u64),
+                })
+                .unwrap(),
+                funds: vec![]
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "AT-uusd".to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::Mint {
+                    recipient: deps
+                        .api
+                        .addr_canonicalize(MOCK_CONTRACT_ADDR)
+                        .unwrap()
+                        .to_string(),
+                    amount: Uint128::from(10_500u64), // 5% more
+                })
+                .unwrap(),
+            })),
+        ]
+    );
+
+    let unlock_time = env_1_block_later.block.time.plus_seconds(60 * 60 * 24 * 30);
+    {
+        let infos = read_ve_aterra_staker_infos(&deps.storage, &Addr::unchecked("addr0000"));
+        assert_eq!(infos.infos.len(), 1);
+        assert_eq!(infos.infos[0].ve_aterra_qty, Uint256::from(10_500u64));
+        assert_eq!(infos.infos[0].unlock_time, unlock_time,);
+        let state = read_state(&deps.storage).unwrap();
+        assert_eq!(state.prev_ve_aterra_supply, Uint256::zero());
+        assert_eq!(state.prev_aterra_supply, Uint256::from(10_599u64));
+    }
+
+    deps.querier.with_token_balances(&[(
+        &"AT-uusd".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(10_599u64))],
+    )]);
+
+    let mut env_30_days_later = env_1_block_later.clone();
+    env_30_days_later.block.time = unlock_time.plus_seconds(120);
+
+    let msg = ExecuteMsg::ClaimATerra {
+        amount: Uint256::from(10_500u64),
+        unlock_time,
+    };
+    let info = mock_info("addr0000", &[]);
+    let res = execute(deps.as_mut(), env_30_days_later.clone(), info, msg.clone()).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "AT-uusd".to_string(),
+            funds: vec![],
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                recipient: "addr0000".to_string(),
+                amount: Uint128::from(10_500u64),
+            })
+            .unwrap(),
+        })),]
+    );
+
+    {
+        let infos = read_ve_aterra_staker_infos(&deps.storage, &Addr::unchecked("addr0000"));
+        assert_eq!(infos.infos.len(), 0);
+        let state = read_state(&deps.storage).unwrap();
+        assert_eq!(state.prev_ve_aterra_supply, Uint256::zero());
+        assert_eq!(state.prev_aterra_supply, Uint256::from(10_599u64));
+    }
 }
-pub const BLOCKS_PER_YEAR: u128 = 4656810;
 
 #[test]
 fn redeem_stable() {
@@ -871,6 +958,8 @@ fn redeem_stable() {
         amount: Uint128::from(1000000u128),
         msg: to_binary(&Cw20HookMsg::RedeemStable {}).unwrap(),
     });
+
+    // validate sending from non-token contract address fails
     let info = mock_info("addr0000", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
@@ -878,6 +967,7 @@ fn redeem_stable() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
+    // send from token contract address
     let info = mock_info("AT-uusd", &[]);
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
     assert_eq!(

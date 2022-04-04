@@ -205,8 +205,8 @@ pub fn execute(
         ),
         ExecuteMsg::ClaimATerra {
             amount,
-            block_height,
-        } => claim_unlocked_aterra(deps, env, info, block_height, amount),
+            unlock_time,
+        } => claim_unlocked_aterra(deps, env, info, unlock_time, amount),
         ExecuteMsg::DepositStable {} => deposit_stable(deps, env, info),
         ExecuteMsg::BorrowStable { borrow_amount, to } => {
             let api = deps.api;

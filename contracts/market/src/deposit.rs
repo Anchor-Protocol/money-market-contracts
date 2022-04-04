@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
-    StdResult, Uint128, WasmMsg,
+    StdResult, Timestamp, Uint128, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 
@@ -13,7 +13,7 @@ use crate::borrow::{compute_interest, compute_reward};
 use crate::error::ContractError;
 use crate::state::{
     read_config, read_state, read_ve_aterra_staker_infos, store_state, store_ve_stacker_infos,
-    Config, State,
+    Config, State, VeStakerUnlockInfo,
 };
 
 pub fn bond_aterra(
@@ -28,29 +28,29 @@ pub fn bond_aterra(
     compute_interest(deps.as_ref(), &config, &mut state, env.block.height, None)?;
     compute_reward(&mut state, env.block.height);
 
-    let exchange_rate = dbg!(compute_ve_exchange_rate(&state, env.block.height));
+    let exchange_rate = compute_ve_exchange_rate(&state, env.block.height);
 
-    let ve_aterra_amount = dbg!(bond_amount / exchange_rate);
-    state.prev_aterra_supply = dbg!(state.prev_aterra_supply - bond_amount);
+    let ve_aterra_amount = bond_amount / exchange_rate;
+    state.prev_aterra_supply = state.prev_aterra_supply - bond_amount;
     state.prev_ve_aterra_supply += ve_aterra_amount;
     store_state(deps.storage, &state)?;
 
     Ok(Response::new()
         .add_messages([
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: dbg!(deps.api.addr_humanize(&config.aterra_contract)?.into()),
+                contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.into(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Burn {
                     amount: bond_amount.into(),
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: dbg!(deps.api.addr_humanize(&config.ve_aterra_contract)?.into()),
+                contract_addr: deps.api.addr_humanize(&config.ve_aterra_contract)?.into(),
                 funds: vec![],
-                msg: to_binary(dbg!(&Cw20ExecuteMsg::Mint {
+                msg: to_binary(&Cw20ExecuteMsg::Mint {
                     recipient: sender.to_string(),
                     amount: ve_aterra_amount.into(),
-                }))?,
+                })?,
             }),
         ])
         .add_attributes([
@@ -60,6 +60,8 @@ pub fn bond_aterra(
             attr("mint_amount", ve_aterra_amount),
         ]))
 }
+
+const UNBOND_DURATION_SECS: u64 = 60 * 60 * 24 * 30;
 
 pub fn unbond_ve_aterra(
     deps: DepsMut,
@@ -80,6 +82,14 @@ pub fn unbond_ve_aterra(
     state.prev_ve_aterra_supply = state.prev_ve_aterra_supply - unbond_amount;
     store_state(deps.storage, &state)?;
 
+    let mut staker_infos = read_ve_aterra_staker_infos(deps.storage, &sender);
+    let unlock_time = env.block.time.plus_seconds(UNBOND_DURATION_SECS);
+    staker_infos.infos.push(VeStakerUnlockInfo {
+        ve_aterra_qty: aterra_mint_amount,
+        unlock_time,
+    });
+    store_ve_stacker_infos(deps.storage, &sender, &staker_infos)?;
+
     Ok(Response::new()
         .add_messages([
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -93,7 +103,7 @@ pub fn unbond_ve_aterra(
                 contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.into(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Mint {
-                    recipient: sender.to_string(),
+                    recipient: config.contract_addr.to_string(),
                     amount: aterra_mint_amount.into(),
                 })?,
             }),
@@ -103,6 +113,7 @@ pub fn unbond_ve_aterra(
             attr("depositor", sender.to_string()),
             attr("unbond_amount", unbond_amount),
             attr("mint_amount", aterra_mint_amount),
+            attr("unlock_time", unlock_time.to_string()),
         ]))
 }
 
@@ -110,24 +121,23 @@ pub fn claim_unlocked_aterra(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    unlock_block_height: u64,
+    unlock_timestamp: Timestamp,
     amount: Uint256,
 ) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
 
-    let owner = &deps.api.addr_canonicalize(&info.sender.as_str())?;
-    let mut staker_infos = read_ve_aterra_staker_infos(deps.storage, owner);
+    let mut staker_infos = read_ve_aterra_staker_infos(deps.storage, &info.sender);
 
     let staker_info_idx = staker_infos
         .infos
         .iter_mut()
-        .position(|x| x.unlock_block == unlock_block_height)
+        .position(|x| x.unlock_time == unlock_timestamp)
         .ok_or(ContractError::NoUnlockMatchingBlockHeight)?;
 
-    if unlock_block_height > env.block.height {
+    if unlock_timestamp > env.block.time {
         return Err(ContractError::VeStakeNotUnlocked(
-            env.block.height,
-            unlock_block_height,
+            env.block.time,
+            unlock_timestamp,
         ));
     }
 
@@ -142,7 +152,7 @@ pub fn claim_unlocked_aterra(
         }
         Ordering::Greater => return Err(ContractError::NotEnoughUnlocked(amount, total_amount)),
     }
-    store_ve_stacker_infos(deps.storage, owner, &staker_infos)?;
+    store_ve_stacker_infos(deps.storage, &info.sender, &staker_infos)?;
 
     Ok(Response::new()
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -150,7 +160,7 @@ pub fn claim_unlocked_aterra(
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: info.sender.to_string(),
-                amount: amount.into(), // how should decimal -> integer conversion happen here?
+                amount: amount.into(),
             })?,
         }))
         .add_attributes([
@@ -302,7 +312,9 @@ pub(crate) fn compute_ve_exchange_rate(state: &State, block_height: u64) -> Deci
     if blocks_elapses.is_zero() {
         state.prev_ve_aterra_exchange_rate
     } else {
-        state.prev_ve_aterra_exchange_rate * blocks_elapses * state.ve_aterra_premium_rate
+        state.prev_ve_aterra_exchange_rate
+            * blocks_elapses
+            * (Decimal256::one() + state.ve_aterra_premium_rate)
     }
 }
 
