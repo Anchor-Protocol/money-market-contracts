@@ -696,7 +696,7 @@ fn bond_unbond_claim_ve_aterra() {
         prev_ve_aterra_supply: Uint256::from(0u64),
         prev_ve_aterra_exchange_rate: Decimal256::percent(100),
         last_ve_aterra_updated: mock_env().block.height,
-        ve_aterra_premium_rate: Decimal256::percent(5),
+        ve_aterra_premium_rate: Decimal256::percent(105),
         ..Default::default()
     };
     store_state(deps.as_mut().storage, &initial_state).unwrap();
@@ -1853,6 +1853,7 @@ fn execute_epoch_operations() {
         target_deposit_rate: Decimal256::one(),
         threshold_deposit_rate: Decimal256::one(),
         distributed_interest: Uint256::zero(),
+        premium_rate: Decimal256::percent(120),
     };
 
     // only overseer can execute this
@@ -1921,6 +1922,7 @@ fn execute_epoch_operations() {
         target_deposit_rate: Decimal256::one(),
         threshold_deposit_rate: Decimal256::one(),
         distributed_interest: Uint256::zero(),
+        premium_rate: Decimal256::percent(120),
     };
 
     let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();

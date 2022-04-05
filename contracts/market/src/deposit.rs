@@ -312,9 +312,7 @@ pub(crate) fn compute_ve_exchange_rate(state: &State, block_height: u64) -> Deci
     if blocks_elapses.is_zero() {
         state.prev_ve_aterra_exchange_rate
     } else {
-        state.prev_ve_aterra_exchange_rate
-            * blocks_elapses
-            * (Decimal256::one() + state.ve_aterra_premium_rate)
+        state.prev_ve_aterra_exchange_rate * blocks_elapses * state.ve_aterra_premium_rate
     }
 }
 

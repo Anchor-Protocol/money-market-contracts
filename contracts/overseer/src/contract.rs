@@ -672,6 +672,8 @@ pub fn update_epoch_state(
     let premium_rate =
         update_ve_premium_rate(&mut deps, env.block.height.clone(), market_contract.clone())?;
 
+    println!("premium rate in contract {}", &premium_rate);
+
     // use unchanged rates to build msg
     let response_msg = to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
         deposit_rate,
@@ -744,7 +746,7 @@ pub fn update_ve_premium_rate_raw(
     current_share: Decimal256,
 ) -> VePremiumRateState {
     // update target share only if target_transition_epoch has elapsed
-    if block_height + config.target_transition_epoch > block_height {
+    if block_height - config.target_transition_epoch > state.last_executed_height {
         match state.target_share.cmp(&state.end_goal_share) {
             Ordering::Less => {
                 state.target_share = (state.target_share + config.target_transition_amount)
@@ -756,6 +758,7 @@ pub fn update_ve_premium_rate_raw(
                     .max(state.end_goal_share);
             }
         }
+        state.last_executed_height = block_height;
     }
 
     // update target_share every overseer epoch
@@ -768,7 +771,7 @@ pub fn update_ve_premium_rate_raw(
             .min(config.max_neg_change);
         state.premium_rate - delta
     };
-    state.premium_rate = raw_rate.max(config.min_rate).max(config.max_rate);
+    state.premium_rate = raw_rate.max(config.min_rate).min(config.max_rate);
     state
 }
 

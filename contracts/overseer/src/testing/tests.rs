@@ -1,26 +1,28 @@
-use crate::contract::{execute, instantiate, query};
-use crate::error::ContractError;
-use crate::querier::query_epoch_state;
-use crate::state::{
-    read_epoch_state, store_dynrate_state, store_epoch_state, DynrateState, EpochState,
-};
-use crate::testing::mock_querier::mock_dependencies;
+use std::str::FromStr;
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Decimal,
-    DepsMut, SubMsg, Uint128, WasmMsg,
+    DepsMut, Response, SubMsg, Uint128, WasmMsg,
 };
+
 use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
-use moneymarket::market::ExecuteMsg as MarketExecuteMsg;
+use moneymarket::market::{ExecuteMsg as MarketExecuteMsg, StateResponse};
 use moneymarket::overseer::{
     AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse, ConfigResponse, ExecuteMsg,
     InstantiateMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
 use moneymarket::querier::deduct_tax;
 
-use std::str::FromStr;
+use crate::contract::{execute, instantiate, query};
+use crate::error::ContractError;
+use crate::querier::query_epoch_state;
+use crate::state::{
+    read_epoch_state, read_ve_premium_rate_config, read_ve_premium_rate_state, store_dynrate_state,
+    store_epoch_state, store_ve_premium_rate_state, DynrateState, EpochState,
+};
+use crate::testing::mock_querier::mock_dependencies;
 
 #[test]
 fn proper_initialization() {
@@ -50,7 +52,7 @@ fn proper_initialization() {
         min_rate: Decimal256::one() + Decimal256::percent(1),
         diff_multiplier: Decimal256::permille(1),
         target_transition_amount: Decimal256::permille(1),
-        initial_premium_rate: Decimal256::percent(2),
+        initial_premium_rate: Decimal256::percent(102),
         target_transition_epoch: 86400u64,
         end_goal_ve_share: Decimal256::percent(80),
     };
@@ -128,7 +130,7 @@ fn update_config() {
         min_rate: Decimal256::one() + Decimal256::percent(1),
         diff_multiplier: Decimal256::permille(1),
         target_transition_amount: Decimal256::permille(1),
-        initial_premium_rate: Decimal256::percent(2),
+        initial_premium_rate: Decimal256::percent(102),
         target_transition_epoch: 86400u64,
         end_goal_ve_share: Decimal256::percent(80),
     };
@@ -262,7 +264,7 @@ fn whitelist() {
         min_rate: Decimal256::one() + Decimal256::percent(1),
         diff_multiplier: Decimal256::permille(1),
         target_transition_amount: Decimal256::permille(1),
-        initial_premium_rate: Decimal256::percent(2),
+        initial_premium_rate: Decimal256::percent(102),
         target_transition_epoch: 86400u64,
         end_goal_ve_share: Decimal256::percent(80),
     };
@@ -422,7 +424,7 @@ fn execute_epoch_operations() {
         min_rate: Decimal256::one() + Decimal256::percent(1),
         diff_multiplier: Decimal256::permille(1),
         target_transition_amount: Decimal256::permille(1),
-        initial_premium_rate: Decimal256::percent(2),
+        initial_premium_rate: Decimal256::percent(102),
         target_transition_epoch: 86400u64,
         end_goal_ve_share: Decimal256::percent(80),
     };
@@ -658,9 +660,9 @@ fn update_epoch_state() {
         max_neg_change: Decimal256::percent(1),
         max_rate: Decimal256::one() + Decimal256::percent(20),
         min_rate: Decimal256::one() + Decimal256::percent(1),
-        diff_multiplier: Decimal256::permille(1),
-        target_transition_amount: Decimal256::permille(1),
-        initial_premium_rate: Decimal256::percent(2),
+        diff_multiplier: Decimal256::permille(10),
+        target_transition_amount: Decimal256::percent(10),
+        initial_premium_rate: Decimal256::percent(102),
         target_transition_epoch: 86400u64,
         end_goal_ve_share: Decimal256::percent(80),
     };
@@ -721,6 +723,7 @@ fn update_epoch_state() {
                 target_deposit_rate: Decimal256::permille(5),
                 threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
                 distributed_interest: Uint256::from(1000000u128),
+                premium_rate: Decimal256::percent(120),
             })
             .unwrap(),
         }))]
@@ -754,6 +757,7 @@ fn update_epoch_state() {
                 target_deposit_rate: Decimal256::from_str("0.000001006442178229").unwrap(),
                 threshold_deposit_rate: Decimal256::from_str("0.000001006442178229").unwrap(),
                 distributed_interest: Uint256::from(1000000u128),
+                premium_rate: Decimal256::from_str("1.202").unwrap(),
             })
             .unwrap(),
         }))]
@@ -820,7 +824,7 @@ fn lock_collateral() {
         min_rate: Decimal256::one() + Decimal256::percent(1),
         diff_multiplier: Decimal256::permille(1),
         target_transition_amount: Decimal256::permille(1),
-        initial_premium_rate: Decimal256::percent(2),
+        initial_premium_rate: Decimal256::percent(102),
         target_transition_epoch: 86400u64,
         end_goal_ve_share: Decimal256::percent(80),
     };
@@ -1212,7 +1216,7 @@ fn liquidate_collateral() {
         min_rate: Decimal256::one() + Decimal256::percent(1),
         diff_multiplier: Decimal256::permille(1),
         target_transition_amount: Decimal256::permille(1),
-        initial_premium_rate: Decimal256::percent(2),
+        initial_premium_rate: Decimal256::percent(102),
         target_transition_epoch: 86400u64,
         end_goal_ve_share: Decimal256::percent(80),
     };
@@ -1362,6 +1366,232 @@ fn liquidate_collateral() {
 }
 
 #[test]
+fn ve_premium_rate_model() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(10000000000u128),
+    }]);
+
+    let info = mock_info("owner", &[]);
+    let epoch_period = 864u64;
+    let target_transition_epoch = 8640u64; // every 10 regular epochs
+    let msg = InstantiateMsg {
+        owner_addr: "owner".to_string(),
+        oracle_contract: "oracle".to_string(),
+        market_contract: "market".to_string(),
+        liquidation_contract: "liquidation".to_string(),
+        collector_contract: "collector".to_string(),
+        stable_denom: "uusd".to_string(),
+        epoch_period,
+        threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
+        target_deposit_rate: Decimal256::permille(5),
+        buffer_distribution_factor: Decimal256::percent(20),
+        anc_purchase_factor: Decimal256::percent(20),
+        price_timeframe: 60u64,
+        dyn_rate_epoch: 8600u64,
+        dyn_rate_maxchange: Decimal256::permille(5),
+        dyn_rate_yr_increase_expectation: Decimal256::permille(1),
+        dyn_rate_min: Decimal256::from_ratio(1000000000000u64, 1000000000000000000u64),
+        dyn_rate_max: Decimal256::from_ratio(1200000000000u64, 1000000000000000000u64),
+        max_pos_change: Decimal256::permille(4),
+        max_neg_change: Decimal256::permille(10),
+        max_rate: Decimal256::one() + Decimal256::percent(20),
+        min_rate: Decimal256::one() + Decimal256::percent(1),
+        diff_multiplier: Decimal256::permille(10),
+        target_transition_amount: Decimal256::percent(10),
+        initial_premium_rate: Decimal256::percent(102),
+        target_transition_epoch,
+        end_goal_ve_share: Decimal256::percent(80),
+    };
+
+    // we can just call .unwrap() to assert this was a success
+    let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+    // store whitelist elems
+    let msg = ExecuteMsg::Whitelist {
+        name: "bluna".to_string(),
+        symbol: "bluna".to_string(),
+        collateral_token: "bluna".to_string(),
+        custody_contract: "custody_bluna".to_string(),
+        max_ltv: Decimal256::percent(60),
+    };
+
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+
+    let msg = ExecuteMsg::Whitelist {
+        name: "batom".to_string(),
+        symbol: "batom".to_string(),
+        collateral_token: "batom".to_string(),
+        custody_contract: "custody_batom".to_string(),
+        max_ltv: Decimal256::percent(60),
+    };
+
+    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+
+    {
+        let mut state = read_ve_premium_rate_state(deps.as_ref().storage).unwrap();
+        state.target_share = Decimal256::percent(50);
+        store_ve_premium_rate_state(deps.as_mut().storage, &state).unwrap();
+    }
+
+    // helper for asserting premium rate while not caring about other fields
+    fn assert_premium_rate(res: Response, expected: Decimal256) {
+        assert_eq!(res.messages.len(), 1);
+        match &res.messages[0].msg {
+            CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) => {
+                let msg: MarketExecuteMsg = from_binary(msg).unwrap();
+                match msg {
+                    MarketExecuteMsg::ExecuteEpochOperations { premium_rate, .. } => {
+                        assert_eq!(premium_rate, expected);
+                    }
+                    _ => assert!(false),
+                }
+            }
+            _ => assert!(false),
+        }
+    }
+
+    // Assume execute epoch operation is executed
+    let mut env = mock_env();
+    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+    env.block.height += epoch_period;
+
+    // Hit max pos change
+    deps.querier.with_epoch_state(&[(
+        &"market".to_string(),
+        &(Uint256::from(1000000u64), Decimal256::percent(120)),
+    )]);
+    deps.querier.add_market_state(
+        env.block.height,
+        StateResponse {
+            prev_aterra_supply: Uint256::from(1000000u64),
+            prev_ve_aterra_supply: Uint256::from(0u64),
+            prev_ve_aterra_exchange_rate: Decimal256::one(),
+            ..Default::default()
+        },
+    );
+
+    let msg = ExecuteMsg::UpdateEpochState {
+        interest_buffer: Uint256::from(10_000_000_000u128),
+        distributed_interest: Uint256::from(1_000_000u128),
+    };
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    assert_premium_rate(res, Decimal256::from_str("1.024").unwrap());
+
+    // current 20%, target 50% => .3 * .01 => 0.03 change => 1.027 final
+    env.block.height += epoch_period;
+    deps.querier.add_market_state(
+        env.block.height,
+        StateResponse {
+            prev_aterra_supply: Uint256::from(1000000u64),
+            prev_ve_aterra_supply: Uint256::from(200_000u64),
+            prev_ve_aterra_exchange_rate: Decimal256::one(),
+            ..Default::default()
+        },
+    );
+    let res: Response = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    assert_premium_rate(res, Decimal256::from_str("1.027").unwrap());
+
+    // Hit min neg change
+    env.block.height += epoch_period;
+    deps.querier.add_market_state(
+        env.block.height,
+        StateResponse {
+            prev_aterra_supply: Uint256::from(1000000u64),
+            prev_ve_aterra_supply: Uint256::from(10_000_000u64),
+            prev_ve_aterra_exchange_rate: Decimal256::one(),
+            ..Default::default()
+        },
+    );
+    let res: Response = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    assert_premium_rate(res, Decimal256::from_str("1.017").unwrap());
+
+    // Hit min overal premium rate
+    env.block.height += epoch_period;
+    deps.querier.add_market_state(
+        env.block.height,
+        StateResponse {
+            prev_aterra_supply: Uint256::from(1000000u64),
+            prev_ve_aterra_supply: Uint256::from(10_000_000u64),
+            prev_ve_aterra_exchange_rate: Decimal256::one(),
+            ..Default::default()
+        },
+    );
+    let res: Response = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    assert_premium_rate(res, Decimal256::from_str("1.01").unwrap());
+
+    // set premium rate almost at cap
+    {
+        let mut state = read_ve_premium_rate_state(deps.as_ref().storage).unwrap();
+        state.premium_rate = Decimal256::from_str("1.198").unwrap();
+        store_ve_premium_rate_state(deps.as_mut().storage, &state).unwrap();
+    }
+
+    // Hit max overall premium rate
+    env.block.height += epoch_period;
+    deps.querier.add_market_state(
+        env.block.height,
+        StateResponse {
+            prev_aterra_supply: Uint256::from(1000000u64),
+            prev_ve_aterra_supply: Uint256::from(0u64),
+            prev_ve_aterra_exchange_rate: Decimal256::one(),
+            ..Default::default()
+        },
+    );
+    let res: Response = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    assert_premium_rate(res, Decimal256::from_str("1.20").unwrap());
+
+    let prev_target_share = read_ve_premium_rate_state(deps.as_ref().storage)
+        .unwrap()
+        .target_share;
+    // Adjust target share up
+    env.block.height += target_transition_epoch;
+    deps.querier.add_market_state(
+        env.block.height,
+        StateResponse {
+            prev_aterra_supply: Uint256::from(1000000u64),
+            prev_ve_aterra_supply: Uint256::from(700_000u64),
+            prev_ve_aterra_exchange_rate: Decimal256::one(),
+            ..Default::default()
+        },
+    );
+    let res: Response = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    assert_premium_rate(res, Decimal256::from_str("1.199").unwrap());
+    {
+        let state = read_ve_premium_rate_state(deps.as_ref().storage).unwrap();
+        let config = read_ve_premium_rate_config(deps.as_ref().storage).unwrap();
+        assert_eq!(
+            state.target_share,
+            prev_target_share + config.target_transition_amount
+        );
+    }
+
+    let prev_target_share = {
+        let mut state = read_ve_premium_rate_state(deps.as_ref().storage).unwrap();
+        state.target_share = Decimal256::percent(77);
+        store_ve_premium_rate_state(deps.as_mut().storage, &state).unwrap();
+        state.target_share
+    };
+    // Adjust target share up to equal end_goal
+    env.block.height += target_transition_epoch + 1;
+    deps.querier.add_market_state(
+        env.block.height,
+        StateResponse {
+            prev_aterra_supply: Uint256::from(1000000u64),
+            prev_ve_aterra_supply: Uint256::from(790_000u64),
+            prev_ve_aterra_exchange_rate: Decimal256::one(),
+            ..Default::default()
+        },
+    );
+    let res: Response = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    assert_premium_rate(res, Decimal256::from_str("1.1991").unwrap());
+    {
+        let state = read_ve_premium_rate_state(deps.as_ref().storage).unwrap();
+        assert_eq!(state.target_share, state.end_goal_share,);
+    }
+}
+
+#[test]
 fn dynamic_rate_model() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -1391,9 +1621,9 @@ fn dynamic_rate_model() {
         max_neg_change: Decimal256::percent(1),
         max_rate: Decimal256::one() + Decimal256::percent(20),
         min_rate: Decimal256::one() + Decimal256::percent(1),
-        diff_multiplier: Decimal256::permille(1),
-        target_transition_amount: Decimal256::permille(1),
-        initial_premium_rate: Decimal256::percent(2),
+        diff_multiplier: Decimal256::permille(10),
+        target_transition_amount: Decimal256::percent(10),
+        initial_premium_rate: Decimal256::percent(102),
         target_transition_epoch: 86400u64,
         end_goal_ve_share: Decimal256::percent(80),
     };
@@ -1442,6 +1672,8 @@ fn dynamic_rate_model() {
         &"market".to_string(),
         &(Uint256::from(1000000u64), Decimal256::percent(120)),
     )]);
+    deps.querier
+        .add_market_state(env.block.height, Default::default());
 
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
     assert_eq!(
@@ -1454,6 +1686,7 @@ fn dynamic_rate_model() {
                 target_deposit_rate: Decimal256::permille(5),
                 threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
                 distributed_interest: Uint256::from(1000000u128),
+                premium_rate: Decimal256::percent(120)
             })
             .unwrap(),
         }))]
@@ -1470,12 +1703,13 @@ fn dynamic_rate_model() {
     );
 
     // Deposit rate increased
+    env.block.height += 86400u64;
     deps.querier.with_epoch_state(&[(
         &"market".to_string(),
         &(Uint256::from(1000000u64), Decimal256::percent(125)),
     )]);
-
-    env.block.height += 86400u64;
+    deps.querier
+        .add_market_state(env.block.height, Default::default());
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
 
     assert_eq!(
@@ -1488,6 +1722,7 @@ fn dynamic_rate_model() {
                 target_deposit_rate: Decimal256::from_str("0.000001001073696371").unwrap(),
                 threshold_deposit_rate: Decimal256::from_str("0.000001001073696371").unwrap(),
                 distributed_interest: Uint256::from(1000000u128),
+                premium_rate: Decimal256::from_str("1.202").unwrap(),
             })
             .unwrap(),
         }))]
@@ -1608,6 +1843,8 @@ fn dynamic_rate_model() {
         deps.as_mut(),
         Decimal256::from_ratio(1200000000000u64, 1000000000000000000u64),
     );
+
+    println!("passed");
 }
 
 fn validate_deposit_rates(deps: DepsMut, rate: Decimal256) {
