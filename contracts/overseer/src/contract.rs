@@ -672,8 +672,6 @@ pub fn update_epoch_state(
     let premium_rate =
         update_ve_premium_rate(&mut deps, env.block.height.clone(), market_contract.clone())?;
 
-    println!("premium rate in contract {}", &premium_rate);
-
     // use unchanged rates to build msg
     let response_msg = to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
         deposit_rate,

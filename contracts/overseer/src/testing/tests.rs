@@ -723,7 +723,7 @@ fn update_epoch_state() {
                 target_deposit_rate: Decimal256::permille(5),
                 threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
                 distributed_interest: Uint256::from(1000000u128),
-                premium_rate: Decimal256::percent(120),
+                premium_rate: Decimal256::percent(102),
             })
             .unwrap(),
         }))]
@@ -757,7 +757,7 @@ fn update_epoch_state() {
                 target_deposit_rate: Decimal256::from_str("0.000001006442178229").unwrap(),
                 threshold_deposit_rate: Decimal256::from_str("0.000001006442178229").unwrap(),
                 distributed_interest: Uint256::from(1000000u128),
-                premium_rate: Decimal256::from_str("1.202").unwrap(),
+                premium_rate: Decimal256::from_str("1.021").unwrap(),
             })
             .unwrap(),
         }))]
@@ -1686,7 +1686,7 @@ fn dynamic_rate_model() {
                 target_deposit_rate: Decimal256::permille(5),
                 threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
                 distributed_interest: Uint256::from(1000000u128),
-                premium_rate: Decimal256::percent(120)
+                premium_rate: Decimal256::percent(102)
             })
             .unwrap(),
         }))]
@@ -1722,7 +1722,7 @@ fn dynamic_rate_model() {
                 target_deposit_rate: Decimal256::from_str("0.000001001073696371").unwrap(),
                 threshold_deposit_rate: Decimal256::from_str("0.000001001073696371").unwrap(),
                 distributed_interest: Uint256::from(1000000u128),
-                premium_rate: Decimal256::from_str("1.202").unwrap(),
+                premium_rate: Decimal256::from_str("1.021").unwrap(),
             })
             .unwrap(),
         }))]

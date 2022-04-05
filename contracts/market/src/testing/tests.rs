@@ -1886,6 +1886,7 @@ fn execute_epoch_operations() {
             global_interest_index: Decimal256::from_uint256(2u64),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
+            ve_aterra_premium_rate: Decimal256::percent(120),
             ..Default::default()
         }
     );
@@ -1939,6 +1940,7 @@ fn execute_epoch_operations() {
             global_interest_index: Decimal256::from_uint256(2u64),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
+            ve_aterra_premium_rate: Decimal256::percent(120),
             ..Default::default()
         }
     );
