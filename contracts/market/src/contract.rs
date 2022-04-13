@@ -22,7 +22,7 @@ use crate::borrow::{
     query_borrower_info, query_borrower_infos, repay_stable, repay_stable_from_liquidation,
 };
 use crate::deposit::{
-    bond_aterra, claim_unlocked_aterra, compute_exchange_rate_raw, compute_ve_exchange_rate,
+    bond_aterra, claim_unlocked_aterra, compute_exchange_rate_raw,
     deposit_stable, redeem_stable, unbond_ve_aterra,
 };
 use crate::error::ContractError;

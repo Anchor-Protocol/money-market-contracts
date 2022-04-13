@@ -770,7 +770,7 @@ fn bond_unbond_claim_ve_aterra() {
     }
 
     let info = mock_info("AT-uusd", &[]);
-    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![
@@ -815,7 +815,7 @@ fn bond_unbond_claim_ve_aterra() {
         msg: to_binary(&Cw20HookMsg::UnbondVeATerra {}).unwrap(),
     });
     let info = mock_info("ve-AT-uusd", &[]);
-    let res = execute(deps.as_mut(), env_1_block_later.clone(), info, msg.clone()).unwrap();
+    let res = execute(deps.as_mut(), env_1_block_later.clone(), info, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![
@@ -859,7 +859,7 @@ fn bond_unbond_claim_ve_aterra() {
         &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(10_599u64))],
     )]);
 
-    let mut env_30_days_later = env_1_block_later.clone();
+    let mut env_30_days_later = env_1_block_later;
     env_30_days_later.block.time = unlock_time.plus_seconds(120);
 
     let msg = ExecuteMsg::ClaimATerra {
@@ -867,7 +867,7 @@ fn bond_unbond_claim_ve_aterra() {
         unlock_time,
     };
     let info = mock_info("addr0000", &[]);
-    let res = execute(deps.as_mut(), env_30_days_later.clone(), info, msg.clone()).unwrap();
+    let res = execute(deps.as_mut(), env_30_days_later, info, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
