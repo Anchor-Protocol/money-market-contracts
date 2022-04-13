@@ -1426,7 +1426,7 @@ fn ve_premium_rate_model() {
         max_ltv: Decimal256::percent(60),
     };
 
-    let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+    let _res = execute(deps.as_mut(), mock_env(), info, msg);
 
     {
         let mut state = read_ve_premium_rate_state(deps.as_ref().storage).unwrap();
@@ -1566,7 +1566,7 @@ fn ve_premium_rate_model() {
         );
     }
 
-    let prev_target_share = {
+    let _prev_target_share = {
         let mut state = read_ve_premium_rate_state(deps.as_ref().storage).unwrap();
         state.target_share = Decimal256::percent(77);
         store_ve_premium_rate_state(deps.as_mut().storage, &state).unwrap();
@@ -1583,7 +1583,7 @@ fn ve_premium_rate_model() {
             ..Default::default()
         },
     );
-    let res: Response = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+    let res: Response = execute(deps.as_mut(), env, info, msg).unwrap();
     assert_premium_rate(res, Decimal256::from_str("1.1991").unwrap());
     {
         let state = read_ve_premium_rate_state(deps.as_ref().storage).unwrap();

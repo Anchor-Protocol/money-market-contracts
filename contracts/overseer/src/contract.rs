@@ -670,7 +670,7 @@ pub fn update_epoch_state(
 
     // update ve premium rate
     let premium_rate =
-        update_ve_premium_rate(&mut deps, env.block.height.clone(), market_contract.clone())?;
+        update_ve_premium_rate(&mut deps, env.block.height, market_contract.clone())?;
 
     // use unchanged rates to build msg
     let response_msg = to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
