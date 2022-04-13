@@ -85,7 +85,7 @@ pub fn unbond_ve_aterra(
     let mut staker_infos = read_ve_aterra_staker_infos(deps.storage, &sender);
     let unlock_time = env.block.time.plus_seconds(UNBOND_DURATION_SECS);
     staker_infos.infos.push(VeStakerUnlockInfo {
-        ve_aterra_qty: aterra_mint_amount,
+        aterra_qty: aterra_mint_amount,
         unlock_time,
     });
     store_ve_stacker_infos(deps.storage, &sender, &staker_infos)?;
@@ -141,10 +141,10 @@ pub fn claim_unlocked_aterra(
         ));
     }
 
-    let total_amount = staker_infos.infos[staker_info_idx].ve_aterra_qty;
+    let total_amount = staker_infos.infos[staker_info_idx].aterra_qty;
     match amount.cmp(&total_amount) {
         Ordering::Less => {
-            let stored_qty = &mut staker_infos.infos[staker_info_idx].ve_aterra_qty;
+            let stored_qty = &mut staker_infos.infos[staker_info_idx].aterra_qty;
             *stored_qty = *stored_qty - amount;
         }
         Ordering::Equal => {

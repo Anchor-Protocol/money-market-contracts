@@ -52,7 +52,7 @@ pub struct VeStakerUnlockInfos {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct VeStakerUnlockInfo {
-    pub ve_aterra_qty: Uint256,
+    pub aterra_qty: Uint256,
     pub unlock_time: Timestamp,
 }
 

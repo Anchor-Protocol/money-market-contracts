@@ -847,7 +847,7 @@ fn bond_unbond_claim_ve_aterra() {
     {
         let infos = read_ve_aterra_staker_infos(&deps.storage, &Addr::unchecked("addr0000"));
         assert_eq!(infos.infos.len(), 1);
-        assert_eq!(infos.infos[0].ve_aterra_qty, Uint256::from(10_500u64));
+        assert_eq!(infos.infos[0].aterra_qty, Uint256::from(10_500u64));
         assert_eq!(infos.infos[0].unlock_time, unlock_time,);
         let state = read_state(&deps.storage).unwrap();
         assert_eq!(state.prev_ve_aterra_supply, Uint256::zero());
