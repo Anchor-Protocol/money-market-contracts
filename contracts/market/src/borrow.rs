@@ -253,7 +253,10 @@ pub fn compute_interest(
     }
 
     let aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.aterra_contract)?)?;
-    let ve_aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.ve_aterra_contract)?)?;
+    let ve_aterra_supply = query_supply(
+        deps,
+        deps.api.addr_humanize(&config.ve_aterra_cw20_contract)?,
+    )?;
     let balance: Uint256 = query_balance(
         deps,
         deps.api.addr_humanize(&config.contract_addr)?,

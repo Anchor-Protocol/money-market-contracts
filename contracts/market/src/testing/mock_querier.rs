@@ -258,6 +258,7 @@ impl WasmMockQuerier {
                             owner_addr: "".to_string(),
                             oracle_contract: "".to_string(),
                             market_contract: "".to_string(),
+                            ve_aterra_contract: "".to_string(),
                             liquidation_contract: "".to_string(),
                             collector_contract: "".to_string(),
                             threshold_deposit_rate: Decimal256::one(),

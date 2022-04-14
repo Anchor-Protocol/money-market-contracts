@@ -1,5 +1,4 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::Timestamp;
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -13,8 +12,6 @@ pub struct InstantiateMsg {
     pub stable_denom: String,
     /// Anchor token code ID used to instantiate
     pub aterra_code_id: u64,
-    /// VeAnchor token code ID used to instantiate
-    pub ve_aterra_code_id: u64,
     /// Anchor token distribution speed
     pub anc_emission_rate: Decimal256,
     /// Maximum allowed borrow rate over deposited stable balance
@@ -42,6 +39,10 @@ pub enum ExecuteMsg {
         collector_contract: String,
         /// Faucet contract to drip ANC token to users
         distributor_contract: String,
+        /// ve aterra cw20 contract created by ve-aterra anchor contract
+        ve_aterra_cw20_contract: String,
+        /// Responsible for bonding, unbonding, claiming ve operations and adjusting premium rate
+        ve_aterra_anchor_contract: String,
     },
 
     /// Update config values
@@ -69,18 +70,11 @@ pub enum ExecuteMsg {
         target_deposit_rate: Decimal256,
         threshold_deposit_rate: Decimal256,
         distributed_interest: Uint256,
-        premium_rate: Decimal256,
     },
 
     ////////////////////
     /// User operations
     ////////////////////
-    /// Claim `amount` of aterra unbonded 30 days before `block_height`
-    ClaimATerra {
-        amount: Uint256,
-        unlock_time: Timestamp,
-    },
-
     /// Deposit stable asset to get interest
     DepositStable {},
 
@@ -98,8 +92,15 @@ pub enum ExecuteMsg {
         to: Option<String>,
     },
 
-    UpdateAterraSupply {
-        diff: Diff,
+    /// After bonding or unbonding ve-aterra, aterra supply and ve_aterra supply will change
+    /// Since these are used in aterra / stable_denom exchange rate calculations, these must be
+    /// updated in market contract
+    /// ve_exchange_rate is also used in above ER calc, so we take the opportunity to get the ground
+    /// truth
+    UpdateFromVeActions {
+        aterra_diff: Diff,
+        ve_aterra_supply: Uint256,
+        ve_exchange_rate: Decimal256,
     },
 }
 
@@ -165,11 +166,10 @@ pub struct StateResponse {
     pub anc_emission_rate: Decimal256,
     pub prev_aterra_supply: Uint256,
     pub prev_aterra_exchange_rate: Decimal256,
-
-    pub ve_aterra_premium_rate: Decimal256, // in blocks
     pub prev_ve_aterra_supply: Uint256,
     pub prev_ve_aterra_exchange_rate: Decimal256,
-    pub last_ve_aterra_updated: u64,
+    pub ve_aterra_exchange_rate_last_updated: u64,
+    pub prev_ve_premium_rate: Decimal256,
 }
 
 // We define a custom struct for each query response

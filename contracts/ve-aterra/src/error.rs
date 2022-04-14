@@ -30,4 +30,7 @@ pub enum ContractError {
 
     #[error("Provided CW20 hook is unsupported {0}")]
     UnsupportedCw20Hook(String),
+
+    #[error("Cannot execute epoch operations yet, epoch has not passed. Last updated: {0}")]
+    EpochNotPassed(u64),
 }

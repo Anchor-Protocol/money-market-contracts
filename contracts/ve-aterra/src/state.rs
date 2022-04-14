@@ -4,8 +4,6 @@ use cosmwasm_storage::{bucket, bucket_read, ReadonlySingleton, Singleton};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-
-
 pub const KEY_CONFIG: &[u8] = b"config";
 pub const KEY_STATE: &[u8] = b"state";
 
@@ -16,22 +14,26 @@ pub struct Config {
     pub contract_addr: CanonicalAddr,
     pub owner_addr: CanonicalAddr,
     pub market_addr: CanonicalAddr,
+    pub overseer_addr: CanonicalAddr,
     pub aterra_contract: CanonicalAddr,
     pub ve_aterra_contract: CanonicalAddr,
+
+    pub max_pos_change: Decimal256,
+    pub max_neg_change: Decimal256,
+    pub max_rate: Decimal256,
+    pub min_rate: Decimal256,
+    pub diff_multiplier: Decimal256,
+
+    pub premium_rate_epoch: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
-    pub ve_aterra_premium_rate: Decimal256, // in blocks
-    pub prev_ve_aterra_supply: Uint256,     // todo: can we just query the cw20 contract instead?
-    pub prev_ve_aterra_exchange_rate: Decimal256,
-    pub last_ve_aterra_updated: u64, // todo: if all updates always happen together, consider merging last updated blockstamps
-
-    // todo: dedup
-    pub last_executed_height: u64,
+    pub ve_aterra_supply: Uint256,
+    pub prev_epoch_ve_aterra_exchange_rate: Decimal256,
     pub target_share: Decimal256,
-    pub end_goal_share: Decimal256,
     pub premium_rate: Decimal256, // in blocks
+    pub last_updated: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

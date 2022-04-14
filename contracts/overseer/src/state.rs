@@ -1,8 +1,9 @@
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{CanonicalAddr, Deps, Order, StdError, StdResult, Storage};
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 use moneymarket::overseer::{CollateralsResponse, WhitelistResponseElem};
 use moneymarket::tokens::Tokens;
@@ -20,6 +21,7 @@ pub struct Config {
     pub owner_addr: CanonicalAddr,
     pub oracle_contract: CanonicalAddr,
     pub market_contract: CanonicalAddr,
+    pub ve_aterra_contract: CanonicalAddr,
     pub liquidation_contract: CanonicalAddr,
     pub collector_contract: CanonicalAddr,
     pub stable_denom: String,
@@ -42,18 +44,6 @@ pub struct DynrateConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct VePremiumRateConfig {
-    pub max_pos_change: Decimal256,
-    pub max_neg_change: Decimal256,
-    pub max_rate: Decimal256,
-    pub min_rate: Decimal256,
-    pub diff_multiplier: Decimal256,
-    /// percentage points target_share moves towards end_goal_share per epoch
-    pub target_transition_amount: Decimal256,
-    pub target_transition_epoch: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct EpochState {
     pub deposit_rate: Decimal256,
     pub prev_aterra_supply: Uint256,
@@ -66,14 +56,6 @@ pub struct EpochState {
 pub struct DynrateState {
     pub last_executed_height: u64,
     pub prev_yield_reserve: Decimal256,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct VePremiumRateState {
-    pub last_executed_height: u64,
-    pub target_share: Decimal256,
-    pub end_goal_share: Decimal256,
-    pub premium_rate: Decimal256, // in blocks
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -100,17 +82,6 @@ pub fn read_dynrate_config(storage: &dyn Storage) -> StdResult<DynrateConfig> {
     ReadonlySingleton::new(storage, KEY_DYNRATE_CONFIG).load()
 }
 
-pub fn store_ve_premium_rate_config(
-    _storage: &mut dyn Storage,
-    _data: &VePremiumRateConfig,
-) -> StdResult<()> {
-    todo!()
-}
-
-pub fn read_ve_premium_rate_config(_storage: &dyn Storage) -> StdResult<VePremiumRateConfig> {
-    todo!()
-}
-
 pub fn store_epoch_state(storage: &mut dyn Storage, data: &EpochState) -> StdResult<()> {
     Singleton::new(storage, KEY_EPOCH_STATE).save(data)
 }
@@ -125,17 +96,6 @@ pub fn store_dynrate_state(storage: &mut dyn Storage, data: &DynrateState) -> St
 
 pub fn read_dynrate_state(storage: &dyn Storage) -> StdResult<DynrateState> {
     ReadonlySingleton::new(storage, KEY_DYNRATE_STATE).load()
-}
-
-pub fn store_ve_premium_rate_state(
-    _storage: &mut dyn Storage,
-    _data: &VePremiumRateState,
-) -> StdResult<()> {
-    todo!()
-}
-
-pub fn read_ve_premium_rate_state(_storage: &dyn Storage) -> StdResult<VePremiumRateState> {
-    todo!()
 }
 
 pub fn store_whitelist_elem(

@@ -5,6 +5,7 @@ use cosmwasm_std::{
     attr, to_binary, Addr, CosmosMsg, DepsMut, Env, MessageInfo, Response, Timestamp, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
+
 use moneymarket::market::ExecuteMsg;
 
 use crate::error::ContractError;
@@ -26,7 +27,7 @@ pub fn bond_aterra(
 
     let ve_aterra_amount = bond_amount / exchange_rate;
 
-    state.prev_ve_aterra_supply += ve_aterra_amount;
+    state.ve_aterra_supply += ve_aterra_amount;
     store_state(deps.storage, &state)?;
 
     Ok(Response::new()
@@ -52,8 +53,10 @@ pub fn bond_aterra(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.market_addr)?.into(),
                 funds: vec![],
-                msg: to_binary(&ExecuteMsg::UpdateAterraSupply {
-                    diff: moneymarket::market::Diff::Neg(bond_amount),
+                msg: to_binary(&ExecuteMsg::UpdateFromVeActions {
+                    ve_aterra_supply: state.ve_aterra_supply,
+                    aterra_diff: moneymarket::market::Diff::Neg(bond_amount),
+                    ve_exchange_rate: exchange_rate,
                 })?,
             }),
         ])
@@ -65,7 +68,7 @@ pub fn bond_aterra(
         ]))
 }
 
-const UNBOND_DURATION_SECS: u64 = 60 * 60 * 24 * 30;
+pub const UNBOND_DURATION_SECS: u64 = 60 * 60 * 24 * 30;
 
 pub fn unbond_ve_aterra(
     deps: DepsMut,
@@ -76,7 +79,7 @@ pub fn unbond_ve_aterra(
     let config: Config = read_config(deps.storage)?;
     let mut state: State = read_state(deps.storage)?;
 
-    state.prev_ve_aterra_supply = state.prev_ve_aterra_supply - unbond_amount;
+    state.ve_aterra_supply = state.ve_aterra_supply - unbond_amount;
     store_state(deps.storage, &state)?;
 
     let exchange_rate = compute_ve_exchange_rate(&state, env.block.height);
@@ -114,8 +117,10 @@ pub fn unbond_ve_aterra(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.market_addr)?.into(),
                 funds: vec![],
-                msg: to_binary(&ExecuteMsg::UpdateAterraSupply {
-                    diff: moneymarket::market::Diff::Pos(aterra_mint_amount),
+                msg: to_binary(&ExecuteMsg::UpdateFromVeActions {
+                    ve_aterra_supply: state.ve_aterra_supply,
+                    aterra_diff: moneymarket::market::Diff::Pos(aterra_mint_amount),
+                    ve_exchange_rate: exchange_rate,
                 })?,
             }),
         ])
@@ -182,10 +187,10 @@ pub fn claim_unlocked_aterra(
 }
 
 pub(crate) fn compute_ve_exchange_rate(state: &State, block_height: u64) -> Decimal256 {
-    let blocks_elapsed = Decimal256::from_ratio(block_height - state.last_ve_aterra_updated, 1);
-    if blocks_elapsed.is_zero() {
-        state.prev_ve_aterra_exchange_rate
-    } else {
-        state.prev_ve_aterra_exchange_rate * blocks_elapsed * state.ve_aterra_premium_rate
-    }
+    moneymarket::ve_aterra::compute_ve_exchange_rate(
+        state.prev_epoch_ve_aterra_exchange_rate,
+        state.premium_rate,
+        state.last_updated,
+        block_height,
+    )
 }

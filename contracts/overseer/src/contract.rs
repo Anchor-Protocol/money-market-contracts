@@ -1,13 +1,26 @@
-use std::cmp::{max, min, Ordering};
-
-use cosmwasm_bignumber::{Decimal256, Uint256};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
     Response, StdResult, Uint128, WasmMsg,
 };
+use std::cmp::{max, min};
 
+use crate::collateral::{
+    liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
+    query_collaterals, unlock_collateral,
+};
+use crate::error::ContractError;
+use crate::querier::query_epoch_state;
+
+use crate::state::{
+    read_config, read_dynrate_config, read_dynrate_state, read_epoch_state, read_whitelist,
+    read_whitelist_elem, store_config, store_dynrate_config, store_dynrate_state,
+    store_epoch_state, store_whitelist_elem, Config, DynrateConfig, DynrateState, EpochState,
+    WhitelistElem,
+};
+
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use moneymarket::common::optional_addr_validate;
 use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
 use moneymarket::market::EpochStateResponse;
@@ -17,20 +30,7 @@ use moneymarket::overseer::{
     WhitelistResponseElem,
 };
 use moneymarket::querier::{deduct_tax, query_balance};
-
-use crate::collateral::{
-    liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
-    query_collaterals, unlock_collateral,
-};
-use crate::error::ContractError;
-use crate::querier::{query_epoch_state, query_market_state};
-use crate::state::{
-    read_config, read_dynrate_config, read_dynrate_state, read_epoch_state,
-    read_ve_premium_rate_config, read_ve_premium_rate_state, read_whitelist, read_whitelist_elem,
-    store_config, store_dynrate_config, store_dynrate_state, store_epoch_state,
-    store_ve_premium_rate_state, store_whitelist_elem, Config, DynrateConfig, DynrateState,
-    EpochState, VePremiumRateConfig, VePremiumRateState, WhitelistElem,
-};
+use moneymarket::ve_aterra::ExecuteMsg as VeAterraExecuteMsg;
 
 pub const BLOCKS_PER_YEAR: u128 = 4656810;
 
@@ -47,6 +47,7 @@ pub fn instantiate(
             owner_addr: deps.api.addr_canonicalize(&msg.owner_addr)?,
             oracle_contract: deps.api.addr_canonicalize(&msg.oracle_contract)?,
             market_contract: deps.api.addr_canonicalize(&msg.market_contract)?,
+            ve_aterra_contract: deps.api.addr_canonicalize(&msg.ve_aterra_contract)?,
             liquidation_contract: deps.api.addr_canonicalize(&msg.liquidation_contract)?,
             collector_contract: deps.api.addr_canonicalize(&msg.collector_contract)?,
             stable_denom: msg.stable_denom,
@@ -86,16 +87,6 @@ pub fn instantiate(
         &DynrateState {
             last_executed_height: env.block.height,
             prev_yield_reserve: Decimal256::zero(),
-        },
-    )?;
-
-    store_ve_premium_rate_state(
-        deps.storage,
-        &VePremiumRateState {
-            last_executed_height: env.block.height,
-            target_share: Decimal256::zero(),
-            end_goal_share: msg.end_goal_ve_share,
-            premium_rate: msg.initial_premium_rate,
         },
     )?;
 
@@ -163,7 +154,6 @@ pub fn execute(
         } => {
             let api = deps.api;
             update_config(
-                // todo: update this to include ve_premium_rate_config
                 deps,
                 info,
                 optional_addr_validate(api, owner_addr)?,
@@ -654,17 +644,15 @@ pub fn update_epoch_state(
         },
     )?;
 
-    // update ve premium rate
-    let premium_rate =
-        update_ve_premium_rate(&mut deps, env.block.height, market_contract.clone())?;
+    // Also update ve aterra contract
+    let ve_aterra_response_message = to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {})?;
 
     // use unchanged rates to build msg
-    let response_msg = to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
+    let market_response_msg = to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
         deposit_rate,
         target_deposit_rate: config.target_deposit_rate,
         threshold_deposit_rate: config.threshold_deposit_rate,
         distributed_interest,
-        premium_rate,
     })?;
 
     // proceed with deposit rate update
@@ -672,9 +660,17 @@ pub fn update_epoch_state(
 
     Ok(Response::new()
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: deps
+                .api
+                .addr_humanize(&config.ve_aterra_contract)?
+                .to_string(),
+            msg: ve_aterra_response_message,
+            funds: vec![],
+        }))
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: market_contract.to_string(),
             funds: vec![],
-            msg: response_msg,
+            msg: market_response_msg,
         }))
         .add_attributes(vec![
             attr("action", "update_epoch_state"),
@@ -706,69 +702,6 @@ pub fn fund_reserve(deps: DepsMut, info: MessageInfo) -> Result<Response, Contra
         attr("action", "fund_reserve"),
         attr("funded_amount", sent_uusd.to_string()),
     ]))
-}
-
-pub fn update_ve_premium_rate(
-    deps: &mut DepsMut,
-    block_height: u64,
-    market_contract: Addr,
-) -> StdResult<Decimal256> {
-    let state = read_ve_premium_rate_state(deps.storage)?;
-    let config = read_ve_premium_rate_config(deps.storage)?;
-    let current = current_ve_share(deps.as_ref(), block_height, market_contract)?;
-
-    let new_state = update_ve_premium_rate_raw(block_height, state, config, current);
-
-    store_ve_premium_rate_state(deps.storage, &new_state)?;
-    Ok(new_state.premium_rate)
-}
-
-pub fn update_ve_premium_rate_raw(
-    block_height: u64,
-    mut state: VePremiumRateState,
-    config: VePremiumRateConfig,
-    current_share: Decimal256,
-) -> VePremiumRateState {
-    // update target share only if target_transition_epoch has elapsed
-    if block_height - config.target_transition_epoch > state.last_executed_height {
-        match state.target_share.cmp(&state.end_goal_share) {
-            Ordering::Less => {
-                state.target_share = (state.target_share + config.target_transition_amount)
-                    .min(state.end_goal_share);
-            }
-            Ordering::Equal => {}
-            Ordering::Greater => {
-                state.target_share = (state.target_share - config.target_transition_amount)
-                    .max(state.end_goal_share);
-            }
-        }
-        state.last_executed_height = block_height;
-    }
-
-    // update target_share every overseer epoch
-    let raw_rate = if state.target_share > current_share {
-        let delta = (config.diff_multiplier * (state.target_share - current_share))
-            .min(config.max_pos_change);
-        state.premium_rate + delta
-    } else {
-        let delta = (config.diff_multiplier * (current_share - state.target_share))
-            .min(config.max_neg_change);
-        state.premium_rate - delta
-    };
-    state.premium_rate = raw_rate.max(config.min_rate).min(config.max_rate);
-    state
-}
-
-pub fn current_ve_share(
-    deps: Deps,
-    block_height: u64,
-    market_contract: Addr,
-) -> StdResult<Decimal256> {
-    let state = query_market_state(deps, market_contract, block_height)?;
-    Ok(Decimal256::from_ratio(
-        state.prev_ve_aterra_supply * state.prev_ve_aterra_exchange_rate,
-        state.prev_aterra_supply.max(Uint256::one()),
-    ))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -814,6 +747,10 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         owner_addr: deps.api.addr_humanize(&config.owner_addr)?.to_string(),
         oracle_contract: deps.api.addr_humanize(&config.oracle_contract)?.to_string(),
         market_contract: deps.api.addr_humanize(&config.market_contract)?.to_string(),
+        ve_aterra_contract: deps
+            .api
+            .addr_humanize(&config.ve_aterra_contract)?
+            .to_string(),
         liquidation_contract: deps
             .api
             .addr_humanize(&config.liquidation_contract)?

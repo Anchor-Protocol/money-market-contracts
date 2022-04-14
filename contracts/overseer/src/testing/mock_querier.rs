@@ -8,7 +8,6 @@ use cosmwasm_std::{
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use std::collections::HashMap;
-use std::iter::FromIterator;
 
 use moneymarket::liquidation::LiquidationAmountResponse;
 use moneymarket::market::{BorrowerInfoResponse, EpochStateResponse, StateResponse};
@@ -17,7 +16,7 @@ use moneymarket::tokens::TokensHuman;
 
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
-
+use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -63,7 +62,6 @@ pub fn mock_dependencies(
 pub struct WasmMockQuerier {
     base: MockQuerier<TerraQueryWrapper>,
     tax_querier: TaxQuerier,
-    market_state_querier: MarketStateQuerier,
     epoch_state_querier: EpochStateQuerier,
     oracle_price_querier: OraclePriceQuerier,
     loan_amount_querier: LoanAmountQuerier,
@@ -122,13 +120,8 @@ pub(crate) fn oracle_price_to_map(
 }
 
 #[derive(Clone, Default)]
-pub struct MarketStateQuerier {
-    // this lets us iterate over all pairs that match the first string
-    block_to_state: HashMap<Option<u64>, StateResponse>,
-}
-
-#[derive(Clone, Default)]
 pub struct EpochStateQuerier {
+    // this lets us iterate over all pairs that match the first string
     epoch_state: HashMap<String, (Uint256, Decimal256)>,
 }
 
@@ -244,17 +237,31 @@ impl WasmMockQuerier {
             }
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
                 match from_binary(msg).unwrap() {
-                    QueryMsg::State { block_height } => {
-                        match self.market_state_querier.block_to_state.get(&block_height) {
-                            Some(state) => {
-                                SystemResult::Ok(ContractResult::from(to_binary(&state)))
+                    QueryMsg::State { block_height: _ } => {
+                        match self.epoch_state_querier.epoch_state.get(contract_addr) {
+                            // TODO:
+                            Some(_v) => {
+                                SystemResult::Ok(ContractResult::from(to_binary(&StateResponse {
+                                    total_liabilities: Decimal256::zero(),
+                                    total_reserves: Decimal256::zero(),
+                                    last_interest_updated: 0,
+                                    last_reward_updated: 0,
+                                    global_interest_index: Decimal256::from_str("1000000.0")
+                                        .unwrap(),
+                                    global_reward_index: Decimal256::zero(),
+                                    anc_emission_rate: Decimal256::zero(),
+                                    prev_aterra_supply: Uint256::zero(),
+                                    prev_aterra_exchange_rate: Decimal256::zero(),
+                                    prev_ve_aterra_supply: Uint256::zero(),
+                                    prev_ve_aterra_exchange_rate: Decimal256::one(),
+                                    ve_aterra_exchange_rate_last_updated: 0,
+                                    prev_ve_premium_rate: Decimal256::one(),
+                                })))
                             }
-                            None => {
-                                eprintln!("Warning: querier has no value for this block height, falling back to default");
-                                SystemResult::Ok(ContractResult::from(to_binary(
-                                    &StateResponse::default(),
-                                )))
-                            }
+                            None => SystemResult::Err(SystemError::InvalidRequest {
+                                error: "No epoch state exists".to_string(),
+                                request: msg.as_slice().into(),
+                            }),
                         }
                     }
                     QueryMsg::EpochState {
@@ -353,7 +360,6 @@ impl WasmMockQuerier {
         WasmMockQuerier {
             base,
             tax_querier: TaxQuerier::default(),
-            market_state_querier: MarketStateQuerier::default(),
             epoch_state_querier: EpochStateQuerier::default(),
             oracle_price_querier: OraclePriceQuerier::default(),
             loan_amount_querier: LoanAmountQuerier::default(),
@@ -364,21 +370,6 @@ impl WasmMockQuerier {
     // configure the tax mock querier
     pub fn with_tax(&mut self, rate: Decimal, caps: &[(&String, &Uint128)]) {
         self.tax_querier = TaxQuerier::new(rate, caps);
-    }
-
-    pub fn with_market_state(
-        &mut self,
-        blocks_to_states: impl IntoIterator<Item = (Option<u64>, StateResponse)>,
-    ) {
-        self.market_state_querier = MarketStateQuerier {
-            block_to_state: HashMap::from_iter(blocks_to_states.into_iter()),
-        };
-    }
-
-    pub fn add_market_state(&mut self, block_height: u64, state: StateResponse) {
-        self.market_state_querier
-            .block_to_state
-            .insert(Some(block_height), state);
     }
 
     pub fn with_epoch_state(&mut self, epoch_state: &[(&String, &(Uint256, Decimal256))]) {
