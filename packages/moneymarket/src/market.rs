@@ -97,6 +97,17 @@ pub enum ExecuteMsg {
     ClaimRewards {
         to: Option<String>,
     },
+
+    UpdateAterraSupply {
+        diff: Diff,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Diff {
+    Pos(Uint256),
+    Neg(Uint256),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -105,12 +116,6 @@ pub enum Cw20HookMsg {
     /// Return stable coins to a user
     /// according to exchange rate
     RedeemStable {},
-
-    /// Bond aterra and release ve_aterra
-    BondATerra {},
-
-    /// Burn ve_aterra and entitle sender to claim corresponding aterra after 30 day waiting period
-    UnbondVeATerra {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

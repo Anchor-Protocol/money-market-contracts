@@ -28,9 +28,8 @@ use crate::state::{
     read_config, read_dynrate_config, read_dynrate_state, read_epoch_state,
     read_ve_premium_rate_config, read_ve_premium_rate_state, read_whitelist, read_whitelist_elem,
     store_config, store_dynrate_config, store_dynrate_state, store_epoch_state,
-    store_ve_premium_rate_config, store_ve_premium_rate_state, store_whitelist_elem, Config,
-    DynrateConfig, DynrateState, EpochState, VePremiumRateConfig, VePremiumRateState,
-    WhitelistElem,
+    store_ve_premium_rate_state, store_whitelist_elem, Config, DynrateConfig, DynrateState,
+    EpochState, VePremiumRateConfig, VePremiumRateState, WhitelistElem,
 };
 
 pub const BLOCKS_PER_YEAR: u128 = 4656810;
@@ -68,19 +67,6 @@ pub fn instantiate(
             dyn_rate_yr_increase_expectation: msg.dyn_rate_yr_increase_expectation,
             dyn_rate_min: msg.dyn_rate_min,
             dyn_rate_max: msg.dyn_rate_max,
-        },
-    )?;
-
-    store_ve_premium_rate_config(
-        deps.storage,
-        &VePremiumRateConfig {
-            max_pos_change: msg.max_pos_change,
-            max_neg_change: msg.max_neg_change,
-            max_rate: msg.max_rate,
-            min_rate: msg.min_rate,
-            diff_multiplier: msg.diff_multiplier,
-            target_transition_amount: msg.target_transition_amount,
-            target_transition_epoch: msg.target_transition_epoch,
         },
     )?;
 

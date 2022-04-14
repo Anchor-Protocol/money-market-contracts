@@ -12,7 +12,7 @@ use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{
-    ConfigResponse, Cw20HookMsg, EpochStateResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
+    ConfigResponse, Cw20HookMsg, Diff, EpochStateResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
     StateResponse,
 };
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
@@ -22,8 +22,7 @@ use crate::borrow::{
     query_borrower_info, query_borrower_infos, repay_stable, repay_stable_from_liquidation,
 };
 use crate::deposit::{
-    bond_aterra, claim_unlocked_aterra, compute_exchange_rate_raw,
-    deposit_stable, redeem_stable, unbond_ve_aterra,
+    claim_unlocked_aterra, compute_exchange_rate_raw, deposit_stable, redeem_stable,
 };
 use crate::error::ContractError;
 use crate::querier::{query_anc_emission_rate, query_borrow_rate, query_target_deposit_rate};
@@ -146,7 +145,7 @@ pub fn instantiate(
     ]))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+// #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -238,6 +237,15 @@ pub fn execute(
             let api = deps.api;
             claim_rewards(deps, env, info, optional_addr_validate(api, to)?)
         }
+        ExecuteMsg::UpdateAterraSupply { diff } => {
+            let mut state = read_state(deps.storage)?;
+            match diff {
+                Diff::Pos(n) => state.prev_aterra_supply += n,
+                Diff::Neg(n) => state.prev_aterra_supply = state.prev_aterra_supply - n,
+            }
+            store_state(deps.storage, &state)?;
+            Ok(Response::new())
+        }
     }
 }
 
@@ -249,27 +257,20 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
     match msg.id {
         1 => {
             // get new aterra token's contract address
-            let token_addr = extract_token_addr(msg)?;
+            let res: MsgInstantiateContractResponse = Message::parse_from_bytes(
+                msg.result.unwrap().data.unwrap().as_slice(),
+            )
+            .map_err(|_| {
+                ContractError::Std(StdError::parse_err(
+                    "MsgInstantiateContractResponse",
+                    "failed to parse data",
+                ))
+            })?;
+            let token_addr = Addr::unchecked(res.get_contract_address());
             register_aterra(deps, token_addr)
-        }
-        2 => {
-            // get new ve_aterra token's contract address
-            let token_addr = extract_token_addr(msg)?;
-            register_ve_aterra(deps, token_addr)
         }
         _ => Err(ContractError::InvalidReplyId {}),
     }
-}
-
-fn extract_token_addr(msg: Reply) -> Result<Addr, ContractError> {
-    let res: MsgInstantiateContractResponse =
-        Message::parse_from_bytes(msg.result.unwrap().data.unwrap().as_slice()).map_err(|_| {
-            ContractError::Std(StdError::parse_err(
-                "MsgInstantiateContractResponse",
-                "failed to parse data",
-            ))
-        })?;
-    Ok(Addr::unchecked(res.get_contract_address()))
 }
 
 pub fn receive_cw20(
@@ -289,26 +290,6 @@ pub fn receive_cw20(
 
             let cw20_sender_addr = deps.api.addr_validate(&cw20_msg.sender)?;
             redeem_stable(deps, env, cw20_sender_addr, cw20_msg.amount)
-        }
-        Ok(Cw20HookMsg::UnbondVeATerra {}) => {
-            // only asset contract can execute this message
-            let config: Config = read_config(deps.storage)?;
-            if deps.api.addr_canonicalize(contract_addr.as_str())? != config.ve_aterra_contract {
-                return Err(ContractError::Unauthorized {});
-            }
-
-            let cw20_sender_addr = deps.api.addr_validate(&cw20_msg.sender)?;
-            unbond_ve_aterra(deps, env, cw20_sender_addr, Uint256::from(cw20_msg.amount))
-        }
-        Ok(Cw20HookMsg::BondATerra {}) => {
-            // only asset contract can execute this message
-            let config: Config = read_config(deps.storage)?;
-            if deps.api.addr_canonicalize(contract_addr.as_str())? != config.aterra_contract {
-                return Err(ContractError::Unauthorized {});
-            }
-
-            let cw20_sender_addr = deps.api.addr_validate(&cw20_msg.sender)?;
-            bond_aterra(deps, env, cw20_sender_addr, Uint256::from(cw20_msg.amount))
         }
         _ => Err(ContractError::MissingRedeemStableHook {}),
     }

@@ -24,6 +24,6 @@ ignore:
   - "./**/lib.rs"
   - "./**/examples/schema.rs"
   - "./**/testing/**/*"
-  - "./**/tests.rs"
+  - "./**/testing.rs"
   - "./**/querier.rs"
   - "./**/mock_querier.rs"

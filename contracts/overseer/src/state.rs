@@ -9,10 +9,8 @@ use moneymarket::tokens::Tokens;
 
 const KEY_CONFIG: &[u8] = b"config";
 const KEY_DYNRATE_CONFIG: &[u8] = b"dynrate_config";
-const KEY_VE_PREMIUM_RATE_CONFIG: &[u8] = b"ve_premium_rate_config";
 const KEY_EPOCH_STATE: &[u8] = b"epoch_state";
 const KEY_DYNRATE_STATE: &[u8] = b"dynrate_state";
-const KEY_VE_PREMIUM_RATE_STATE: &[u8] = b"ve_premium_rate_state";
 
 const PREFIX_WHITELIST: &[u8] = b"whitelist";
 const PREFIX_COLLATERALS: &[u8] = b"collateral";
@@ -106,11 +104,11 @@ pub fn store_ve_premium_rate_config(
     storage: &mut dyn Storage,
     data: &VePremiumRateConfig,
 ) -> StdResult<()> {
-    Singleton::new(storage, KEY_VE_PREMIUM_RATE_CONFIG).save(data)
+    Singleton::new(storage, todo!()).save(data)
 }
 
 pub fn read_ve_premium_rate_config(storage: &dyn Storage) -> StdResult<VePremiumRateConfig> {
-    ReadonlySingleton::new(storage, KEY_VE_PREMIUM_RATE_CONFIG).load()
+    ReadonlySingleton::new(storage, todo!()).load()
 }
 
 pub fn store_epoch_state(storage: &mut dyn Storage, data: &EpochState) -> StdResult<()> {
@@ -133,11 +131,11 @@ pub fn store_ve_premium_rate_state(
     storage: &mut dyn Storage,
     data: &VePremiumRateState,
 ) -> StdResult<()> {
-    Singleton::new(storage, KEY_VE_PREMIUM_RATE_STATE).save(data)
+    Singleton::new(storage, todo!()).save(data)
 }
 
 pub fn read_ve_premium_rate_state(storage: &dyn Storage) -> StdResult<VePremiumRateState> {
-    ReadonlySingleton::new(storage, KEY_VE_PREMIUM_RATE_STATE).load()
+    ReadonlySingleton::new(storage, todo!()).load()
 }
 
 pub fn store_whitelist_elem(

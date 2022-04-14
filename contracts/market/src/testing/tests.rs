@@ -4,7 +4,7 @@ use anchor_token::distributor::ExecuteMsg as FaucetExecuteMsg;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Addr, Api, BankMsg, Coin, ContractResult, CosmosMsg, Decimal,
+    attr, from_binary, to_binary, Addr, BankMsg, Coin, ContractResult, CosmosMsg, Decimal,
     OwnedDeps, Reply, SubMsg, SubMsgExecutionResponse, Uint128, WasmMsg,
 };
 use cw20::{Cw20Coin, Cw20ExecuteMsg, Cw20ReceiveMsg, MinterResponse};
@@ -21,7 +21,7 @@ use crate::contract::{execute, instantiate, query, reply, INITIAL_DEPOSIT_AMOUNT
 use crate::error::ContractError;
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{
-    read_borrower_infos, read_state, read_ve_aterra_staker_infos, store_state, State,
+    read_borrower_infos, read_state, store_state, State,
 };
 use crate::testing::mock_querier::{mock_dependencies, WasmMockQuerier};
 
@@ -665,7 +665,7 @@ fn get_mock_instantiate_msg() -> InstantiateMsg {
         max_borrow_factor: Decimal256::one(),
     }
 }
-
+/*
 #[test]
 fn bond_unbond_claim_ve_aterra() {
     let mut deps = mock_dependencies(&[Coin {
@@ -889,7 +889,7 @@ fn bond_unbond_claim_ve_aterra() {
         assert_eq!(state.prev_aterra_supply, Uint256::from(10_599u64));
     }
 }
-
+*/
 #[test]
 fn redeem_stable() {
     let mut deps = mock_dependencies(&[Coin {
