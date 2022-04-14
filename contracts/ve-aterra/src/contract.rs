@@ -44,8 +44,8 @@ pub fn instantiate(
             ve_aterra_premium_rate: Decimal256::one(),
             prev_ve_aterra_exchange_rate: Decimal256::one(),
             prev_ve_aterra_supply: Uint256::zero(),
-            last_executed_height: 0,
-            last_ve_aterra_updated: 0,
+            last_executed_height: env.block.height,
+            last_ve_aterra_updated: env.block.height,
             target_share: msg.target_share,
             end_goal_share: msg.end_goal_ve_share,
             premium_rate: msg.premium_rate,
@@ -186,10 +186,10 @@ pub fn update_config(
         return Err(ContractError::Unauthorized {});
     }
 
-    todo!();
+    todo!()
 
-    store_config(deps.storage, &config)?;
-    Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
+    // store_config(deps.storage, &config)?;
+    // Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
 }
 
 pub fn execute_epoch_operations(

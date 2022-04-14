@@ -7,8 +7,6 @@ use cosmwasm_std::{
 use cw20::Cw20ExecuteMsg;
 use moneymarket::market::ExecuteMsg;
 
-
-
 use crate::error::ContractError;
 use crate::state::{
     read_config, read_state, read_ve_aterra_staker_infos, store_state, store_ve_stacker_infos,
@@ -184,10 +182,10 @@ pub fn claim_unlocked_aterra(
 }
 
 pub(crate) fn compute_ve_exchange_rate(state: &State, block_height: u64) -> Decimal256 {
-    let blocks_elapses = Decimal256::from_ratio(block_height - state.last_ve_aterra_updated, 1);
-    if blocks_elapses.is_zero() {
+    let blocks_elapsed = Decimal256::from_ratio(block_height - state.last_ve_aterra_updated, 1);
+    if blocks_elapsed.is_zero() {
         state.prev_ve_aterra_exchange_rate
     } else {
-        state.prev_ve_aterra_exchange_rate * blocks_elapses * state.ve_aterra_premium_rate
+        state.prev_ve_aterra_exchange_rate * blocks_elapsed * state.ve_aterra_premium_rate
     }
 }

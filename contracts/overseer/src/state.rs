@@ -101,14 +101,14 @@ pub fn read_dynrate_config(storage: &dyn Storage) -> StdResult<DynrateConfig> {
 }
 
 pub fn store_ve_premium_rate_config(
-    storage: &mut dyn Storage,
-    data: &VePremiumRateConfig,
+    _storage: &mut dyn Storage,
+    _data: &VePremiumRateConfig,
 ) -> StdResult<()> {
-    Singleton::new(storage, todo!()).save(data)
+    todo!()
 }
 
-pub fn read_ve_premium_rate_config(storage: &dyn Storage) -> StdResult<VePremiumRateConfig> {
-    ReadonlySingleton::new(storage, todo!()).load()
+pub fn read_ve_premium_rate_config(_storage: &dyn Storage) -> StdResult<VePremiumRateConfig> {
+    todo!()
 }
 
 pub fn store_epoch_state(storage: &mut dyn Storage, data: &EpochState) -> StdResult<()> {
@@ -128,14 +128,14 @@ pub fn read_dynrate_state(storage: &dyn Storage) -> StdResult<DynrateState> {
 }
 
 pub fn store_ve_premium_rate_state(
-    storage: &mut dyn Storage,
-    data: &VePremiumRateState,
+    _storage: &mut dyn Storage,
+    _data: &VePremiumRateState,
 ) -> StdResult<()> {
-    Singleton::new(storage, todo!()).save(data)
+    todo!()
 }
 
-pub fn read_ve_premium_rate_state(storage: &dyn Storage) -> StdResult<VePremiumRateState> {
-    ReadonlySingleton::new(storage, todo!()).load()
+pub fn read_ve_premium_rate_state(_storage: &dyn Storage) -> StdResult<VePremiumRateState> {
+    todo!()
 }
 
 pub fn store_whitelist_elem(
