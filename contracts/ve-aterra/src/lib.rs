@@ -1,5 +1,5 @@
+pub mod bonding;
 pub mod contract;
-pub mod deposit;
 pub mod error;
 pub mod premium_rate;
 pub mod querier;

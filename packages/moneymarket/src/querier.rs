@@ -1,12 +1,11 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     to_binary, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Coin, Deps, QueryRequest,
     StdError, StdResult, Uint128, WasmQuery,
 };
 use cw20::{Cw20QueryMsg, TokenInfoResponse};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use terra_cosmwasm::TerraQuerier;
 
 use crate::oracle::{PriceResponse, QueryMsg as OracleQueryMsg};

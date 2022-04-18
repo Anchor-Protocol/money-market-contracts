@@ -11,9 +11,7 @@ use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 
 use moneymarket::ve_aterra::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
 
-use crate::deposit::{
-    bond_aterra, claim_unlocked_aterra, compute_ve_exchange_rate, unbond_ve_aterra,
-};
+use crate::bonding::{bond, claim_unlocked_aterra, compute_ve_exchange_rate, unbond};
 use crate::error::ContractError;
 use crate::premium_rate::update_ve_premium_rate;
 use crate::querier::{query_config, query_state, query_supply};
@@ -124,10 +122,7 @@ pub fn execute(
             diff_multiplier,
         ),
         ExecuteMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env, info),
-        ExecuteMsg::ClaimATerra {
-            amount,
-            unlock_time,
-        } => claim_unlocked_aterra(deps, env, info, unlock_time, amount),
+        ExecuteMsg::ClaimATerra { amount } => claim_unlocked_aterra(deps, env, info, amount),
     }
 }
 
@@ -180,7 +175,7 @@ pub fn receive_cw20(
             }
 
             let cw20_sender_addr = deps.api.addr_validate(&cw20_msg.sender)?;
-            unbond_ve_aterra(deps, env, cw20_sender_addr, Uint256::from(cw20_msg.amount))
+            unbond(deps, env, cw20_sender_addr, Uint256::from(cw20_msg.amount))
         }
         Ok(Cw20HookMsg::BondATerra {}) => {
             // only asset contract can execute this message
@@ -190,7 +185,7 @@ pub fn receive_cw20(
             }
 
             let cw20_sender_addr = deps.api.addr_validate(&cw20_msg.sender)?;
-            bond_aterra(deps, env, cw20_sender_addr, Uint256::from(cw20_msg.amount))
+            bond(deps, env, cw20_sender_addr, Uint256::from(cw20_msg.amount))
         }
         _ => Err(ContractError::UnsupportedCw20Hook(cw20_msg.msg.to_string())),
     }

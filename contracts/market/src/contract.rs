@@ -23,7 +23,9 @@ use crate::borrow::{
 };
 use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
 use crate::error::ContractError;
-use crate::querier::{query_anc_emission_rate, query_borrow_rate, query_target_deposit_rate};
+use crate::querier::{
+    query_anc_emission_rate, query_borrow_rate, query_premium_rate, query_target_deposit_rate,
+};
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
 
@@ -377,6 +379,12 @@ pub fn execute_epoch_operations(
     }
 
     let mut state: State = read_state(deps.storage)?;
+
+    // Fetch premium rate from ve aterra anchor contract
+    state.prev_ve_premium_rate = query_premium_rate(
+        deps.as_ref(),
+        deps.api.addr_humanize(&config.ve_aterra_anchor_contract)?,
+    )?;
 
     // Compute interest and reward before updating anc_emission_rate
     let aterra_supply = query_supply(

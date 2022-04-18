@@ -35,7 +35,13 @@ pub fn query_state(deps: Deps, env: Env, block_height: Option<u64>) -> StdResult
         ));
     }
 
-    Ok(StateResponse {})
+    Ok(StateResponse {
+        ve_aterra_supply: state.ve_aterra_supply,
+        prev_epoch_ve_aterra_exchange_rate: state.prev_epoch_ve_aterra_exchange_rate,
+        target_share: state.target_share,
+        premium_rate: state.premium_rate,
+        last_updated: state.last_updated,
+    })
 }
 
 pub fn query_supply(deps: Deps, cw20_contract_addr: Addr) -> StdResult<Uint256> {

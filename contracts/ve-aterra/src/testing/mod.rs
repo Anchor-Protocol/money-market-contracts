@@ -6,12 +6,9 @@ use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use moneymarket::market::Diff;
 use moneymarket::ve_aterra::{Cw20HookMsg, ExecuteMsg, InstantiateMsg};
 
+use crate::bonding::UNBOND_DURATION_SECS;
 use crate::contract::{execute, instantiate, register_ve_aterra};
-use crate::deposit::UNBOND_DURATION_SECS;
-use crate::state::{
-    read_state, read_ve_aterra_staker_infos, store_state, store_ve_stacker_infos,
-    VeStakerUnlockInfo,
-};
+use crate::state::{read_state, read_user_receipts, store_state, store_user_receipts, Receipt};
 
 const MOCK_USER: &str = "addr0000";
 const ATERRA_CONTRACT: &str = "AT-usd";
@@ -145,11 +142,11 @@ fn unbond_simple() {
             }))
         ]
     );
-    let infos = read_ve_aterra_staker_infos(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
+    let infos = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
     assert_eq!(infos.infos.len(), 1);
     assert_eq!(
         infos.infos[0],
-        VeStakerUnlockInfo {
+        Receipt {
             aterra_qty: Uint256::from(10_000u64),
             unlock_time: env.block.time.plus_seconds(UNBOND_DURATION_SECS)
         }
@@ -170,19 +167,21 @@ fn claim_simple() {
         state.ve_aterra_supply = Uint256::from(10_000u64);
         store_state(deps.as_mut().storage, &state).unwrap();
 
-        let mut infos =
-            read_ve_aterra_staker_infos(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
-        infos.infos.push(VeStakerUnlockInfo {
+        let mut infos = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
+        infos.infos.push_back(Receipt {
+            aterra_qty: Uint256::from(2_000u64),
+            unlock_time: env.block.time.minus_seconds(10),
+        });
+        infos.infos.push_back(Receipt {
             aterra_qty: Uint256::from(10_000u64),
             unlock_time: env.block.time.minus_seconds(10),
         });
-        store_ve_stacker_infos(deps.as_mut().storage, &Addr::unchecked(MOCK_USER), &infos).unwrap();
+        store_user_receipts(deps.as_mut().storage, &Addr::unchecked(MOCK_USER), &infos).unwrap();
     }
 
     // claim less than full amount
     let msg = ExecuteMsg::ClaimATerra {
-        amount: 5_000u64.into(),
-        unlock_time: env.block.time.minus_seconds(10),
+        amount: Some(5_000u64.into()),
     };
     let info = mock_info(MOCK_USER, &[]);
     let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
@@ -199,21 +198,18 @@ fn claim_simple() {
             funds: vec![]
         })),]
     );
-    let infos = read_ve_aterra_staker_infos(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
+    let infos = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
     assert_eq!(infos.infos.len(), 1);
     assert_eq!(
-        infos.infos[0],
-        VeStakerUnlockInfo {
-            aterra_qty: Uint256::from(5_000u64),
+        infos.infos.front().unwrap().clone(),
+        Receipt {
+            aterra_qty: Uint256::from(7_000u64),
             unlock_time: env.block.time.minus_seconds(10),
         }
     );
 
     // claim full amount
-    let msg = ExecuteMsg::ClaimATerra {
-        amount: 5_000u64.into(),
-        unlock_time: env.block.time.minus_seconds(10),
-    };
+    let msg = ExecuteMsg::ClaimATerra { amount: None };
     let info = mock_info(MOCK_USER, &[]);
     let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
@@ -223,12 +219,12 @@ fn claim_simple() {
             contract_addr: ATERRA_CONTRACT.to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: MOCK_USER.to_string(),
-                amount: Uint128::from(5_000u64),
+                amount: Uint128::from(7_000u64),
             })
             .unwrap(),
             funds: vec![]
         })),]
     );
-    let infos = read_ve_aterra_staker_infos(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
+    let infos = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
     assert_eq!(infos.infos.len(), 0);
 }

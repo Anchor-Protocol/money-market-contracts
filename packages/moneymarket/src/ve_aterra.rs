@@ -1,5 +1,4 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::Timestamp;
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -61,8 +60,7 @@ pub enum ExecuteMsg {
     ////////////////////
     /// Claim `amount` of aterra unbonded 30 days before `block_height`
     ClaimATerra {
-        amount: Uint256,
-        unlock_time: Timestamp,
+        amount: Option<Uint256>,
     },
 }
 
@@ -105,7 +103,19 @@ pub struct ConfigResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct StateResponse {
-    // todo
+    /// Cached ve_aterra supply.
+    /// This is kept locally to not require expensive queries to CW20 contract
+    pub ve_aterra_supply: Uint256,
+    /// Exchange rate between ve aterra and aterra calculated during last ExecuteEpochOperations
+    pub prev_epoch_ve_aterra_exchange_rate: Decimal256,
+    /// Target share of deposits in ve aterra. o
+    /// Premium rate adjusts to bring current share towards target share
+    pub target_share: Decimal256,
+    /// Current premium rate of ve aterra over aterra measured in blocks
+    /// ex. 2% yearly premium => 1.02 / num_blocks_per_year
+    pub premium_rate: Decimal256, // in blocks
+    /// Block height ExecuteEpochOperations was last executed on
+    pub last_updated: u64,
 }
 
 pub fn compute_ve_exchange_rate(

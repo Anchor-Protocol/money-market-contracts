@@ -1,8 +1,6 @@
-use std::cmp::Ordering;
-
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    attr, to_binary, Addr, CosmosMsg, DepsMut, Env, MessageInfo, Response, Timestamp, WasmMsg,
+    attr, to_binary, Addr, CosmosMsg, DepsMut, Env, MessageInfo, Response, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 
@@ -10,11 +8,11 @@ use moneymarket::market::ExecuteMsg;
 
 use crate::error::ContractError;
 use crate::state::{
-    read_config, read_state, read_ve_aterra_staker_infos, store_state, store_ve_stacker_infos,
-    Config, State, VeStakerUnlockInfo,
+    read_config, read_state, read_user_receipts, store_state, store_user_receipts, Config, Receipt,
+    State,
 };
 
-pub fn bond_aterra(
+pub fn bond(
     deps: DepsMut,
     env: Env,
     sender: Addr,
@@ -70,7 +68,7 @@ pub fn bond_aterra(
 
 pub const UNBOND_DURATION_SECS: u64 = 60 * 60 * 24 * 30;
 
-pub fn unbond_ve_aterra(
+pub fn unbond(
     deps: DepsMut,
     env: Env,
     sender: Addr,
@@ -86,13 +84,13 @@ pub fn unbond_ve_aterra(
 
     let aterra_mint_amount = unbond_amount * exchange_rate;
 
-    let mut staker_infos = read_ve_aterra_staker_infos(deps.storage, &sender);
+    let mut staker_infos = read_user_receipts(deps.storage, &sender);
     let unlock_time = env.block.time.plus_seconds(UNBOND_DURATION_SECS);
-    staker_infos.infos.push(VeStakerUnlockInfo {
+    staker_infos.infos.push_back(Receipt {
         aterra_qty: aterra_mint_amount,
         unlock_time,
     });
-    store_ve_stacker_infos(deps.storage, &sender, &staker_infos)?;
+    store_user_receipts(deps.storage, &sender, &staker_infos)?;
 
     Ok(Response::new()
         .add_messages([
@@ -133,42 +131,58 @@ pub fn unbond_ve_aterra(
         ]))
 }
 
+/// Claim aterra having waited for lock_period (30 days) after unbonding ve aterra
+/// If amount is specified, claim receipts in order of ascending unlock time until amount is reached
+/// If amount is not specified, claim all unlocked aterra
+/// A receipt is unlocked when the current block time is >= receipt.unlock_time
 pub fn claim_unlocked_aterra(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    unlock_timestamp: Timestamp,
-    amount: Uint256,
+    amount: Option<Uint256>,
 ) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
 
-    let mut staker_infos = read_ve_aterra_staker_infos(deps.storage, &info.sender);
+    let mut unlock_infos = read_user_receipts(deps.storage, &info.sender);
+    let queue = &mut unlock_infos.infos;
 
-    let staker_info_idx = staker_infos
-        .infos
-        .iter_mut()
-        .position(|x| x.unlock_time == unlock_timestamp)
-        .ok_or(ContractError::NoUnlockMatchingBlockHeight)?;
-
-    if unlock_timestamp > env.block.time {
-        return Err(ContractError::VeStakeNotUnlocked(
-            env.block.time,
-            unlock_timestamp,
-        ));
+    let mut claimed = Uint256::zero();
+    let mut to_pop = 0;
+    for idx in 0..queue.len() {
+        let mut receipt = queue.get_mut(idx).unwrap();
+        if receipt.unlock_time > env.block.time {
+            break;
+        }
+        match amount {
+            Some(amount) => {
+                // if this receipt won't fill amount => take all and remove receipt
+                if amount - claimed >= receipt.aterra_qty {
+                    claimed += receipt.aterra_qty;
+                    to_pop += 1;
+                    continue;
+                }
+                // this receipt has more than the requested amount => take whats needed and update receipt
+                receipt.aterra_qty = receipt.aterra_qty - (amount - claimed);
+                claimed = amount;
+            }
+            None => {
+                // remove all unlocked receipts
+                claimed += receipt.aterra_qty;
+                to_pop += 1;
+            }
+        }
+    }
+    for _ in 0..to_pop {
+        queue.pop_front();
     }
 
-    let total_amount = staker_infos.infos[staker_info_idx].aterra_qty;
-    match amount.cmp(&total_amount) {
-        Ordering::Less => {
-            let stored_qty = &mut staker_infos.infos[staker_info_idx].aterra_qty;
-            *stored_qty = *stored_qty - amount;
+    if let Some(amount) = amount {
+        if claimed < amount {
+            return Err(ContractError::NotEnoughUnlocked(amount, claimed));
         }
-        Ordering::Equal => {
-            staker_infos.infos.remove(staker_info_idx);
-        }
-        Ordering::Greater => return Err(ContractError::NotEnoughUnlocked(amount, total_amount)),
     }
-    store_ve_stacker_infos(deps.storage, &info.sender, &staker_infos)?;
+
+    store_user_receipts(deps.storage, &info.sender, &unlock_infos)?;
 
     Ok(Response::new()
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -176,13 +190,13 @@ pub fn claim_unlocked_aterra(
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: info.sender.to_string(),
-                amount: amount.into(),
+                amount: claimed.into(),
             })?,
         }))
         .add_attributes([
             attr("action", "claim_unlocked_aterra"),
             attr("depositor", info.sender),
-            attr("aterra_amount", amount),
+            attr("aterra_amount", claimed),
         ]))
 }
 
