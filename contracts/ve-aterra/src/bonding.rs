@@ -12,6 +12,10 @@ use crate::state::{
     State,
 };
 
+<<<<<<< HEAD:contracts/ve-aterra/src/bonding.rs
+/// Bond aterra for ve aterra that earns premium rate
+=======
+>>>>>>> 3fc78f55b2561f7bbf17fc353be5eca5878a3038:contracts/ve-aterra/src/deposit.rs
 pub fn bond(
     deps: DepsMut,
     env: Env,
@@ -68,6 +72,11 @@ pub fn bond(
 
 pub const UNBOND_DURATION_SECS: u64 = 60 * 60 * 24 * 30;
 
+<<<<<<< HEAD:contracts/ve-aterra/src/bonding.rs
+// Unbond ve aterra for aterra.
+// Aterra can be claimed 30 days after unbonding
+=======
+>>>>>>> 3fc78f55b2561f7bbf17fc353be5eca5878a3038:contracts/ve-aterra/src/deposit.rs
 pub fn unbond(
     deps: DepsMut,
     env: Env,

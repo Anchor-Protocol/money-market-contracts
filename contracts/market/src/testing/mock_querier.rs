@@ -14,6 +14,7 @@ use cw20::TokenInfoResponse;
 use moneymarket::distribution_model::AncEmissionRateResponse;
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::overseer::{BorrowLimitResponse, ConfigResponse};
+use moneymarket::ve_aterra::StateResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -41,6 +42,8 @@ pub enum QueryMsg {
     Config {},
     /// Query cw20 Token Info
     TokenInfo {},
+    /// Query ve aterra anchor contract to get premium rate
+    State {},
 }
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -64,6 +67,7 @@ pub struct WasmMockQuerier {
     tax_querier: TaxQuerier,
     borrow_rate_querier: BorrowRateQuerier,
     borrow_limit_querier: BorrowLimitQuerier,
+    premium_rate_querier: PremiumRateQuerier,
 }
 
 #[derive(Clone, Default)]
@@ -117,6 +121,17 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
         owner_map.insert(denom.to_string(), **cap);
     }
     owner_map
+}
+
+#[derive(Clone, Default)]
+pub struct PremiumRateQuerier {
+    premium_rate: Decimal256,
+}
+
+impl PremiumRateQuerier {
+    pub fn new(rate: Decimal256) -> Self {
+        Self { premium_rate: rate }
+    }
 }
 
 #[derive(Clone, Default)]
@@ -301,6 +316,15 @@ impl WasmMockQuerier {
                             total_supply,
                         })))
                     }
+                    QueryMsg::State {} => {
+                        SystemResult::Ok(ContractResult::from(to_binary(&StateResponse {
+                            ve_aterra_supply: Default::default(),
+                            prev_epoch_ve_aterra_exchange_rate: Default::default(),
+                            target_share: Default::default(),
+                            premium_rate: self.premium_rate_querier.premium_rate,
+                            last_updated: 0,
+                        })))
+                    }
                 }
             }
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
@@ -350,6 +374,7 @@ impl WasmMockQuerier {
     pub fn new(base: MockQuerier<TerraQueryWrapper>) -> Self {
         WasmMockQuerier {
             base,
+            premium_rate_querier: PremiumRateQuerier::default(),
             token_querier: TokenQuerier::default(),
             tax_querier: TaxQuerier::default(),
             borrow_rate_querier: BorrowRateQuerier::default(),
@@ -374,6 +399,10 @@ impl WasmMockQuerier {
     // configure the tax mock querier
     pub fn with_tax(&mut self, rate: Decimal, caps: &[(&String, &Uint128)]) {
         self.tax_querier = TaxQuerier::new(rate, caps);
+    }
+
+    pub fn with_premium_rate(&mut self, rate: Decimal256) {
+        self.premium_rate_querier = PremiumRateQuerier::new(rate);
     }
 
     pub fn with_borrow_rate(&mut self, borrow_rate: &[(&String, &Decimal256)]) {
