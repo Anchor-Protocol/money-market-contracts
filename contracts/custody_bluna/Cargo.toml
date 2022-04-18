@@ -29,8 +29,8 @@ incremental = false
 overflow-checks = true
 
 [features]
-# for quicker testing, cargo test --lib
-# for more explicit testing, cargo test --features=backtraces
+# for quicker tests, cargo test --lib
+# for more explicit tests, cargo test --features=backtraces
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
