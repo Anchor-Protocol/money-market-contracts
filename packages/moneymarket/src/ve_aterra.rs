@@ -36,6 +36,7 @@ pub enum ExecuteMsg {
     ////////////////////
     /// Owner operations
     ////////////////////
+
     /// Update config values
     UpdateConfig {
         owner_addr: Option<String>,
@@ -53,6 +54,8 @@ pub enum ExecuteMsg {
     ////////////////////
     /// Overseer operations
     ////////////////////
+
+    /// Update premium rate
     ExecuteEpochOperations {},
 
     ////////////////////
