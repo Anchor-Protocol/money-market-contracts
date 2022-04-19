@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{
-    mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
+    mock_env, mock_info, MOCK_CONTRACT_ADDR,
 };
-use cosmwasm_std::{to_binary, Addr, Api, Coin, CosmosMsg, OwnedDeps, SubMsg, Uint128, WasmMsg};
+use cosmwasm_std::{to_binary, Addr, Api, CosmosMsg, SubMsg, Uint128, WasmMsg};
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use moneymarket::market::Diff;
@@ -57,7 +57,7 @@ fn bond_simple() {
         msg: to_binary(&Cw20HookMsg::BondATerra {}).unwrap(),
     });
     let info = mock_info(ATERRA_CONTRACT, &[]);
-    let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
 
     assert_eq!(
         res.messages,
@@ -221,7 +221,7 @@ fn claim_simple() {
     // claim full amount
     let msg = ExecuteMsg::ClaimATerra { amount: None };
     let info = mock_info(MOCK_USER, &[]);
-    let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
 
     assert_eq!(
         res.messages,
@@ -464,7 +464,7 @@ fn execute_epoch_operations_simple() {
     env.block.height += config.premium_rate_epoch;
     let res = execute(
         deps.as_mut(),
-        env.clone(),
+        env,
         mock_info("overseer", &[]),
         ExecuteMsg::ExecuteEpochOperations {},
     )

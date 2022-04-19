@@ -11,12 +11,12 @@ use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 
 use moneymarket::ve_aterra::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
 
-use crate::bonding::{bond, claim_unlocked_aterra, compute_ve_exchange_rate, unbond};
+use crate::bonding::{bond, claim_unlocked_aterra, unbond};
 use crate::error::ContractError;
-use crate::execute_epoch_operations::{execute_epoch_operations, update_ve_premium_rate};
-use crate::querier::{query_config, query_state, query_supply};
+use crate::execute_epoch_operations::{execute_epoch_operations};
+use crate::querier::{query_config, query_state};
 use crate::response::MsgInstantiateContractResponse;
-use crate::state::{read_config, read_state, store_config, store_state, Config, State};
+use crate::state::{read_config, store_config, store_state, Config, State};
 
 const REGISTER_VE_ATERRA_REPLY_ID: u64 = 1;
 
