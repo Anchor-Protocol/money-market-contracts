@@ -25,7 +25,6 @@ pub fn bond(
     let exchange_rate = compute_ve_exchange_rate(&state, env.block.height);
 
     let ve_aterra_amount = bond_amount / exchange_rate;
-    dbg!(ve_aterra_amount.to_string());
 
     state.ve_aterra_supply += ve_aterra_amount;
     store_state(deps.storage, &state)?;
@@ -87,7 +86,6 @@ pub fn unbond(
     let exchange_rate = compute_ve_exchange_rate(&state, env.block.height);
 
     let aterra_mint_amount = unbond_amount * exchange_rate;
-    dbg!(aterra_mint_amount.to_string());
 
     let mut staker_infos = read_user_receipts(deps.storage, &sender);
     let unlock_time = env.block.time.plus_seconds(UNBOND_DURATION_SECS);
