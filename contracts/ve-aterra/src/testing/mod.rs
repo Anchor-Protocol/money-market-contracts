@@ -1,9 +1,7 @@
 use std::str::FromStr;
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::testing::{
-    mock_env, mock_info, MOCK_CONTRACT_ADDR,
-};
+use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{to_binary, Addr, Api, CosmosMsg, SubMsg, Uint128, WasmMsg};
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
@@ -50,6 +48,11 @@ fn bond_simple() {
     let env = mock_env();
     instantiate(deps.as_mut(), env.clone(), info, mock_instantiate_msg()).unwrap();
     register_ve_aterra(deps.as_mut(), Addr::unchecked(VE_ATERRA_CONTRACT)).unwrap();
+    {
+        let mut state = read_state(deps.as_mut().storage).unwrap();
+        state.prev_epoch_ve_aterra_exchange_rate = Decimal256::from_str("1.50").unwrap();
+        store_state(deps.as_mut().storage, &state).unwrap();
+    }
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: MOCK_USER.to_string(),
@@ -74,7 +77,7 @@ fn bond_simple() {
                 contract_addr: VE_ATERRA_CONTRACT.to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Mint {
                     recipient: MOCK_USER.to_string(),
-                    amount: Uint128::from(10_000u64),
+                    amount: Uint128::from(6_666u64),
                 })
                 .unwrap(),
                 funds: vec![]
@@ -82,9 +85,9 @@ fn bond_simple() {
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "market".to_string(),
                 msg: to_binary(&moneymarket::market::ExecuteMsg::UpdateFromVeActions {
-                    ve_aterra_supply: Uint256::from(10_000u64),
+                    ve_aterra_supply: Uint256::from(6_666u64),
                     aterra_diff: Diff::Neg(Uint256::from(10_000u64)),
-                    ve_exchange_rate: Decimal256::one(),
+                    ve_exchange_rate: Decimal256::from_str("1.50").unwrap(),
                 })
                 .unwrap(),
                 funds: vec![]
@@ -105,6 +108,7 @@ fn unbond_simple() {
     {
         let mut state = read_state(deps.as_ref().storage).unwrap();
         state.ve_aterra_supply = Uint256::from(10_000u64);
+        state.prev_epoch_ve_aterra_exchange_rate = Decimal256::from_str("1.50").unwrap();
         store_state(deps.as_mut().storage, &state).unwrap();
     }
 
@@ -136,16 +140,16 @@ fn unbond_simple() {
                         .addr_canonicalize(MOCK_CONTRACT_ADDR)
                         .unwrap()
                         .to_string(),
-                    amount: Uint128::from(10_000u64), // 5% more
+                    amount: Uint128::from(15_000u64), // 5% more
                 })
                 .unwrap(),
             })),
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "market".to_string(),
                 msg: to_binary(&moneymarket::market::ExecuteMsg::UpdateFromVeActions {
-                    aterra_diff: Diff::Pos(Uint256::from(10_000u64)),
+                    aterra_diff: Diff::Pos(Uint256::from(15_000u64)),
                     ve_aterra_supply: Uint256::from(0u64),
-                    ve_exchange_rate: Decimal256::one(),
+                    ve_exchange_rate: Decimal256::from_str("1.50").unwrap(),
                 })
                 .unwrap(),
                 funds: vec![]
@@ -157,7 +161,7 @@ fn unbond_simple() {
     assert_eq!(
         infos.infos[0],
         Receipt {
-            aterra_qty: Uint256::from(10_000u64),
+            aterra_qty: Uint256::from(15_000u64),
             unlock_time: env.block.time.plus_seconds(UNBOND_DURATION_SECS)
         }
     );
