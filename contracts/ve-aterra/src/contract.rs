@@ -13,7 +13,7 @@ use moneymarket::ve_aterra::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
 
 use crate::bonding::{bond, claim_unlocked_aterra, compute_ve_exchange_rate, unbond};
 use crate::error::ContractError;
-use crate::premium_rate::update_ve_premium_rate;
+use crate::execute_epoch_operations::{execute_epoch_operations, update_ve_premium_rate};
 use crate::querier::{query_config, query_state, query_supply};
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
@@ -242,43 +242,6 @@ pub fn update_config(
     store_config(deps.storage, &config)?;
 
     Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
-}
-
-pub fn execute_epoch_operations(
-    deps: DepsMut,
-    env: Env,
-    _info: MessageInfo,
-) -> Result<Response, ContractError> {
-    let mut state = read_state(deps.storage)?;
-    let config = read_config(deps.storage)?;
-
-    if deps.api.addr_canonicalize(_info.sender.as_str())? != config.overseer_addr {
-        return Err(ContractError::Unauthorized {});
-    }
-
-    if state.last_updated + config.premium_rate_epoch > env.block.height {
-        return Err(ContractError::EpochNotPassed(state.last_updated));
-    }
-
-    // store new exchange rate BEFORE updating premium rate
-    state.prev_epoch_ve_aterra_exchange_rate = compute_ve_exchange_rate(&state, env.block.height);
-
-    // ensure cached ve_aterra_supply is equal to ground truth
-    state.ve_aterra_supply = query_supply(
-        deps.as_ref(),
-        deps.api.addr_humanize(&config.ve_aterra_contract)?,
-    )?;
-    // aterra_supply used to calculate current ve vs. aterra deposit share
-    let aterra_supply = query_supply(
-        deps.as_ref(),
-        deps.api.addr_humanize(&config.aterra_contract)?,
-    )?;
-    update_ve_premium_rate(&mut state, config, aterra_supply);
-
-    state.last_updated = env.block.height;
-
-    store_state(deps.storage, &state)?;
-    Ok(Response::new())
 }
 
 // #[cfg_attr(not(feature = "library"), entry_point)]

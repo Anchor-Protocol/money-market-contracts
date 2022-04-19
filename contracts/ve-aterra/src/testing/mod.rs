@@ -1,6 +1,10 @@
+use std::str::FromStr;
+
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MOCK_CONTRACT_ADDR};
-use cosmwasm_std::{to_binary, Addr, Api, CosmosMsg, SubMsg, Uint128, WasmMsg};
+use cosmwasm_std::testing::{
+    mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
+};
+use cosmwasm_std::{to_binary, Addr, Api, Coin, CosmosMsg, OwnedDeps, SubMsg, Uint128, WasmMsg};
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use moneymarket::market::Diff;
@@ -8,7 +12,13 @@ use moneymarket::ve_aterra::{Cw20HookMsg, ExecuteMsg, InstantiateMsg};
 
 use crate::bonding::UNBOND_DURATION_SECS;
 use crate::contract::{execute, instantiate, register_ve_aterra};
-use crate::state::{read_state, read_user_receipts, store_state, store_user_receipts, Receipt};
+use crate::state::{
+    read_config, read_state, read_user_receipts, store_config, store_state, store_user_receipts,
+    Config, Receipt, State,
+};
+use crate::testing::mock_querier::mock_dependencies;
+
+mod mock_querier;
 
 const MOCK_USER: &str = "addr0000";
 const ATERRA_CONTRACT: &str = "AT-usd";
@@ -25,8 +35,8 @@ fn mock_instantiate_msg() -> InstantiateMsg {
         target_share: Decimal256::percent(80),
         max_pos_change: Decimal256::permille(1),
         max_neg_change: Decimal256::permille(1),
-        max_rate: Decimal256::percent(10),
-        min_rate: Decimal256::percent(1),
+        max_rate: Decimal256::from_str("1.20").unwrap(),
+        min_rate: Decimal256::from_str("1.01").unwrap(),
         diff_multiplier: Decimal256::percent(5),
         initial_premium_rate: Decimal256::percent(2),
         premium_rate_epoch: 10,
@@ -227,4 +237,240 @@ fn claim_simple() {
     );
     let infos = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
     assert_eq!(infos.infos.len(), 0);
+}
+
+#[test]
+fn execute_epoch_operations_simple() {
+    let mut deps = mock_dependencies(&[]);
+    let info = mock_info(MOCK_USER, &[]);
+    let mut env = mock_env();
+    instantiate(deps.as_mut(), env.clone(), info, mock_instantiate_msg()).unwrap();
+    register_ve_aterra(deps.as_mut(), Addr::unchecked(VE_ATERRA_CONTRACT)).unwrap();
+
+    // set initial config
+    let mut config = read_config(deps.as_ref().storage).unwrap();
+    config = Config {
+        max_pos_change: Decimal256::from_str("0.005").unwrap(),
+        max_neg_change: Decimal256::from_str("0.005").unwrap(),
+        premium_rate_epoch: 10,
+        max_rate: Decimal256::from_str("1.02").unwrap(),
+        min_rate: Decimal256::from_str("1.0000").unwrap(),
+        diff_multiplier: Decimal256::percent(2),
+        ..config
+    };
+    store_config(deps.as_mut().storage, &config).unwrap();
+
+    deps.querier.with_token_balances(&[
+        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 10u32)]),
+        (ATERRA_CONTRACT, &[(MOCK_USER, 50u32)]),
+    ]);
+
+    // CASE 1: hit max_pos_change
+    let initial_premium = Decimal256::from_str("1.01").unwrap();
+    {
+        let mut state = read_state(deps.as_ref().storage).unwrap();
+        state = State {
+            premium_rate: initial_premium, // e.g. 0.1% per block
+            target_share: Decimal256::percent(60),
+            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            ..state
+        };
+        store_state(deps.as_mut().storage, &state).unwrap();
+    }
+
+    env.block.height += config.premium_rate_epoch;
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("overseer", &[]),
+        ExecuteMsg::ExecuteEpochOperations {},
+    )
+    .unwrap();
+    assert_eq!(res.messages, vec![]);
+    let state = read_state(deps.as_ref().storage).unwrap();
+    assert_eq!(state.premium_rate, initial_premium + config.max_pos_change,);
+
+    // CASE 2: hit max_neg_change
+    {
+        let mut state = read_state(deps.as_ref().storage).unwrap();
+        state = State {
+            premium_rate: initial_premium,
+            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            ..state
+        };
+        store_state(deps.as_mut().storage, &state).unwrap();
+    }
+
+    deps.querier.with_token_balances(&[
+        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 100u32)]),
+        (ATERRA_CONTRACT, &[(MOCK_USER, 10u32)]),
+    ]);
+
+    env.block.height += config.premium_rate_epoch;
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("overseer", &[]),
+        ExecuteMsg::ExecuteEpochOperations {},
+    )
+    .unwrap();
+    assert_eq!(res.messages, vec![]);
+    let state = read_state(deps.as_ref().storage).unwrap();
+    assert_eq!(state.premium_rate, initial_premium - config.max_neg_change,);
+
+    // CASE 3: target == current => no change
+    let initial_premium = Decimal256::one();
+    {
+        let mut state = read_state(deps.as_ref().storage).unwrap();
+        state = State {
+            premium_rate: initial_premium,
+            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            ..state
+        };
+        store_state(deps.as_mut().storage, &state).unwrap();
+    }
+
+    deps.querier.with_token_balances(&[
+        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 60u32)]),
+        (ATERRA_CONTRACT, &[(MOCK_USER, 40u32)]),
+    ]);
+
+    env.block.height += config.premium_rate_epoch;
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("overseer", &[]),
+        ExecuteMsg::ExecuteEpochOperations {},
+    )
+    .unwrap();
+    assert_eq!(res.messages, vec![]);
+    let state = read_state(deps.as_ref().storage).unwrap();
+
+    assert_eq!(state.premium_rate, initial_premium);
+
+    // CASE 4: pos change, non max
+    let initial_premium = Decimal256::one();
+    {
+        let mut state = read_state(deps.as_ref().storage).unwrap();
+        state = State {
+            premium_rate: initial_premium,
+            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            ..state
+        };
+        store_state(deps.as_mut().storage, &state).unwrap();
+    }
+
+    deps.querier.with_token_balances(&[
+        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 55u32)]),
+        (ATERRA_CONTRACT, &[(MOCK_USER, 45u32)]),
+    ]);
+
+    env.block.height += config.premium_rate_epoch;
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("overseer", &[]),
+        ExecuteMsg::ExecuteEpochOperations {},
+    )
+    .unwrap();
+    assert_eq!(res.messages, vec![]);
+    let state = read_state(deps.as_ref().storage).unwrap();
+
+    assert_eq!(
+        state.premium_rate,
+        initial_premium + Decimal256::percent(60 - 55) * config.diff_multiplier
+    );
+
+    // CASE 5: hit max overall rate
+    let initial_premium = Decimal256::from_str("1.019").unwrap();
+    {
+        let mut state = read_state(deps.as_ref().storage).unwrap();
+        state = State {
+            premium_rate: initial_premium,
+            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            ..state
+        };
+        store_state(deps.as_mut().storage, &state).unwrap();
+    }
+
+    deps.querier.with_token_balances(&[
+        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 15u32)]),
+        (ATERRA_CONTRACT, &[(MOCK_USER, 85u32)]),
+    ]);
+
+    env.block.height += config.premium_rate_epoch;
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("overseer", &[]),
+        ExecuteMsg::ExecuteEpochOperations {},
+    )
+    .unwrap();
+    assert_eq!(res.messages, vec![]);
+    let state = read_state(deps.as_ref().storage).unwrap();
+
+    assert_eq!(state.premium_rate, config.max_rate,);
+
+    // CASE 6: neg change, non max
+    let initial_premium = Decimal256::from_str("1.01").unwrap();
+    {
+        let mut state = read_state(deps.as_ref().storage).unwrap();
+        state = State {
+            premium_rate: initial_premium,
+            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            ..state
+        };
+        store_state(deps.as_mut().storage, &state).unwrap();
+    }
+
+    deps.querier.with_token_balances(&[
+        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 629u32)]),
+        (ATERRA_CONTRACT, &[(MOCK_USER, 371u32)]),
+    ]);
+
+    env.block.height += config.premium_rate_epoch;
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("overseer", &[]),
+        ExecuteMsg::ExecuteEpochOperations {},
+    )
+    .unwrap();
+    assert_eq!(res.messages, vec![]);
+    let state = read_state(deps.as_ref().storage).unwrap();
+
+    // use bounds b/c decimal gets very long
+    let expected = initial_premium - Decimal256::percent(65 - 60) * config.diff_multiplier;
+    assert!(state.premium_rate < expected + Decimal256::from_str("0.0001").unwrap());
+    assert!(state.premium_rate > expected - Decimal256::from_str("0.0001").unwrap());
+
+    // CASE 7: hit min rate
+    let initial_premium = Decimal256::from_str("1.00").unwrap();
+    {
+        let mut state = read_state(deps.as_ref().storage).unwrap();
+        state = State {
+            premium_rate: initial_premium,
+            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            ..state
+        };
+        store_state(deps.as_mut().storage, &state).unwrap();
+    }
+
+    deps.querier.with_token_balances(&[
+        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 629u32)]),
+        (ATERRA_CONTRACT, &[(MOCK_USER, 371u32)]),
+    ]);
+
+    env.block.height += config.premium_rate_epoch;
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("overseer", &[]),
+        ExecuteMsg::ExecuteEpochOperations {},
+    )
+    .unwrap();
+    assert_eq!(res.messages, vec![]);
+    let state = read_state(deps.as_ref().storage).unwrap();
+
+    assert_eq!(state.premium_rate, initial_premium);
 }

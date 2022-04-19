@@ -124,10 +124,18 @@ pub fn compute_ve_exchange_rate(
     last_updated: u64,
     block_height: u64,
 ) -> Decimal256 {
-    let blocks_elapsed = Decimal256::from_ratio(block_height - last_updated, 1);
-    if blocks_elapsed.is_zero() {
+    let blocks_elapsed = block_height - last_updated;
+    if blocks_elapsed == 0 {
         previous_er
     } else {
-        previous_er * blocks_elapsed * premium_rate
+        previous_er * pow(premium_rate, blocks_elapsed)
     }
+}
+
+pub fn pow(base: Decimal256, power: u64) -> Decimal256 {
+    let mut acc = Decimal256::one();
+    for _ in 0..power {
+        acc = acc * base
+    }
+    acc
 }
