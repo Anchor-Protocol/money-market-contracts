@@ -1,9 +1,10 @@
+use std::collections::VecDeque;
+
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{Addr, CanonicalAddr, StdResult, Storage, Timestamp};
 use cosmwasm_storage::{bucket, bucket_read, ReadonlySingleton, Singleton};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
 
 pub const KEY_CONFIG: &[u8] = b"config";
 pub const KEY_STATE: &[u8] = b"state";
@@ -52,10 +53,9 @@ pub struct State {
     pub last_updated: u64,
 }
 
+/// [INVARIANT]: receipts are stored in ascending order of unlock_time
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct UserReceipts {
-    pub infos: VecDeque<Receipt>,
-}
+pub struct UserReceipts(pub VecDeque<Receipt>);
 
 /// Receipt given after unbonding ve aterra
 /// Can be redeemed for aterra after block time has passed unlock time
@@ -83,17 +83,15 @@ pub fn read_state(storage: &dyn Storage) -> StdResult<State> {
 
 pub fn store_user_receipts(
     storage: &mut dyn Storage,
-    owner: &Addr,
+    user: &Addr,
     staker_info: &UserReceipts,
 ) -> StdResult<()> {
-    bucket(storage, PREFIX_USER_UNLOCK_INFOS).save(owner.as_bytes(), staker_info)
+    bucket(storage, PREFIX_USER_UNLOCK_INFOS).save(user.as_bytes(), staker_info)
 }
 
-pub fn read_user_receipts(storage: &dyn Storage, staker: &Addr) -> UserReceipts {
-    match bucket_read(storage, PREFIX_USER_UNLOCK_INFOS).load(staker.as_bytes()) {
+pub fn read_user_receipts(storage: &dyn Storage, user: &Addr) -> UserReceipts {
+    match bucket_read(storage, PREFIX_USER_UNLOCK_INFOS).load(user.as_bytes()) {
         Ok(v) => v,
-        _ => UserReceipts {
-            infos: VecDeque::new(),
-        },
+        _ => UserReceipts(VecDeque::new()),
     }
 }

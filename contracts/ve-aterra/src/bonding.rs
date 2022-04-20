@@ -1,6 +1,6 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    attr, to_binary, Addr, CosmosMsg, DepsMut, Env, MessageInfo, Response, WasmMsg,
+    attr, to_binary, Addr, Attribute, CosmosMsg, DepsMut, Env, MessageInfo, Response, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 
@@ -87,13 +87,13 @@ pub fn unbond(
 
     let aterra_mint_amount = unbond_amount * exchange_rate;
 
-    let mut staker_infos = read_user_receipts(deps.storage, &sender);
     let unlock_time = env.block.time.plus_seconds(UNBOND_DURATION_SECS);
-    staker_infos.infos.push_back(Receipt {
+    let mut receipts = read_user_receipts(deps.storage, &sender);
+    receipts.0.push_back(Receipt {
         aterra_qty: aterra_mint_amount,
         unlock_time,
     });
-    store_user_receipts(deps.storage, &sender, &staker_infos)?;
+    store_user_receipts(deps.storage, &sender, &receipts)?;
 
     Ok(Response::new()
         .add_messages([
@@ -134,6 +134,62 @@ pub fn unbond(
         ]))
 }
 
+/// Rebond reverts unbonding.
+/// This allows the user to decide to convert the receipts for aterra back into ve aterra and
+/// earn the premium rate again before the receipt unlocks.
+/// Rebond takes an optional amount or rebonds all receipts if not provided.
+/// The receipts that have the most time remaining before they can be claimed are rebonded first.
+pub fn rebond(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    amount: Option<Uint256>,
+) -> Result<Response, ContractError> {
+    let config: Config = read_config(deps.storage)?;
+    let mut receipts = read_user_receipts(deps.storage, &info.sender);
+    let deque = &mut receipts.0;
+
+    let mut rebonded = Uint256::zero();
+    let mut to_pop = 0;
+    for receipt in deque.iter_mut().rev() {
+        match amount {
+            Some(amount) if receipt.aterra_qty + rebonded > amount => {
+                receipt.aterra_qty = receipt.aterra_qty - (amount - rebonded);
+                rebonded = amount;
+            }
+            _ => {
+                rebonded += receipt.aterra_qty;
+                to_pop += 1;
+            }
+        }
+    }
+    // remove receipts with latest unlock time
+    for _ in 0..to_pop {
+        deque.pop_back();
+    }
+
+    if let Some(amount) = amount {
+        if rebonded < amount {
+            return Err(ContractError::NotEnoughAterraReceipts(amount, rebonded));
+        }
+    }
+
+    store_user_receipts(deps.storage, &info.sender, &receipts)?;
+
+    // re-use the bonding handler
+    let mut response = bond(deps, env, info.sender, rebonded)?;
+
+    // change the action from "bond" -> "rebond"
+    if let Some(idx) = response
+        .attributes
+        .iter()
+        .position(|key| key.key.as_str() == "action")
+    {
+        response.attributes[idx] = Attribute::new("action", "rebond_aterra")
+    }
+    Ok(response)
+}
+
 /// Claim aterra having waited for lock_period (30 days) after unbonding ve aterra
 /// If amount is specified, claim receipts in order of ascending unlock time until amount is reached
 /// If amount is not specified, claim all unlocked aterra
@@ -145,38 +201,29 @@ pub fn claim_unlocked_aterra(
     amount: Option<Uint256>,
 ) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
-
-    let mut unlock_infos = read_user_receipts(deps.storage, &info.sender);
-    let queue = &mut unlock_infos.infos;
+    let mut receipts = read_user_receipts(deps.storage, &info.sender);
+    let deque = &mut receipts.0;
 
     let mut claimed = Uint256::zero();
     let mut to_pop = 0;
-    for idx in 0..queue.len() {
-        let mut receipt = queue.get_mut(idx).unwrap();
+    for receipt in deque.iter_mut() {
         if receipt.unlock_time > env.block.time {
-            break;
+            continue;
         }
         match amount {
-            Some(amount) => {
-                // if this receipt won't fill amount => take all and remove receipt
-                if amount - claimed >= receipt.aterra_qty {
-                    claimed += receipt.aterra_qty;
-                    to_pop += 1;
-                    continue;
-                }
-                // this receipt has more than the requested amount => take whats needed and update receipt
+            Some(amount) if receipt.aterra_qty + claimed > amount => {
                 receipt.aterra_qty = receipt.aterra_qty - (amount - claimed);
                 claimed = amount;
             }
-            None => {
-                // remove all unlocked receipts
+            _ => {
                 claimed += receipt.aterra_qty;
                 to_pop += 1;
             }
         }
     }
+    // remove receipts with earliest unlock time
     for _ in 0..to_pop {
-        queue.pop_front();
+        deque.pop_front();
     }
 
     if let Some(amount) = amount {
@@ -185,7 +232,7 @@ pub fn claim_unlocked_aterra(
         }
     }
 
-    store_user_receipts(deps.storage, &info.sender, &unlock_infos)?;
+    store_user_receipts(deps.storage, &info.sender, &receipts)?;
 
     Ok(Response::new()
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -203,6 +250,8 @@ pub fn claim_unlocked_aterra(
         ]))
 }
 
+/// Exchange rate of aterra / ve aterra
+/// ex: 1 ve * ER => ER aterra
 pub(crate) fn compute_ve_exchange_rate(state: &State, block_height: u64) -> Decimal256 {
     moneymarket::ve_aterra::compute_ve_exchange_rate(
         state.prev_epoch_ve_aterra_exchange_rate,

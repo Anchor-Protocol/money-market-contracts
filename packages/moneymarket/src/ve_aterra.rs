@@ -61,6 +61,12 @@ pub enum ExecuteMsg {
     ////////////////////
     /// User operations
     ////////////////////
+
+    /// Rebond `amount` of locked aterra back into ve aterra without having to wait full 30 days
+    RebondLockedATerra {
+        amount: Option<Uint256>,
+    },
+
     /// Claim `amount` of aterra unbonded 30 days before `block_height`
     ClaimATerra {
         amount: Option<Uint256>,
@@ -121,6 +127,8 @@ pub struct StateResponse {
     pub last_updated: u64,
 }
 
+/// Exchange rate of aterra / ve aterra
+/// ex: 1 ve * ER => ER aterra
 pub fn compute_ve_exchange_rate(
     previous_er: Decimal256,
     premium_rate: Decimal256,

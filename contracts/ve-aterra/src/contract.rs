@@ -11,9 +11,9 @@ use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 
 use moneymarket::ve_aterra::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
 
-use crate::bonding::{bond, claim_unlocked_aterra, unbond};
+use crate::bonding::{bond, claim_unlocked_aterra, rebond, unbond};
 use crate::error::ContractError;
-use crate::execute_epoch_operations::{execute_epoch_operations};
+use crate::execute_epoch_operations::execute_epoch_operations;
 use crate::querier::{query_config, query_state};
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_config, store_config, store_state, Config, State};
@@ -123,6 +123,7 @@ pub fn execute(
         ),
         ExecuteMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env, info),
         ExecuteMsg::ClaimATerra { amount } => claim_unlocked_aterra(deps, env, info, amount),
+        ExecuteMsg::RebondLockedATerra { amount } => rebond(deps, env, info, amount),
     }
 }
 

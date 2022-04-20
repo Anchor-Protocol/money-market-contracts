@@ -157,9 +157,9 @@ fn unbond_simple() {
         ]
     );
     let infos = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
-    assert_eq!(infos.infos.len(), 1);
+    assert_eq!(infos.0.len(), 1);
     assert_eq!(
-        infos.infos[0],
+        infos.0[0],
         Receipt {
             aterra_qty: Uint256::from(15_000u64),
             unlock_time: env.block.time.plus_seconds(UNBOND_DURATION_SECS)
@@ -175,22 +175,27 @@ fn claim_simple() {
     instantiate(deps.as_mut(), env.clone(), info, mock_instantiate_msg()).unwrap();
     register_ve_aterra(deps.as_mut(), Addr::unchecked(VE_ATERRA_CONTRACT)).unwrap();
 
-    // set state so there is 10_000 ve aterra
+    // create 2 receipts
     {
-        let mut state = read_state(deps.as_ref().storage).unwrap();
-        state.ve_aterra_supply = Uint256::from(10_000u64);
-        store_state(deps.as_mut().storage, &state).unwrap();
-
-        let mut infos = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
-        infos.infos.push_back(Receipt {
+        let mut receipts = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
+        receipts.0.push_back(Receipt {
             aterra_qty: Uint256::from(2_000u64),
             unlock_time: env.block.time.minus_seconds(10),
         });
-        infos.infos.push_back(Receipt {
+        receipts.0.push_back(Receipt {
             aterra_qty: Uint256::from(10_000u64),
             unlock_time: env.block.time.minus_seconds(10),
         });
-        store_user_receipts(deps.as_mut().storage, &Addr::unchecked(MOCK_USER), &infos).unwrap();
+        receipts.0.push_back(Receipt {
+            aterra_qty: Uint256::from(10_000u64),
+            unlock_time: env.block.time.plus_seconds(10),
+        });
+        store_user_receipts(
+            deps.as_mut().storage,
+            &Addr::unchecked(MOCK_USER),
+            &receipts,
+        )
+        .unwrap();
     }
 
     // claim less than full amount
@@ -212,20 +217,27 @@ fn claim_simple() {
             funds: vec![]
         })),]
     );
-    let infos = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
-    assert_eq!(infos.infos.len(), 1);
+    let receipts = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
+    assert_eq!(receipts.0.len(), 2);
     assert_eq!(
-        infos.infos.front().unwrap().clone(),
+        receipts.0[0],
         Receipt {
             aterra_qty: Uint256::from(7_000u64),
             unlock_time: env.block.time.minus_seconds(10),
+        }
+    );
+    assert_eq!(
+        receipts.0[1],
+        Receipt {
+            aterra_qty: Uint256::from(10_000u64),
+            unlock_time: env.block.time.plus_seconds(10),
         }
     );
 
     // claim full amount
     let msg = ExecuteMsg::ClaimATerra { amount: None };
     let info = mock_info(MOCK_USER, &[]);
-    let res = execute(deps.as_mut(), env, info, msg).unwrap();
+    let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     assert_eq!(
         res.messages,
@@ -239,8 +251,147 @@ fn claim_simple() {
             funds: vec![]
         })),]
     );
-    let infos = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
-    assert_eq!(infos.infos.len(), 0);
+    let receipts = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
+    assert_eq!(receipts.0.len(), 1);
+    assert_eq!(
+        receipts.0[0],
+        Receipt {
+            aterra_qty: Uint256::from(10_000u64),
+            unlock_time: env.block.time.plus_seconds(10),
+        }
+    );
+}
+
+#[test]
+fn rebond_simple() {
+    let mut deps = mock_dependencies(&[]);
+    let info = mock_info(MOCK_USER, &[]);
+    let env = mock_env();
+    instantiate(deps.as_mut(), env.clone(), info, mock_instantiate_msg()).unwrap();
+    register_ve_aterra(deps.as_mut(), Addr::unchecked(VE_ATERRA_CONTRACT)).unwrap();
+
+    // set state so there is 10_000 ve aterra
+    {
+        let mut state = read_state(deps.as_mut().storage).unwrap();
+        state.prev_epoch_ve_aterra_exchange_rate = Decimal256::from_str("2.0").unwrap();
+        store_state(deps.as_mut().storage, &state).unwrap();
+
+        let mut receipts = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
+        receipts.0.push_back(Receipt {
+            aterra_qty: Uint256::from(10_000u64),
+            unlock_time: env.block.time.minus_seconds(10),
+        });
+        receipts.0.push_back(Receipt {
+            aterra_qty: Uint256::from(10_000u64),
+            unlock_time: env.block.time.minus_seconds(10),
+        });
+        receipts.0.push_back(Receipt {
+            aterra_qty: Uint256::from(2_000u64),
+            unlock_time: env.block.time.plus_seconds(10),
+        });
+        store_user_receipts(
+            deps.as_mut().storage,
+            &Addr::unchecked(MOCK_USER),
+            &receipts,
+        )
+        .unwrap();
+    }
+
+    // claim less than full amount
+    let msg = ExecuteMsg::RebondLockedATerra {
+        amount: Some(5_000u64.into()),
+    };
+    let info = mock_info(MOCK_USER, &[]);
+    let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    assert_eq!(
+        res.messages,
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: ATERRA_CONTRACT.to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                    amount: Uint128::from(5_000u128),
+                })
+                .unwrap()
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: VE_ATERRA_CONTRACT.to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Mint {
+                    recipient: MOCK_USER.to_string(),
+                    amount: Uint128::from(2_500u64),
+                })
+                .unwrap(),
+                funds: vec![]
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "market".to_string(),
+                msg: to_binary(&moneymarket::market::ExecuteMsg::UpdateFromVeActions {
+                    ve_aterra_supply: Uint256::from(2_500u64),
+                    aterra_diff: Diff::Neg(Uint256::from(5_000u64)),
+                    ve_exchange_rate: Decimal256::from_str("2.0").unwrap(),
+                })
+                .unwrap(),
+                funds: vec![]
+            }))
+        ]
+    );
+    let receipts = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
+    assert_eq!(receipts.0.len(), 2);
+    assert_eq!(
+        receipts.0[0],
+        Receipt {
+            aterra_qty: Uint256::from(10_000u64),
+            unlock_time: env.block.time.minus_seconds(10),
+        }
+    );
+    assert_eq!(
+        receipts.0[1],
+        Receipt {
+            aterra_qty: Uint256::from(7_000u64),
+            unlock_time: env.block.time.minus_seconds(10),
+        }
+    );
+
+    // claim full amount
+    let msg = ExecuteMsg::RebondLockedATerra { amount: None };
+    let info = mock_info(MOCK_USER, &[]);
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
+
+    assert_eq!(
+        res.messages,
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: ATERRA_CONTRACT.to_string(),
+                funds: vec![],
+                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                    amount: Uint128::from(17_000u128),
+                })
+                .unwrap()
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: VE_ATERRA_CONTRACT.to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Mint {
+                    recipient: MOCK_USER.to_string(),
+                    amount: Uint128::from(8_500u64),
+                })
+                .unwrap(),
+                funds: vec![]
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "market".to_string(),
+                msg: to_binary(&moneymarket::market::ExecuteMsg::UpdateFromVeActions {
+                    ve_aterra_supply: Uint256::from(11_000u64),
+                    aterra_diff: Diff::Neg(Uint256::from(17_000u64)),
+                    ve_exchange_rate: Decimal256::from_str("2.0").unwrap(),
+                })
+                .unwrap(),
+                funds: vec![]
+            }))
+        ]
+    );
+    let receipts = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
+    assert_eq!(receipts.0.len(), 0);
 }
 
 #[test]

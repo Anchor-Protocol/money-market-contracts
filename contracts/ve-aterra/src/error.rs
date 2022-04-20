@@ -22,6 +22,9 @@ pub enum ContractError {
     #[error("Not enough aterra unlocked. Requested {0}, Available {1}")]
     NotEnoughUnlocked(Uint256, Uint256),
 
+    #[error("Not enough aterra receipts. Requested {0}, Available {1}")]
+    NotEnoughAterraReceipts(Uint256, Uint256),
+
     #[error("Provided CW20 hook is unsupported {0}")]
     UnsupportedCw20Hook(String),
 
