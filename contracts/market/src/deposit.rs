@@ -3,13 +3,14 @@ use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
     StdResult, Uint128, WasmMsg,
 };
+use cw20::Cw20ExecuteMsg;
+
+use moneymarket::querier::{deduct_tax, query_balance, query_supply};
+use moneymarket::ve_aterra::compute_ve_exchange_rate;
 
 use crate::borrow::{compute_interest, compute_reward};
 use crate::error::ContractError;
 use crate::state::{read_config, read_state, store_state, Config, State};
-
-use cw20::Cw20ExecuteMsg;
-use moneymarket::querier::{deduct_tax, query_balance, query_supply};
 
 pub fn deposit_stable(
     deps: DepsMut,
@@ -43,8 +44,13 @@ pub fn deposit_stable(
     compute_reward(&mut state, env.block.height);
 
     // Load anchor token exchange rate with updated state
-    let exchange_rate =
-        compute_exchange_rate(deps.as_ref(), &config, &state, Some(deposit_amount))?;
+    let exchange_rate = compute_exchange_rate(
+        deps.as_ref(),
+        env.block.height,
+        &config,
+        &state,
+        Some(deposit_amount),
+    )?;
     let mint_amount = deposit_amount / exchange_rate;
 
     state.prev_aterra_supply += mint_amount;
@@ -80,7 +86,8 @@ pub fn redeem_stable(
     compute_reward(&mut state, env.block.height);
 
     // Load anchor token exchange rate with updated state
-    let exchange_rate = compute_exchange_rate(deps.as_ref(), &config, &state, None)?;
+    let exchange_rate =
+        compute_exchange_rate(deps.as_ref(), env.block.height, &config, &state, None)?;
     let redeem_amount = Uint256::from(burn_amount) * exchange_rate;
 
     let current_balance = query_balance(
@@ -140,31 +147,53 @@ fn assert_redeem_amount(
 
 pub(crate) fn compute_exchange_rate(
     deps: Deps,
+    block_height: u64,
     config: &Config,
     state: &State,
     deposit_amount: Option<Uint256>,
 ) -> StdResult<Decimal256> {
     let aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.aterra_contract)?)?;
-    let balance = query_balance(
+    let ve_aterra_supply = query_supply(
+        deps,
+        deps.api.addr_humanize(&config.ve_aterra_cw20_contract)?,
+    )?;
+    let contract_balance = query_balance(
         deps,
         deps.api.addr_humanize(&config.contract_addr)?,
         config.stable_denom.to_string(),
     )? - deposit_amount.unwrap_or_else(Uint256::zero);
 
-    Ok(compute_exchange_rate_raw(state, aterra_supply, balance))
+    Ok(compute_exchange_rate_raw(
+        state,
+        block_height,
+        aterra_supply,
+        ve_aterra_supply,
+        contract_balance,
+    ))
 }
 
 pub fn compute_exchange_rate_raw(
     state: &State,
+    block_height: u64,
     aterra_supply: Uint256,
+    ve_aterra_supply: Uint256,
     contract_balance: Uint256,
 ) -> Decimal256 {
     if aterra_supply.is_zero() {
         return Decimal256::one();
     }
 
+    let ve_er = compute_ve_exchange_rate(
+        state.prev_ve_aterra_exchange_rate,
+        state.prev_ve_premium_rate,
+        state.ve_aterra_exchange_rate_last_updated,
+        block_height,
+    );
+    let converted_ve = Decimal256::from_uint256(ve_aterra_supply) * ve_er;
+    let effective_aterra_supply = Decimal256::from_uint256(aterra_supply) + converted_ve;
+
     // (aterra / stable_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / aterra_supply
     (Decimal256::from_uint256(contract_balance) + state.total_liabilities - state.total_reserves)
-        / Decimal256::from_uint256(aterra_supply)
+        / effective_aterra_supply
 }

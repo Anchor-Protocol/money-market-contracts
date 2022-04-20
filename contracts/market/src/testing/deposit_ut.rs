@@ -1,6 +1,7 @@
 use crate::deposit::compute_exchange_rate;
 use crate::state::{Config, State};
 use crate::testing::mock_querier::mock_dependencies;
+use crate::testing::tests::get_mock_state;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{Api, Coin, Uint128};
@@ -17,6 +18,11 @@ fn proper_compute_exchange_rate() {
         contract_addr: deps.api.addr_canonicalize(MOCK_CONTRACT_ADDR).unwrap(),
         owner_addr: deps.api.addr_canonicalize("owner").unwrap(),
         aterra_contract: deps.api.addr_canonicalize("AT-uusd").unwrap(),
+        ve_aterra_cw20_contract: deps.api.addr_canonicalize("veAT-uusd").unwrap(),
+        ve_aterra_anchor_contract: deps
+            .api
+            .addr_canonicalize("ve-aterra-anchor-contract")
+            .unwrap(),
         interest_model: deps.api.addr_canonicalize("interest").unwrap(),
         distribution_model: deps.api.addr_canonicalize("distribution").unwrap(),
         distributor_contract: deps.api.addr_canonicalize("distributor").unwrap(),
@@ -39,12 +45,14 @@ fn proper_compute_exchange_rate() {
         global_reward_index: Decimal256::zero(),
         anc_emission_rate: Decimal256::one(),
         prev_aterra_supply: Uint256::zero(),
-        prev_exchange_rate: Decimal256::one(),
+        prev_aterra_exchange_rate: Decimal256::one(),
+        ..get_mock_state()
     };
     let mock_deposit_amount = Some(Uint256::from(1000000u128));
 
     let exchange_rate = compute_exchange_rate(
         deps.as_ref(),
+        env.block.height,
         &mock_config,
         &mock_state,
         mock_deposit_amount,

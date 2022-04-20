@@ -4,6 +4,7 @@ use cosmwasm_std::{to_binary, Addr, Deps, QueryRequest, StdResult, WasmQuery};
 use moneymarket::distribution_model::{AncEmissionRateResponse, QueryMsg as DistributionQueryMsg};
 use moneymarket::interest_model::{BorrowRateResponse, QueryMsg as InterestQueryMsg};
 use moneymarket::overseer::{BorrowLimitResponse, ConfigResponse, QueryMsg as OverseerQueryMsg};
+use moneymarket::ve_aterra::{QueryMsg as VeATerraQueryMsg, StateResponse};
 
 pub fn query_borrow_rate(
     deps: Deps,
@@ -23,6 +24,17 @@ pub fn query_borrow_rate(
         }))?;
 
     Ok(borrow_rate)
+}
+
+pub fn query_ve_aterra_state(deps: Deps, ve_aterra_contract: Addr) -> StdResult<StateResponse> {
+    deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: ve_aterra_contract.to_string(),
+        msg: to_binary(&VeATerraQueryMsg::State { block_height: None })?,
+    }))
+}
+
+pub fn query_premium_rate(deps: Deps, ve_aterra_contract: Addr) -> StdResult<Decimal256> {
+    query_ve_aterra_state(deps, ve_aterra_contract).map(|state| state.premium_rate)
 }
 
 pub fn query_borrow_limit(

@@ -1,8 +1,7 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cw20::Cw20ReceiveMsg;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -40,6 +39,10 @@ pub enum ExecuteMsg {
         collector_contract: String,
         /// Faucet contract to drip ANC token to users
         distributor_contract: String,
+        /// ve aterra cw20 contract created by ve-aterra anchor contract
+        ve_aterra_cw20_contract: String,
+        /// Responsible for bonding, unbonding, claiming ve operations and adjusting premium rate
+        ve_aterra_anchor_contract: String,
     },
 
     /// Update config values
@@ -88,6 +91,31 @@ pub enum ExecuteMsg {
     ClaimRewards {
         to: Option<String>,
     },
+
+    /// After bonding or unbonding ve-aterra, aterra supply and ve_aterra supply will change
+    /// Since these are used in aterra / stable_denom exchange rate calculations, these must be
+    /// updated in market contract
+    /// ve_exchange_rate is also used in above ER calc, so we take the opportunity to get the ground
+    /// truth
+    UpdateFromVeActions {
+        aterra_diff: Diff,
+        ve_aterra_supply: Uint256,
+        ve_exchange_rate: Decimal256,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Diff {
+    Pos(Uint256),
+    Neg(Uint256),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MigrateMsg {
+    pub ve_aterra_anchor_addr: String,
+    pub ve_aterra_cw20_addr: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -134,7 +162,7 @@ pub struct ConfigResponse {
 }
 
 // We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct StateResponse {
     pub total_liabilities: Decimal256,
     pub total_reserves: Decimal256,
@@ -144,7 +172,11 @@ pub struct StateResponse {
     pub global_reward_index: Decimal256,
     pub anc_emission_rate: Decimal256,
     pub prev_aterra_supply: Uint256,
-    pub prev_exchange_rate: Decimal256,
+    pub prev_aterra_exchange_rate: Decimal256,
+    pub prev_ve_aterra_supply: Uint256,
+    pub prev_ve_aterra_exchange_rate: Decimal256,
+    pub ve_aterra_exchange_rate_last_updated: u64,
+    pub prev_ve_premium_rate: Decimal256,
 }
 
 // We define a custom struct for each query response

@@ -1,10 +1,4 @@
-use crate::contract::{execute, instantiate, query};
-use crate::error::ContractError;
-use crate::querier::query_epoch_state;
-use crate::state::{
-    read_epoch_state, store_dynrate_state, store_epoch_state, DynrateState, EpochState,
-};
-use crate::testing::mock_querier::mock_dependencies;
+use std::str::FromStr;
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
@@ -12,6 +6,7 @@ use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Decimal,
     DepsMut, SubMsg, Uint128, WasmMsg,
 };
+
 use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
 use moneymarket::market::ExecuteMsg as MarketExecuteMsg;
 use moneymarket::overseer::{
@@ -19,8 +14,15 @@ use moneymarket::overseer::{
     InstantiateMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
 use moneymarket::querier::deduct_tax;
+use moneymarket::ve_aterra::ExecuteMsg as VeAterraExecuteMsg;
 
-use std::str::FromStr;
+use crate::contract::{execute, instantiate, query};
+use crate::error::ContractError;
+use crate::querier::query_epoch_state;
+use crate::state::{
+    read_epoch_state, store_dynrate_state, store_epoch_state, DynrateState, EpochState,
+};
+use crate::testing::mock_querier::mock_dependencies;
 
 #[test]
 fn proper_initialization() {
@@ -30,6 +32,7 @@ fn proper_initialization() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
+        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -59,6 +62,7 @@ fn proper_initialization() {
             owner_addr: "owner".to_string(),
             oracle_contract: "oracle".to_string(),
             market_contract: "market".to_string(),
+            ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
             liquidation_contract: "liquidation".to_string(),
             collector_contract: "collector".to_string(),
             stable_denom: "uusd".to_string(),
@@ -99,6 +103,7 @@ fn update_config() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
+        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -224,6 +229,7 @@ fn whitelist() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
+        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -375,6 +381,7 @@ fn execute_epoch_operations() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
+        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -604,6 +611,7 @@ fn update_epoch_state() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
+        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -668,17 +676,24 @@ fn update_epoch_state() {
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
     assert_eq!(
         res.messages,
-        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "market".to_string(),
-            funds: vec![],
-            msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
-                deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
-                target_deposit_rate: Decimal256::permille(5),
-                threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
-                distributed_interest: Uint256::from(1000000u128),
-            })
-            .unwrap(),
-        }))]
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "ve_aterra_anchor_contract".to_string(),
+                funds: vec![],
+                msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "market".to_string(),
+                funds: vec![],
+                msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
+                    deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
+                    target_deposit_rate: Decimal256::permille(5),
+                    threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
+                    distributed_interest: Uint256::from(1000000u128),
+                })
+                .unwrap(),
+            }))
+        ]
     );
     assert_eq!(
         res.attributes,
@@ -701,17 +716,24 @@ fn update_epoch_state() {
     let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
     assert_eq!(
         res.messages,
-        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "market".to_string(),
-            funds: vec![],
-            msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
-                deposit_rate: Decimal256::from_str("0.000000482253086419").unwrap(),
-                target_deposit_rate: Decimal256::from_str("0.000001006442178229").unwrap(),
-                threshold_deposit_rate: Decimal256::from_str("0.000001006442178229").unwrap(),
-                distributed_interest: Uint256::from(1000000u128),
-            })
-            .unwrap(),
-        }))]
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "ve_aterra_anchor_contract".to_string(),
+                funds: vec![],
+                msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "market".to_string(),
+                funds: vec![],
+                msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
+                    deposit_rate: Decimal256::from_str("0.000000482253086419").unwrap(),
+                    target_deposit_rate: Decimal256::from_str("0.000001006442178229").unwrap(),
+                    threshold_deposit_rate: Decimal256::from_str("0.000001006442178229").unwrap(),
+                    distributed_interest: Uint256::from(1000000u128),
+                })
+                .unwrap(),
+            }))
+        ]
     );
     assert_eq!(
         res.attributes,
@@ -756,6 +778,7 @@ fn lock_collateral() {
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
         liquidation_contract: "liquidation".to_string(),
+        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
@@ -914,6 +937,7 @@ fn unlock_collateral() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
+        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -1129,6 +1153,7 @@ fn liquidate_collateral() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
+        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -1301,6 +1326,7 @@ fn dynamic_rate_model() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
+        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -1365,17 +1391,24 @@ fn dynamic_rate_model() {
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
     assert_eq!(
         res.messages,
-        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "market".to_string(),
-            funds: vec![],
-            msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
-                deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
-                target_deposit_rate: Decimal256::permille(5),
-                threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
-                distributed_interest: Uint256::from(1000000u128),
-            })
-            .unwrap(),
-        }))]
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "ve_aterra_anchor_contract".to_string(),
+                funds: vec![],
+                msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "market".to_string(),
+                funds: vec![],
+                msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
+                    deposit_rate: Decimal256::from_str("0.000002314814814814").unwrap(),
+                    target_deposit_rate: Decimal256::permille(5),
+                    threshold_deposit_rate: Decimal256::from_ratio(1u64, 1000000u64),
+                    distributed_interest: Uint256::from(1000000u128),
+                })
+                .unwrap(),
+            })),
+        ]
     );
     assert_eq!(
         res.attributes,
@@ -1399,17 +1432,24 @@ fn dynamic_rate_model() {
 
     assert_eq!(
         res.messages,
-        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "market".to_string(),
-            funds: vec![],
-            msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
-                deposit_rate: Decimal256::from_str("0.000000482253086419").unwrap(),
-                target_deposit_rate: Decimal256::from_str("0.000001001073696371").unwrap(),
-                threshold_deposit_rate: Decimal256::from_str("0.000001001073696371").unwrap(),
-                distributed_interest: Uint256::from(1000000u128),
-            })
-            .unwrap(),
-        }))]
+        vec![
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "ve_aterra_anchor_contract".to_string(),
+                funds: vec![],
+                msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "market".to_string(),
+                funds: vec![],
+                msg: to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
+                    deposit_rate: Decimal256::from_str("0.000000482253086419").unwrap(),
+                    target_deposit_rate: Decimal256::from_str("0.000001001073696371").unwrap(),
+                    threshold_deposit_rate: Decimal256::from_str("0.000001001073696371").unwrap(),
+                    distributed_interest: Uint256::from(1000000u128),
+                })
+                .unwrap(),
+            }))
+        ]
     );
     assert_eq!(
         res.attributes,
@@ -1538,6 +1578,7 @@ fn validate_deposit_rates(deps: DepsMut, rate: Decimal256) {
             owner_addr: "owner".to_string(),
             oracle_contract: "oracle".to_string(),
             market_contract: "market".to_string(),
+            ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
             liquidation_contract: "liquidation".to_string(),
             collector_contract: "collector".to_string(),
             stable_denom: "uusd".to_string(),

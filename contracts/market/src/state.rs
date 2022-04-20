@@ -17,6 +17,8 @@ pub struct Config {
     pub contract_addr: CanonicalAddr,
     pub owner_addr: CanonicalAddr,
     pub aterra_contract: CanonicalAddr,
+    pub ve_aterra_cw20_contract: CanonicalAddr,
+    pub ve_aterra_anchor_contract: CanonicalAddr,
     pub interest_model: CanonicalAddr,
     pub distribution_model: CanonicalAddr,
     pub overseer_contract: CanonicalAddr,
@@ -36,7 +38,15 @@ pub struct State {
     pub global_reward_index: Decimal256,
     pub anc_emission_rate: Decimal256,
     pub prev_aterra_supply: Uint256,
-    pub prev_exchange_rate: Decimal256,
+    pub prev_aterra_exchange_rate: Decimal256,
+
+    /// Used in aterra / stable exchange rate calculation
+    /// Updated by bond and unbond messages to ve-aterra contract and during epoch update
+    pub prev_ve_aterra_supply: Uint256,
+    pub prev_ve_aterra_exchange_rate: Decimal256,
+    pub ve_aterra_exchange_rate_last_updated: u64,
+    /// Premium rate in blocks. Updated during epoch update
+    pub prev_ve_premium_rate: Decimal256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

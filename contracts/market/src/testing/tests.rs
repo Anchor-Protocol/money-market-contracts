@@ -21,6 +21,24 @@ use protobuf::Message;
 use std::str::FromStr;
 use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 
+pub(crate) fn get_mock_state() -> State {
+    State {
+        global_interest_index: Decimal256::one(),
+        global_reward_index: Decimal256::zero(),
+        total_liabilities: Decimal256::zero(),
+        total_reserves: Decimal256::zero(),
+        last_interest_updated: mock_env().block.height,
+        last_reward_updated: mock_env().block.height,
+        anc_emission_rate: Decimal256::one(),
+        prev_aterra_supply: Uint256::from(1000000u64),
+        prev_aterra_exchange_rate: Decimal256::one(),
+        prev_ve_aterra_supply: Uint256::zero(),
+        prev_ve_aterra_exchange_rate: Decimal256::one(),
+        ve_aterra_exchange_rate_last_updated: mock_env().block.height,
+        prev_ve_premium_rate: Decimal256::percent(0),
+    }
+}
+
 #[test]
 fn proper_initialization() {
     let mut deps = mock_dependencies(&[Coin {
@@ -95,6 +113,8 @@ fn proper_initialization() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -106,6 +126,8 @@ fn proper_initialization() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
@@ -135,7 +157,6 @@ fn proper_initialization() {
     assert_eq!(Decimal256::one(), state.global_interest_index);
     assert_eq!(Decimal256::one(), state.anc_emission_rate);
     assert_eq!(Uint256::zero(), state.prev_aterra_supply);
-    assert_eq!(Decimal256::one(), state.prev_exchange_rate);
 }
 
 #[test]
@@ -185,6 +206,8 @@ fn update_config() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -287,6 +310,8 @@ fn deposit_stable_huge_amount() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -443,6 +468,8 @@ fn deposit_stable() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -520,7 +547,8 @@ fn deposit_stable() {
             last_reward_updated: mock_env().block.height,
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(1000000u64),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         }
     );
 
@@ -559,7 +587,8 @@ fn deposit_stable() {
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            prev_aterra_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            ..get_mock_state()
         },
     )
     .unwrap();
@@ -609,7 +638,8 @@ fn deposit_stable() {
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            prev_aterra_exchange_rate: Decimal256::from_ratio(1u64, 2u64),
+            ..get_mock_state()
         },
     )
     .unwrap();
@@ -636,7 +666,8 @@ fn deposit_stable() {
             last_reward_updated: env.block.height,
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(INITIAL_DEPOSIT_AMOUNT + 1818181),
-            prev_exchange_rate: Decimal256::from_ratio(55u64, 100u64),
+            prev_aterra_exchange_rate: Decimal256::from_ratio(55u64, 100u64),
+            ..get_mock_state()
         }
     );
 }
@@ -686,6 +717,8 @@ fn redeem_stable() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -773,7 +806,8 @@ fn redeem_stable() {
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::from(2000000u64),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         },
     )
     .unwrap();
@@ -878,6 +912,8 @@ fn borrow_stable() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let mut env = mock_env();
     let info = mock_info("addr0000", &[]);
@@ -899,7 +935,8 @@ fn borrow_stable() {
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         },
     )
     .unwrap();
@@ -964,7 +1001,8 @@ fn borrow_stable() {
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         }
     );
 
@@ -990,7 +1028,8 @@ fn borrow_stable() {
             global_reward_index: Decimal256::from_str("0.0001008").unwrap(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         }
     );
 
@@ -1123,6 +1162,8 @@ fn assert_max_borrow_factor() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
@@ -1143,7 +1184,8 @@ fn assert_max_borrow_factor() {
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         },
     )
     .unwrap();
@@ -1233,6 +1275,8 @@ fn repay_stable() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let mut env = mock_env();
     let mut info = mock_info("addr0000", &[]);
@@ -1254,7 +1298,8 @@ fn repay_stable() {
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         },
     )
     .unwrap();
@@ -1416,6 +1461,8 @@ fn repay_stable_from_liquidation() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let mut env = mock_env();
     let info = mock_info("addr0000", &[]);
@@ -1437,7 +1484,8 @@ fn repay_stable_from_liquidation() {
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         },
     )
     .unwrap();
@@ -1587,6 +1635,8 @@ fn claim_rewards() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let mut env = mock_env();
@@ -1608,7 +1658,8 @@ fn claim_rewards() {
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         },
     )
     .unwrap();
@@ -1718,6 +1769,8 @@ fn execute_epoch_operations() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
+        ve_aterra_cw20_contract: "veAT-usd".to_string(),
+        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let mut env = mock_env();
     let mut info = mock_info("addr0000", &[]);
@@ -1739,7 +1792,8 @@ fn execute_epoch_operations() {
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         },
     )
     .unwrap();
@@ -1786,7 +1840,8 @@ fn execute_epoch_operations() {
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         }
     );
 
@@ -1813,7 +1868,8 @@ fn execute_epoch_operations() {
             global_reward_index: Decimal256::zero(),
             anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         },
     )
     .unwrap();
@@ -1843,7 +1899,8 @@ fn execute_epoch_operations() {
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
             anc_emission_rate: Decimal256::from_uint256(5u64),
             prev_aterra_supply: Uint256::zero(),
-            prev_exchange_rate: Decimal256::one(),
+            prev_aterra_exchange_rate: Decimal256::one(),
+            ..get_mock_state()
         }
     );
 }
