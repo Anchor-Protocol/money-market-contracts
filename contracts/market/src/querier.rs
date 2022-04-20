@@ -26,12 +26,15 @@ pub fn query_borrow_rate(
     Ok(borrow_rate)
 }
 
-pub fn query_premium_rate(deps: Deps, ve_aterra_contract: Addr) -> StdResult<Decimal256> {
-    let state: StateResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+pub fn query_ve_aterra_state(deps: Deps, ve_aterra_contract: Addr) -> StdResult<StateResponse> {
+    deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
         contract_addr: ve_aterra_contract.to_string(),
         msg: to_binary(&VeATerraQueryMsg::State { block_height: None })?,
-    }))?;
-    Ok(state.premium_rate)
+    }))
+}
+
+pub fn query_premium_rate(deps: Deps, ve_aterra_contract: Addr) -> StdResult<Decimal256> {
+    query_ve_aterra_state(deps, ve_aterra_contract).map(|state| state.premium_rate)
 }
 
 pub fn query_borrow_limit(

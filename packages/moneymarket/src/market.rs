@@ -113,6 +113,13 @@ pub enum Diff {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub struct MigrateMsg {
+    pub ve_aterra_anchor_addr: String,
+    pub ve_aterra_cw20_addr: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum Cw20HookMsg {
     /// Return stable coins to a user
     /// according to exchange rate

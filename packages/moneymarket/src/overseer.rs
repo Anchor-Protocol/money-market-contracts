@@ -60,6 +60,9 @@ pub struct MigrateMsg {
 
     pub dyn_rate_min: Decimal256,
     pub dyn_rate_max: Decimal256,
+
+    ////// ve aterra migration ///////
+    pub ve_aterra_contract_addr: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

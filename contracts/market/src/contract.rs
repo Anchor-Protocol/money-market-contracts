@@ -12,8 +12,8 @@ use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{
-    ConfigResponse, Cw20HookMsg, Diff, EpochStateResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-    StateResponse,
+    ConfigResponse, Cw20HookMsg, Diff, EpochStateResponse, ExecuteMsg, InstantiateMsg, MigrateMsg,
+    QueryMsg, StateResponse,
 };
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
 
@@ -25,13 +25,14 @@ use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
 use crate::error::ContractError;
 use crate::querier::{
     query_anc_emission_rate, query_borrow_rate, query_premium_rate, query_target_deposit_rate,
+    query_ve_aterra_state,
 };
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
 
 pub const INITIAL_DEPOSIT_AMOUNT: u128 = 1000000;
 
-// #[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     env: Env,
@@ -118,7 +119,27 @@ pub fn instantiate(
     )
 }
 
-// #[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> {
+    let mut config = read_config(deps.storage)?;
+    config.ve_aterra_cw20_contract = deps.api.addr_canonicalize(&msg.ve_aterra_cw20_addr)?;
+    config.ve_aterra_anchor_contract = deps.api.addr_canonicalize(&msg.ve_aterra_anchor_addr)?;
+    store_config(deps.storage, &config)?;
+
+    let mut state = read_state(deps.storage)?;
+    let ve_aterra_state = query_ve_aterra_state(
+        deps.as_ref(),
+        deps.api.addr_validate(&msg.ve_aterra_anchor_addr)?,
+    )?;
+    state.prev_ve_premium_rate = ve_aterra_state.premium_rate;
+    state.prev_ve_aterra_exchange_rate = ve_aterra_state.prev_epoch_ve_aterra_exchange_rate;
+    state.prev_ve_aterra_supply = ve_aterra_state.ve_aterra_supply;
+    store_state(deps.storage, &state)?;
+
+    Ok(Response::new())
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,

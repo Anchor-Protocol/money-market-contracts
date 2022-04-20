@@ -124,6 +124,10 @@ pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> 
     );
     config.threshold_deposit_rate = new_rate;
     config.target_deposit_rate = new_rate;
+
+    // ve aterra migration
+    config.ve_aterra_contract = deps.api.addr_canonicalize(&msg.ve_aterra_contract_addr)?;
+
     store_config(deps.storage, &config)?;
     Ok(Response::default())
 }

@@ -10,6 +10,7 @@ use moneymarket::ve_aterra::{Cw20HookMsg, ExecuteMsg, InstantiateMsg};
 
 use crate::bonding::UNBOND_DURATION_SECS;
 use crate::contract::{execute, instantiate, register_ve_aterra};
+use crate::error::ContractError;
 use crate::state::{
     read_config, read_state, read_user_receipts, store_config, store_state, store_user_receipts,
     Config, Receipt, State,
@@ -198,6 +199,16 @@ fn claim_simple() {
         .unwrap();
     }
 
+    // claim more than available
+    let msg = ExecuteMsg::ClaimATerra {
+        amount: Some(500_000u64.into()),
+    };
+    let info = mock_info(MOCK_USER, &[]);
+    assert!(matches!(
+        execute(deps.as_mut(), env.clone(), info, msg),
+        Err(ContractError::NotEnoughUnlocked(_, _))
+    ));
+
     // claim less than full amount
     let msg = ExecuteMsg::ClaimATerra {
         amount: Some(5_000u64.into()),
@@ -297,7 +308,17 @@ fn rebond_simple() {
         .unwrap();
     }
 
-    // claim less than full amount
+    // rebond more than available
+    let msg = ExecuteMsg::RebondLockedATerra {
+        amount: Some(500_000u64.into()),
+    };
+    let info = mock_info(MOCK_USER, &[]);
+    assert!(matches!(
+        execute(deps.as_mut(), env.clone(), info, msg),
+        Err(ContractError::NotEnoughAterraReceipts(_, _))
+    ));
+
+    // rebond less than full amount
     let msg = ExecuteMsg::RebondLockedATerra {
         amount: Some(5_000u64.into()),
     };
@@ -353,7 +374,7 @@ fn rebond_simple() {
         }
     );
 
-    // claim full amount
+    // rebond full amount
     let msg = ExecuteMsg::RebondLockedATerra { amount: None };
     let info = mock_info(MOCK_USER, &[]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
