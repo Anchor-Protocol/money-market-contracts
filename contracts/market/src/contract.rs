@@ -400,17 +400,6 @@ pub fn execute_epoch_operations(
         vec![]
     };
 
-    // Query updated anc_emission_rate
-    state.anc_emission_rate = query_anc_emission_rate(
-        deps.as_ref(),
-        deps.api.addr_humanize(&config.distribution_model)?,
-        deposit_rate,
-        target_deposit_rate,
-        threshold_deposit_rate,
-        state.anc_emission_rate,
-    )?
-    .emission_rate;
-
     store_state(deps.storage, &state)?;
 
     Ok(Response::new().add_messages(messages).add_attributes(vec![
