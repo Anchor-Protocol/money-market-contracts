@@ -16,7 +16,7 @@ fn proper_compute_exchange_rate() {
     let mock_config = Config {
         contract_addr: deps.api.addr_canonicalize(MOCK_CONTRACT_ADDR).unwrap(),
         owner_addr: deps.api.addr_canonicalize("owner").unwrap(),
-        aterra_contract: deps.api.addr_canonicalize("AT-uusd").unwrap(),
+        aterra_contract: deps.api.addr_canonicalize("at-uusd").unwrap(),
         interest_model: deps.api.addr_canonicalize("interest").unwrap(),
         distribution_model: deps.api.addr_canonicalize("distribution").unwrap(),
         distributor_contract: deps.api.addr_canonicalize("distributor").unwrap(),
@@ -26,7 +26,7 @@ fn proper_compute_exchange_rate() {
         max_borrow_factor: Decimal256::one(),
     };
     deps.querier.with_token_balances(&[(
-        &"AT-uusd".to_string(),
+        &"at-uusd".to_string(),
         &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
     )]);
 

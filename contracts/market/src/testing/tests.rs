@@ -75,7 +75,7 @@ fn proper_initialization() {
 
     // Register anchor token contract
     let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
+    token_inst_res.set_contract_address("at-uusd".to_string());
     let reply_msg = Reply {
         id: 1,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -113,7 +113,7 @@ fn proper_initialization() {
     let query_res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     let config_res: ConfigResponse = from_binary(&query_res).unwrap();
     assert_eq!("owner".to_string(), config_res.owner_addr);
-    assert_eq!("AT-uusd".to_string(), config_res.aterra_contract);
+    assert_eq!("at-uusd".to_string(), config_res.aterra_contract);
     assert_eq!("interest".to_string(), config_res.interest_model);
     assert_eq!("distribution".to_string(), config_res.distribution_model);
     assert_eq!("distributor".to_string(), config_res.distributor_contract);
@@ -168,7 +168,7 @@ fn update_config() {
 
     // Register anchor token contract
     let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
+    token_inst_res.set_contract_address("at-uusd".to_string());
     let reply_msg = Reply {
         id: 1,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -270,7 +270,7 @@ fn deposit_stable_huge_amount() {
 
     // Register anchor token contract
     let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
+    token_inst_res.set_contract_address("at-uusd".to_string());
     let reply_msg = Reply {
         id: 1,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -319,7 +319,7 @@ fn deposit_stable_huge_amount() {
     deps.querier
         .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
     deps.querier.with_token_balances(&[(
-        &"AT-uusd".to_string(),
+        &"at-uusd".to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
             &Uint128::from(INITIAL_DEPOSIT_AMOUNT),
@@ -347,7 +347,7 @@ fn deposit_stable_huge_amount() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "AT-uusd".to_string(),
+            contract_addr: "at-uusd".to_string(),
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Mint {
                 recipient: "addr0000".to_string(),
@@ -366,7 +366,7 @@ fn deposit_stable_huge_amount() {
     );
 
     deps.querier.with_token_balances(&[(
-        &"AT-uusd".to_string(),
+        &"at-uusd".to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
             &Uint128::from(55_555_555_000_000u128),
@@ -387,7 +387,7 @@ fn deposit_stable_huge_amount() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "AT-uusd".to_string(),
+            contract_addr: "at-uusd".to_string(),
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Mint {
                 recipient: "addr0000".to_string(),
@@ -426,7 +426,7 @@ fn deposit_stable() {
 
     // Register anchor token contract
     let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
+    token_inst_res.set_contract_address("at-uusd".to_string());
     let reply_msg = Reply {
         id: 1,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -490,7 +490,7 @@ fn deposit_stable() {
     deps.querier
         .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
     deps.querier.with_token_balances(&[(
-        &"AT-uusd".to_string(),
+        &"at-uusd".to_string(),
         &[(
             &MOCK_CONTRACT_ADDR.to_string(),
             &Uint128::from(INITIAL_DEPOSIT_AMOUNT),
@@ -537,7 +537,7 @@ fn deposit_stable() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "AT-uusd".to_string(),
+            contract_addr: "at-uusd".to_string(),
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Mint {
                 recipient: "addr0000".to_string(),
@@ -578,7 +578,7 @@ fn deposit_stable() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "AT-uusd".to_string(),
+            contract_addr: "at-uusd".to_string(),
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Mint {
                 recipient: "addr0000".to_string(),
@@ -669,7 +669,7 @@ fn redeem_stable() {
 
     // Register anchor token contract
     let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
+    token_inst_res.set_contract_address("at-uusd".to_string());
     let reply_msg = Reply {
         id: 1,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -703,7 +703,7 @@ fn redeem_stable() {
     deps.querier
         .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
     deps.querier.with_token_balances(&[(
-        &"AT-uusd".to_string(),
+        &"at-uusd".to_string(),
         &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
     )]);
     deps.querier.update_balance(
@@ -717,7 +717,7 @@ fn redeem_stable() {
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     deps.querier.with_token_balances(&[(
-        &"AT-uusd".to_string(),
+        &"at-uusd".to_string(),
         &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(2000000u128))],
     )]);
 
@@ -734,13 +734,13 @@ fn redeem_stable() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let info = mock_info("AT-uusd", &[]);
+    let info = mock_info("at-uusd", &[]);
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
     assert_eq!(
         res.messages,
         vec![
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "AT-uusd".to_string(),
+                contract_addr: "at-uusd".to_string(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Burn {
                     amount: Uint128::from(1000000u128),
@@ -807,7 +807,7 @@ fn redeem_stable() {
         res.messages,
         vec![
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "AT-uusd".to_string(),
+                contract_addr: "at-uusd".to_string(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Burn {
                     amount: Uint128::from(1000000u128),
@@ -861,7 +861,7 @@ fn borrow_stable() {
 
     // Register anchor token contract
     let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
+    token_inst_res.set_contract_address("at-uusd".to_string());
     let reply_msg = Reply {
         id: 1,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -1106,7 +1106,7 @@ fn assert_max_borrow_factor() {
 
     // Register anchor token contract
     let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
+    token_inst_res.set_contract_address("at-uusd".to_string());
     let reply_msg = Reply {
         id: 1,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -1216,7 +1216,7 @@ fn repay_stable() {
 
     // Register anchor token contract
     let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
+    token_inst_res.set_contract_address("at-uusd".to_string());
     let reply_msg = Reply {
         id: 1,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -1399,7 +1399,7 @@ fn repay_stable_from_liquidation() {
 
     // Register anchor token contract
     let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
+    token_inst_res.set_contract_address("at-uusd".to_string());
     let reply_msg = Reply {
         id: 1,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -1570,7 +1570,7 @@ fn claim_rewards() {
 
     // Register anchor token contract
     let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
+    token_inst_res.set_contract_address("at-uusd".to_string());
     let reply_msg = Reply {
         id: 1,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -1701,7 +1701,7 @@ fn execute_epoch_operations() {
 
     // Register anchor token contract
     let mut token_inst_res = MsgInstantiateContractResponse::new();
-    token_inst_res.set_contract_address("AT-uusd".to_string());
+    token_inst_res.set_contract_address("at-uusd".to_string());
     let reply_msg = Reply {
         id: 1,
         result: ContractResult::Ok(SubMsgExecutionResponse {
@@ -1784,7 +1784,7 @@ fn execute_epoch_operations() {
             last_reward_updated: env.block.height,
             global_interest_index: Decimal256::from_uint256(2u64),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
-            anc_emission_rate: Decimal256::from_uint256(5u64),
+            anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
         }
@@ -1841,7 +1841,7 @@ fn execute_epoch_operations() {
             last_reward_updated: env.block.height,
             global_interest_index: Decimal256::from_uint256(2u64),
             global_reward_index: Decimal256::from_str("0.0001").unwrap(),
-            anc_emission_rate: Decimal256::from_uint256(5u64),
+            anc_emission_rate: Decimal256::one(),
             prev_aterra_supply: Uint256::zero(),
             prev_exchange_rate: Decimal256::one(),
         }
@@ -1878,7 +1878,7 @@ fn execute_epoch_operations() {
 //     let _res = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 //     // Register anchor token contract
 //     let msg = ExecuteMsg::RegisterATerra {};
-//     let env = mock_env("AT-uusd", &[]);
+//     let env = mock_env("at-uusd", &[]);
 //     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
 //     // Register overseer contract
@@ -1895,7 +1895,7 @@ fn execute_epoch_operations() {
 //     deps.querier
 //         .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
 //     deps.querier.with_token_balances(&[(
-//         &HumanAddr::from("AT-uusd"),
+//         &HumanAddr::from("at-uusd"),
 //         &[(
 //             &MOCK_CONTRACT_ADDR.to_string(),
 //             &Uint128::from(1000000u128),

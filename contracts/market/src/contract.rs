@@ -7,7 +7,7 @@ use crate::borrow::{
 };
 use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
 use crate::error::ContractError;
-use crate::querier::{query_anc_emission_rate, query_borrow_rate, query_target_deposit_rate};
+use crate::querier::{query_borrow_rate, query_target_deposit_rate};
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
 
@@ -330,9 +330,9 @@ pub fn execute_epoch_operations(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    deposit_rate: Decimal256,
+    _deposit_rate: Decimal256,
     target_deposit_rate: Decimal256,
-    threshold_deposit_rate: Decimal256,
+    _threshold_deposit_rate: Decimal256,
     distributed_interest: Uint256,
 ) -> Result<Response, ContractError> {
     let config: Config = read_config(deps.storage)?;
@@ -399,17 +399,6 @@ pub fn execute_epoch_operations(
     } else {
         vec![]
     };
-
-    // Query updated anc_emission_rate
-    state.anc_emission_rate = query_anc_emission_rate(
-        deps.as_ref(),
-        deps.api.addr_humanize(&config.distribution_model)?,
-        deposit_rate,
-        target_deposit_rate,
-        threshold_deposit_rate,
-        state.anc_emission_rate,
-    )?
-    .emission_rate;
 
     store_state(deps.storage, &state)?;
 
