@@ -21,8 +21,8 @@ use cw20::{Cw20Coin, Cw20ReceiveMsg, MinterResponse};
 use moneymarket::common::optional_addr_validate;
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::market::{
-    ConfigResponse, Cw20HookMsg, EpochStateResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-    StateResponse,
+    ConfigResponse, Cw20HookMsg, EpochStateResponse, ExecuteMsg, InstantiateMsg, MigrateMsg,
+    QueryMsg, StateResponse,
 };
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
 use protobuf::Message;
@@ -562,4 +562,9 @@ pub fn query_epoch_state(
         exchange_rate,
         aterra_supply,
     })
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    Ok(Response::default())
 }
