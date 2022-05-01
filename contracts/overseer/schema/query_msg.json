@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "QueryMsg",
-  "anyOf": [
+  "oneOf": [
     {
       "type": "object",
       "required": [
@@ -21,6 +21,18 @@
       ],
       "properties": {
         "epoch_state": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "dynrate_state"
+      ],
+      "properties": {
+        "dynrate_state": {
           "type": "object"
         }
       },

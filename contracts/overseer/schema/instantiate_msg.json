@@ -6,6 +6,11 @@
     "anc_purchase_factor",
     "buffer_distribution_factor",
     "collector_contract",
+    "dyn_rate_epoch",
+    "dyn_rate_max",
+    "dyn_rate_maxchange",
+    "dyn_rate_min",
+    "dyn_rate_yr_increase_expectation",
     "epoch_period",
     "liquidation_contract",
     "market_contract",
@@ -36,6 +41,39 @@
     "collector_contract": {
       "description": "Collector contract address which is purchasing ANC token",
       "type": "string"
+    },
+    "dyn_rate_epoch": {
+      "title": "of blocks per each dynamic rate change period",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "dyn_rate_max": {
+      "$ref": "#/definitions/Decimal256"
+    },
+    "dyn_rate_maxchange": {
+      "description": "maximum rate change during update",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal256"
+        }
+      ]
+    },
+    "dyn_rate_min": {
+      "description": "clamps for dyn rate",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal256"
+        }
+      ]
+    },
+    "dyn_rate_yr_increase_expectation": {
+      "description": "amount of slack in yr change to trigger rate update",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal256"
+        }
+      ]
     },
     "epoch_period": {
       "title": "of blocks per epoch period",
