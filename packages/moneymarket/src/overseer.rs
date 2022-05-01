@@ -55,7 +55,7 @@ pub struct MigrateMsg {
     pub dyn_rate_maxchange: Decimal256,
     /// Margin to define expectation of rate increase
     pub dyn_rate_yr_increase_expectation: Decimal256,
-
+    pub dyn_rate_current: Decimal256,
     pub dyn_rate_min: Decimal256,
     pub dyn_rate_max: Decimal256,
 }

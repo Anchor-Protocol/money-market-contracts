@@ -117,7 +117,7 @@ pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> 
         },
     )?;
     let new_rate = max(
-        min(config.threshold_deposit_rate, msg.dyn_rate_max),
+        min(config.threshold_deposit_rate, msg.dyn_rate_current),
         msg.dyn_rate_min,
     );
     config.threshold_deposit_rate = new_rate;

@@ -6,6 +6,11 @@
     "anc_purchase_factor",
     "buffer_distribution_factor",
     "collector_contract",
+    "dyn_rate_epoch",
+    "dyn_rate_max",
+    "dyn_rate_maxchange",
+    "dyn_rate_min",
+    "dyn_rate_yr_increase_expectation",
     "epoch_period",
     "liquidation_contract",
     "market_contract",
@@ -25,6 +30,23 @@
     },
     "collector_contract": {
       "type": "string"
+    },
+    "dyn_rate_epoch": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "dyn_rate_max": {
+      "$ref": "#/definitions/Decimal256"
+    },
+    "dyn_rate_maxchange": {
+      "$ref": "#/definitions/Decimal256"
+    },
+    "dyn_rate_min": {
+      "$ref": "#/definitions/Decimal256"
+    },
+    "dyn_rate_yr_increase_expectation": {
+      "$ref": "#/definitions/Decimal256"
     },
     "epoch_period": {
       "type": "integer",

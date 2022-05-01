@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ExecuteMsg",
-  "anyOf": [
+  "oneOf": [
     {
       "description": "Owner operations Update Configs",
       "type": "object",
@@ -23,6 +23,54 @@
               ]
             },
             "buffer_distribution_factor": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "dyn_rate_epoch": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "dyn_rate_max": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "dyn_rate_maxchange": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "dyn_rate_min": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Decimal256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "dyn_rate_yr_increase_expectation": {
               "anyOf": [
                 {
                   "$ref": "#/definitions/Decimal256"
@@ -286,6 +334,18 @@
               "type": "string"
             }
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "fund_reserve"
+      ],
+      "properties": {
+        "fund_reserve": {
+          "type": "object"
         }
       },
       "additionalProperties": false
