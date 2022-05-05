@@ -14,7 +14,7 @@ use cw20::TokenInfoResponse;
 use moneymarket::distribution_model::AncEmissionRateResponse;
 use moneymarket::interest_model::BorrowRateResponse;
 use moneymarket::overseer::{BorrowLimitResponse, ConfigResponse};
-use moneymarket::ve_aterra::StateResponse;
+use moneymarket::vterra::StateResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -42,7 +42,7 @@ pub enum QueryMsg {
     Config {},
     /// Query cw20 Token Info
     TokenInfo {},
-    /// Query ve aterra anchor contract to get premium rate
+    /// Query vterra anchor contract to get premium rate
     State {},
 }
 
@@ -273,7 +273,7 @@ impl WasmMockQuerier {
                             owner_addr: "".to_string(),
                             oracle_contract: "".to_string(),
                             market_contract: "".to_string(),
-                            ve_aterra_contract: "".to_string(),
+                            vterra_contract: "".to_string(),
                             liquidation_contract: "".to_string(),
                             collector_contract: "".to_string(),
                             threshold_deposit_rate: Decimal256::one(),
@@ -318,8 +318,8 @@ impl WasmMockQuerier {
                     }
                     QueryMsg::State {} => {
                         SystemResult::Ok(ContractResult::from(to_binary(&StateResponse {
-                            ve_aterra_supply: Default::default(),
-                            prev_epoch_ve_aterra_exchange_rate: Default::default(),
+                            vterra_supply: Default::default(),
+                            prev_epoch_vterra_exchange_rate: Default::default(),
                             target_share: Default::default(),
                             premium_rate: self.premium_rate_querier.premium_rate,
                             last_updated: 0,

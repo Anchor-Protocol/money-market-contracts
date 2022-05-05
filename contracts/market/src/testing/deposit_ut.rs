@@ -18,8 +18,8 @@ fn proper_compute_exchange_rate() {
         contract_addr: deps.api.addr_canonicalize(MOCK_CONTRACT_ADDR).unwrap(),
         owner_addr: deps.api.addr_canonicalize("owner").unwrap(),
         aterra_contract: deps.api.addr_canonicalize("AT-uusd").unwrap(),
-        ve_aterra_cw20_contract: deps.api.addr_canonicalize("veAT-uusd").unwrap(),
-        ve_aterra_anchor_contract: deps
+        vterra_cw20_contract: deps.api.addr_canonicalize("veAT-uusd").unwrap(),
+        vterra_anchor_contract: deps
             .api
             .addr_canonicalize("ve-aterra-anchor-contract")
             .unwrap(),

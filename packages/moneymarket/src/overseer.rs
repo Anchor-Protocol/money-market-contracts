@@ -13,8 +13,8 @@ pub struct InstantiateMsg {
     pub oracle_contract: String,
     /// Market contract address to receive missing interest buffer
     pub market_contract: String,
-    /// Ve aterra contract address to have epoch update operations run
-    pub ve_aterra_contract: String,
+    /// vterra contract address to have epoch update operations run
+    pub vterra_contract: String,
     /// Liquidation model contract address to compute liquidation amount
     pub liquidation_contract: String,
     /// Collector contract address which is purchasing ANC token
@@ -61,8 +61,8 @@ pub struct MigrateMsg {
     pub dyn_rate_min: Decimal256,
     pub dyn_rate_max: Decimal256,
 
-    ////// ve aterra migration ///////
-    pub ve_aterra_contract_addr: String,
+    ////// vterra migration ///////
+    pub vterra_contract_addr: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -166,7 +166,7 @@ pub struct ConfigResponse {
     pub owner_addr: String,
     pub oracle_contract: String,
     pub market_contract: String,
-    pub ve_aterra_contract: String,
+    pub vterra_contract: String,
     pub liquidation_contract: String,
     pub collector_contract: String,
     pub threshold_deposit_rate: Decimal256,

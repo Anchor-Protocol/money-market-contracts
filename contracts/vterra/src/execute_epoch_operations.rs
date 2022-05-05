@@ -23,12 +23,12 @@ pub fn execute_epoch_operations(
     }
 
     // store new exchange rate BEFORE updating premium rate
-    state.prev_epoch_ve_aterra_exchange_rate = compute_ve_exchange_rate(&state, env.block.height);
+    state.prev_epoch_vterra_exchange_rate = compute_ve_exchange_rate(&state, env.block.height);
 
-    // ensure cached ve_aterra_supply is equal to ground truth
-    state.ve_aterra_supply = query_supply(
+    // ensure cached vterra_supply is equal to ground truth
+    state.vterra_supply = query_supply(
         deps.as_ref(),
-        deps.api.addr_humanize(&config.ve_aterra_contract)?,
+        deps.api.addr_humanize(&config.vterra_contract)?,
     )?;
     // aterra_supply used to calculate current ve vs. aterra deposit share
     let aterra_supply = query_supply(
@@ -60,6 +60,6 @@ pub fn update_ve_premium_rate(state: &mut State, config: Config, aterra_supply: 
 }
 
 pub fn current_ve_share(state: &State, aterra_supply: Uint256) -> Decimal256 {
-    let converted_ve = state.ve_aterra_supply * state.prev_epoch_ve_aterra_exchange_rate;
+    let converted_ve = state.vterra_supply * state.prev_epoch_vterra_exchange_rate;
     Decimal256::from_ratio(converted_ve, converted_ve + aterra_supply)
 }

@@ -32,9 +32,9 @@ pub(crate) fn get_mock_state() -> State {
         anc_emission_rate: Decimal256::one(),
         prev_aterra_supply: Uint256::from(1000000u64),
         prev_aterra_exchange_rate: Decimal256::one(),
-        prev_ve_aterra_supply: Uint256::zero(),
-        prev_ve_aterra_exchange_rate: Decimal256::one(),
-        ve_aterra_exchange_rate_last_updated: mock_env().block.height,
+        prev_vterra_supply: Uint256::zero(),
+        prev_vterra_exchange_rate: Decimal256::one(),
+        vterra_exchange_rate_last_updated: mock_env().block.height,
         prev_ve_premium_rate: Decimal256::percent(0),
     }
 }
@@ -113,8 +113,8 @@ fn proper_initialization() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -126,8 +126,8 @@ fn proper_initialization() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
@@ -206,8 +206,8 @@ fn update_config() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -310,8 +310,8 @@ fn deposit_stable_huge_amount() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -468,8 +468,8 @@ fn deposit_stable() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -717,8 +717,8 @@ fn redeem_stable() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -912,8 +912,8 @@ fn borrow_stable() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let mut env = mock_env();
     let info = mock_info("addr0000", &[]);
@@ -1162,8 +1162,8 @@ fn assert_max_borrow_factor() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
@@ -1275,8 +1275,8 @@ fn repay_stable() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let mut env = mock_env();
     let mut info = mock_info("addr0000", &[]);
@@ -1461,8 +1461,8 @@ fn repay_stable_from_liquidation() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let mut env = mock_env();
     let info = mock_info("addr0000", &[]);
@@ -1635,8 +1635,8 @@ fn claim_rewards() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let info = mock_info("addr0000", &[]);
     let mut env = mock_env();
@@ -1769,8 +1769,8 @@ fn execute_epoch_operations() {
         distribution_model: "distribution".to_string(),
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
-        ve_aterra_cw20_contract: "veAT-usd".to_string(),
-        ve_aterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
+        vterra_cw20_contract: "veAT-usd".to_string(),
+        vterra_anchor_contract: "ve-aterra-anchor-contract".to_string(),
     };
     let mut env = mock_env();
     let mut info = mock_info("addr0000", &[]);

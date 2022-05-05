@@ -30,7 +30,7 @@ use moneymarket::overseer::{
     WhitelistResponseElem,
 };
 use moneymarket::querier::{deduct_tax, query_balance};
-use moneymarket::ve_aterra::ExecuteMsg as VeAterraExecuteMsg;
+use moneymarket::vterra::ExecuteMsg as VeAterraExecuteMsg;
 
 pub const BLOCKS_PER_YEAR: u128 = 4656810;
 
@@ -47,7 +47,7 @@ pub fn instantiate(
             owner_addr: deps.api.addr_canonicalize(&msg.owner_addr)?,
             oracle_contract: deps.api.addr_canonicalize(&msg.oracle_contract)?,
             market_contract: deps.api.addr_canonicalize(&msg.market_contract)?,
-            ve_aterra_contract: deps.api.addr_canonicalize(&msg.ve_aterra_contract)?,
+            vterra_contract: deps.api.addr_canonicalize(&msg.vterra_contract)?,
             liquidation_contract: deps.api.addr_canonicalize(&msg.liquidation_contract)?,
             collector_contract: deps.api.addr_canonicalize(&msg.collector_contract)?,
             stable_denom: msg.stable_denom,
@@ -125,8 +125,8 @@ pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> 
     config.threshold_deposit_rate = new_rate;
     config.target_deposit_rate = new_rate;
 
-    // ve aterra migration
-    config.ve_aterra_contract = deps.api.addr_canonicalize(&msg.ve_aterra_contract_addr)?;
+    // vterra migration
+    config.vterra_contract = deps.api.addr_canonicalize(&msg.vterra_contract_addr)?;
 
     store_config(deps.storage, &config)?;
     Ok(Response::default())
@@ -648,8 +648,8 @@ pub fn update_epoch_state(
         },
     )?;
 
-    // Also update ve aterra contract
-    let ve_aterra_response_message = to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {})?;
+    // Also update vterra contract
+    let vterra_response_message = to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {})?;
 
     // use unchanged rates to build msg
     let market_response_msg = to_binary(&MarketExecuteMsg::ExecuteEpochOperations {
@@ -666,9 +666,9 @@ pub fn update_epoch_state(
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: deps
                 .api
-                .addr_humanize(&config.ve_aterra_contract)?
+                .addr_humanize(&config.vterra_contract)?
                 .to_string(),
-            msg: ve_aterra_response_message,
+            msg: vterra_response_message,
             funds: vec![],
         }))
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -751,9 +751,9 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         owner_addr: deps.api.addr_humanize(&config.owner_addr)?.to_string(),
         oracle_contract: deps.api.addr_humanize(&config.oracle_contract)?.to_string(),
         market_contract: deps.api.addr_humanize(&config.market_contract)?.to_string(),
-        ve_aterra_contract: deps
+        vterra_contract: deps
             .api
-            .addr_humanize(&config.ve_aterra_contract)?
+            .addr_humanize(&config.vterra_contract)?
             .to_string(),
         liquidation_contract: deps
             .api

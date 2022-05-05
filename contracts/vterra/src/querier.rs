@@ -2,7 +2,7 @@ use crate::state::{read_config, read_state, Config, State};
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{to_binary, Addr, Deps, Env, QueryRequest, StdError, StdResult, WasmQuery};
 use cw20::{Cw20QueryMsg, TokenInfoResponse};
-use moneymarket::ve_aterra::{ConfigResponse, StateResponse};
+use moneymarket::vterra::{ConfigResponse, StateResponse};
 
 pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config: Config = read_config(deps.storage)?;
@@ -12,9 +12,9 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         market_addr: deps.api.addr_humanize(&config.market_addr)?.to_string(),
         overseer_addr: deps.api.addr_humanize(&config.overseer_addr)?.to_string(),
         aterra_contract: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
-        ve_aterra_contract: deps
+        vterra_contract: deps
             .api
-            .addr_humanize(&config.ve_aterra_contract)?
+            .addr_humanize(&config.vterra_contract)?
             .to_string(),
         max_pos_change: config.max_pos_change,
         max_neg_change: config.max_neg_change,
@@ -36,8 +36,8 @@ pub fn query_state(deps: Deps, env: Env, block_height: Option<u64>) -> StdResult
     }
 
     Ok(StateResponse {
-        ve_aterra_supply: state.ve_aterra_supply,
-        prev_epoch_ve_aterra_exchange_rate: state.prev_epoch_ve_aterra_exchange_rate,
+        vterra_supply: state.vterra_supply,
+        prev_epoch_vterra_exchange_rate: state.prev_epoch_vterra_exchange_rate,
         target_share: state.target_share,
         premium_rate: state.premium_rate,
         last_updated: state.last_updated,

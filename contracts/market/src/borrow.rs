@@ -253,9 +253,9 @@ pub fn compute_interest(
     }
 
     let aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.aterra_contract)?)?;
-    let ve_aterra_supply = query_supply(
+    let vterra_supply = query_supply(
         deps,
-        deps.api.addr_humanize(&config.ve_aterra_cw20_contract)?,
+        deps.api.addr_humanize(&config.vterra_cw20_contract)?,
     )?;
     let balance: Uint256 = query_balance(
         deps,
@@ -279,7 +279,7 @@ pub fn compute_interest(
         block_height,
         balance,
         aterra_supply,
-        ve_aterra_supply,
+        vterra_supply,
         borrow_rate_res.rate,
         target_deposit_rate,
     );
@@ -297,7 +297,7 @@ pub fn compute_interest_raw(
     block_height: u64,
     balance: Uint256,
     aterra_supply: Uint256,
-    ve_aterra_supply: Uint256,
+    vterra_supply: Uint256,
     borrow_rate: Decimal256,
     target_deposit_rate: Decimal256,
 ) {
@@ -318,7 +318,7 @@ pub fn compute_interest_raw(
         state,
         block_height,
         aterra_supply,
-        ve_aterra_supply,
+        vterra_supply,
         balance,
     );
     let effective_deposit_rate = exchange_rate / state.prev_aterra_exchange_rate;
@@ -338,7 +338,7 @@ pub fn compute_interest_raw(
             state,
             block_height,
             aterra_supply,
-            ve_aterra_supply,
+            vterra_supply,
             balance,
         );
     }

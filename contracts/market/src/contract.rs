@@ -25,7 +25,7 @@ use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
 use crate::error::ContractError;
 use crate::querier::{
     query_anc_emission_rate, query_borrow_rate, query_premium_rate, query_target_deposit_rate,
-    query_ve_aterra_state,
+    query_vterra_state,
 };
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_config, read_state, store_config, store_state, Config, State};
@@ -59,8 +59,8 @@ pub fn instantiate(
             contract_addr: deps.api.addr_canonicalize(env.contract.address.as_str())?,
             owner_addr: deps.api.addr_canonicalize(&msg.owner_addr)?,
             aterra_contract: CanonicalAddr::from(vec![]),
-            ve_aterra_cw20_contract: CanonicalAddr::from(vec![]),
-            ve_aterra_anchor_contract: CanonicalAddr::from(vec![]),
+            vterra_cw20_contract: CanonicalAddr::from(vec![]),
+            vterra_anchor_contract: CanonicalAddr::from(vec![]),
             overseer_contract: CanonicalAddr::from(vec![]),
             interest_model: CanonicalAddr::from(vec![]),
             distribution_model: CanonicalAddr::from(vec![]),
@@ -83,9 +83,9 @@ pub fn instantiate(
             anc_emission_rate: msg.anc_emission_rate,
             prev_aterra_supply: Uint256::zero(),
             prev_aterra_exchange_rate: Decimal256::one(),
-            prev_ve_aterra_supply: Uint256::zero(),
-            prev_ve_aterra_exchange_rate: Decimal256::one(),
-            ve_aterra_exchange_rate_last_updated: env.block.height,
+            prev_vterra_supply: Uint256::zero(),
+            prev_vterra_exchange_rate: Decimal256::one(),
+            vterra_exchange_rate_last_updated: env.block.height,
             prev_ve_premium_rate: Decimal256::zero(),
         },
     )?;
@@ -122,18 +122,18 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> {
     let mut config = read_config(deps.storage)?;
-    config.ve_aterra_cw20_contract = deps.api.addr_canonicalize(&msg.ve_aterra_cw20_addr)?;
-    config.ve_aterra_anchor_contract = deps.api.addr_canonicalize(&msg.ve_aterra_anchor_addr)?;
+    config.vterra_cw20_contract = deps.api.addr_canonicalize(&msg.vterra_cw20_addr)?;
+    config.vterra_anchor_contract = deps.api.addr_canonicalize(&msg.vterra_anchor_addr)?;
     store_config(deps.storage, &config)?;
 
     let mut state = read_state(deps.storage)?;
-    let ve_aterra_state = query_ve_aterra_state(
+    let vterra_state = query_vterra_state(
         deps.as_ref(),
-        deps.api.addr_validate(&msg.ve_aterra_anchor_addr)?,
+        deps.api.addr_validate(&msg.vterra_anchor_addr)?,
     )?;
-    state.prev_ve_premium_rate = ve_aterra_state.premium_rate;
-    state.prev_ve_aterra_exchange_rate = ve_aterra_state.prev_epoch_ve_aterra_exchange_rate;
-    state.prev_ve_aterra_supply = ve_aterra_state.ve_aterra_supply;
+    state.prev_ve_premium_rate = vterra_state.premium_rate;
+    state.prev_vterra_exchange_rate = vterra_state.prev_epoch_vterra_exchange_rate;
+    state.prev_vterra_supply = vterra_state.vterra_supply;
     store_state(deps.storage, &state)?;
 
     Ok(Response::new())
@@ -154,8 +154,8 @@ pub fn execute(
             distribution_model,
             collector_contract,
             distributor_contract,
-            ve_aterra_cw20_contract,
-            ve_aterra_anchor_contract,
+            vterra_cw20_contract,
+            vterra_anchor_contract,
         } => {
             let api = deps.api;
             register_contracts(
@@ -165,8 +165,8 @@ pub fn execute(
                 api.addr_validate(&distribution_model)?,
                 api.addr_validate(&collector_contract)?,
                 api.addr_validate(&distributor_contract)?,
-                api.addr_validate(&ve_aterra_cw20_contract)?,
-                api.addr_validate(&ve_aterra_anchor_contract)?,
+                api.addr_validate(&vterra_cw20_contract)?,
+                api.addr_validate(&vterra_anchor_contract)?,
             )
         }
         ExecuteMsg::UpdateConfig {
@@ -231,7 +231,7 @@ pub fn execute(
         }
         ExecuteMsg::UpdateFromVeActions {
             aterra_diff,
-            ve_aterra_supply,
+            vterra_supply,
             ve_exchange_rate,
         } => {
             let mut state = read_state(deps.storage)?;
@@ -239,8 +239,8 @@ pub fn execute(
                 Diff::Pos(n) => state.prev_aterra_supply += n,
                 Diff::Neg(n) => state.prev_aterra_supply = state.prev_aterra_supply - n,
             }
-            state.prev_ve_aterra_supply = ve_aterra_supply;
-            state.prev_ve_aterra_exchange_rate = ve_exchange_rate;
+            state.prev_vterra_supply = vterra_supply;
+            state.prev_vterra_exchange_rate = ve_exchange_rate;
             store_state(deps.storage, &state)?;
             Ok(Response::new())
         }
@@ -312,8 +312,8 @@ pub fn register_contracts(
     distribution_model: Addr,
     collector_contract: Addr,
     distributor_contract: Addr,
-    ve_aterra_cw20_contract: Addr,
-    ve_aterra_anchor_contract: Addr,
+    vterra_cw20_contract: Addr,
+    vterra_anchor_contract: Addr,
 ) -> Result<Response, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
     if config.overseer_contract != CanonicalAddr::from(vec![])
@@ -321,8 +321,8 @@ pub fn register_contracts(
         || config.distribution_model != CanonicalAddr::from(vec![])
         || config.collector_contract != CanonicalAddr::from(vec![])
         || config.distributor_contract != CanonicalAddr::from(vec![])
-        || config.ve_aterra_cw20_contract != CanonicalAddr::from(vec![])
-        || config.ve_aterra_anchor_contract != CanonicalAddr::from(vec![])
+        || config.vterra_cw20_contract != CanonicalAddr::from(vec![])
+        || config.vterra_anchor_contract != CanonicalAddr::from(vec![])
     {
         return Err(ContractError::Unauthorized {});
     }
@@ -332,12 +332,12 @@ pub fn register_contracts(
     config.distribution_model = deps.api.addr_canonicalize(distribution_model.as_str())?;
     config.collector_contract = deps.api.addr_canonicalize(collector_contract.as_str())?;
     config.distributor_contract = deps.api.addr_canonicalize(distributor_contract.as_str())?;
-    config.ve_aterra_cw20_contract = deps
+    config.vterra_cw20_contract = deps
         .api
-        .addr_canonicalize(ve_aterra_cw20_contract.as_str())?;
-    config.ve_aterra_anchor_contract = deps
+        .addr_canonicalize(vterra_cw20_contract.as_str())?;
+    config.vterra_anchor_contract = deps
         .api
-        .addr_canonicalize(ve_aterra_anchor_contract.as_str())?;
+        .addr_canonicalize(vterra_anchor_contract.as_str())?;
     store_config(deps.storage, &config)?;
 
     Ok(Response::default())
@@ -401,10 +401,10 @@ pub fn execute_epoch_operations(
 
     let mut state: State = read_state(deps.storage)?;
 
-    // Fetch premium rate from ve aterra anchor contract
+    // Fetch premium rate from vterra anchor contract
     state.prev_ve_premium_rate = query_premium_rate(
         deps.as_ref(),
-        deps.api.addr_humanize(&config.ve_aterra_anchor_contract)?,
+        deps.api.addr_humanize(&config.vterra_anchor_contract)?,
     )?;
 
     // Compute interest and reward before updating anc_emission_rate
@@ -412,9 +412,9 @@ pub fn execute_epoch_operations(
         deps.as_ref(),
         deps.api.addr_humanize(&config.aterra_contract)?,
     )?;
-    let ve_aterra_supply = query_supply(
+    let vterra_supply = query_supply(
         deps.as_ref(),
-        deps.api.addr_humanize(&config.ve_aterra_cw20_contract)?,
+        deps.api.addr_humanize(&config.vterra_cw20_contract)?,
     )?;
     let balance: Uint256 = query_balance(
         deps.as_ref(),
@@ -435,7 +435,7 @@ pub fn execute_epoch_operations(
         env.block.height,
         balance,
         aterra_supply,
-        ve_aterra_supply,
+        vterra_supply,
         borrow_rate_res.rate,
         target_deposit_rate,
     );
@@ -445,7 +445,7 @@ pub fn execute_epoch_operations(
         &state,
         env.block.height,
         aterra_supply,
-        ve_aterra_supply,
+        vterra_supply,
         balance + distributed_interest,
     );
 
@@ -591,9 +591,9 @@ pub fn query_state(deps: Deps, env: Env, block_height: Option<u64>) -> StdResult
         anc_emission_rate: state.anc_emission_rate,
         prev_aterra_supply: state.prev_aterra_supply,
         prev_aterra_exchange_rate: state.prev_aterra_exchange_rate,
-        prev_ve_aterra_supply: state.prev_ve_aterra_supply,
-        prev_ve_aterra_exchange_rate: state.prev_ve_aterra_exchange_rate,
-        ve_aterra_exchange_rate_last_updated: state.ve_aterra_exchange_rate_last_updated,
+        prev_vterra_supply: state.prev_vterra_supply,
+        prev_vterra_exchange_rate: state.prev_vterra_exchange_rate,
+        vterra_exchange_rate_last_updated: state.vterra_exchange_rate_last_updated,
         prev_ve_premium_rate: state.prev_ve_premium_rate,
     })
 }
@@ -608,9 +608,9 @@ pub fn query_epoch_state(
 
     let distributed_interest = distributed_interest.unwrap_or_else(Uint256::zero);
     let aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.aterra_contract)?)?;
-    let ve_aterra_supply = query_supply(
+    let vterra_supply = query_supply(
         deps,
-        deps.api.addr_humanize(&config.ve_aterra_cw20_contract)?,
+        deps.api.addr_humanize(&config.vterra_cw20_contract)?,
     )?;
     let balance = query_balance(
         deps,
@@ -642,7 +642,7 @@ pub fn query_epoch_state(
             block_height,
             balance,
             aterra_supply,
-            ve_aterra_supply,
+            vterra_supply,
             borrow_rate_res.rate,
             target_deposit_rate,
         );
@@ -652,9 +652,9 @@ pub fn query_epoch_state(
     // as prev_exchange_rate, so just return prev_exchange_rate
     let exchange_rate = compute_exchange_rate_raw(
         &state,
-        block_height.unwrap_or(state.ve_aterra_exchange_rate_last_updated),
+        block_height.unwrap_or(state.vterra_exchange_rate_last_updated),
         aterra_supply,
-        ve_aterra_supply,
+        vterra_supply,
         balance + distributed_interest,
     );
 

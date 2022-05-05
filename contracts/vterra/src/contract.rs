@@ -9,7 +9,7 @@ use cw20::{Cw20Coin, Cw20ReceiveMsg, MinterResponse};
 use protobuf::Message;
 use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 
-use moneymarket::ve_aterra::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
+use moneymarket::vterra::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
 
 use crate::bonding::{bond, claim_unlocked_aterra, rebond, unbond};
 use crate::error::ContractError;
@@ -18,7 +18,7 @@ use crate::querier::{query_config, query_state};
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_config, store_config, store_state, Config, State};
 
-const REGISTER_VE_ATERRA_REPLY_ID: u64 = 1;
+const REGISTER_vterra_REPLY_ID: u64 = 1;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -35,7 +35,7 @@ pub fn instantiate(
             market_addr: deps.api.addr_canonicalize(msg.market_addr.as_str())?,
             overseer_addr: deps.api.addr_canonicalize(msg.overseer_addr.as_str())?,
             aterra_contract: deps.api.addr_canonicalize(msg.aterra_contract.as_str())?,
-            ve_aterra_contract: CanonicalAddr::from(vec![]),
+            vterra_contract: CanonicalAddr::from(vec![]),
             max_pos_change: msg.max_pos_change,
             max_neg_change: msg.max_neg_change,
             max_rate: msg.max_rate,
@@ -48,8 +48,8 @@ pub fn instantiate(
     store_state(
         deps.storage,
         &State {
-            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
-            ve_aterra_supply: Uint256::zero(),
+            prev_epoch_vterra_exchange_rate: Decimal256::one(),
+            vterra_supply: Uint256::zero(),
             last_updated: env.block.height,
             target_share: msg.target_share,
             premium_rate: msg.initial_premium_rate,
@@ -57,11 +57,11 @@ pub fn instantiate(
     )?;
 
     Ok(Response::new().add_submessages([
-        // create ve aterra cw20 instance
+        // create vterra cw20 instance
         SubMsg::reply_on_success(
             CosmosMsg::Wasm(WasmMsg::Instantiate {
                 admin: None,
-                code_id: msg.ve_aterra_code_id,
+                code_id: msg.vterra_code_id,
                 funds: vec![],
                 label: "".to_string(),
                 msg: to_binary(&TokenInstantiateMsg {
@@ -84,7 +84,7 @@ pub fn instantiate(
                     }),
                 })?,
             }),
-            REGISTER_VE_ATERRA_REPLY_ID,
+            REGISTER_vterra_REPLY_ID,
         ),
     ]))
 }
@@ -102,7 +102,7 @@ pub fn execute(
             owner_addr,
             market_addr,
             aterra_contract,
-            ve_aterra_contract,
+            vterra_contract,
             max_pos_change,
             max_neg_change,
             max_rate,
@@ -114,7 +114,7 @@ pub fn execute(
             owner_addr,
             market_addr,
             aterra_contract,
-            ve_aterra_contract,
+            vterra_contract,
             max_pos_change,
             max_neg_change,
             max_rate,
@@ -130,8 +130,8 @@ pub fn execute(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
-        REGISTER_VE_ATERRA_REPLY_ID => {
-            // get new ve_aterra token's contract address
+        REGISTER_vterra_REPLY_ID => {
+            // get new vterra token's contract address
             let res: MsgInstantiateContractResponse = Message::parse_from_bytes(
                 msg.result.unwrap().data.unwrap().as_slice(),
             )
@@ -142,22 +142,22 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 ))
             })?;
             let token_addr = Addr::unchecked(res.get_contract_address());
-            register_ve_aterra(deps, token_addr)
+            register_vterra(deps, token_addr)
         }
         _ => Err(ContractError::InvalidReplyId {}),
     }
 }
 
-pub fn register_ve_aterra(deps: DepsMut, token_addr: Addr) -> Result<Response, ContractError> {
+pub fn register_vterra(deps: DepsMut, token_addr: Addr) -> Result<Response, ContractError> {
     let mut config: Config = read_config(deps.storage)?;
-    if config.ve_aterra_contract != CanonicalAddr::from(vec![]) {
+    if config.vterra_contract != CanonicalAddr::from(vec![]) {
         return Err(ContractError::Unauthorized {});
     }
 
-    config.ve_aterra_contract = deps.api.addr_canonicalize(token_addr.as_str())?;
+    config.vterra_contract = deps.api.addr_canonicalize(token_addr.as_str())?;
     store_config(deps.storage, &config)?;
 
-    Ok(Response::new().add_attributes(vec![attr("ve_aterra", token_addr)]))
+    Ok(Response::new().add_attributes(vec![attr("vterra", token_addr)]))
 }
 
 pub fn receive_cw20(
@@ -171,7 +171,7 @@ pub fn receive_cw20(
         Ok(Cw20HookMsg::UnbondVeATerra {}) => {
             // only asset contract can execute this message
             let config: Config = read_config(deps.storage)?;
-            if deps.api.addr_canonicalize(contract_addr.as_str())? != config.ve_aterra_contract {
+            if deps.api.addr_canonicalize(contract_addr.as_str())? != config.vterra_contract {
                 return Err(ContractError::Unauthorized {});
             }
 
@@ -198,7 +198,7 @@ pub fn update_config(
     owner_addr: Option<String>,
     market_addr: Option<String>,
     aterra_contract: Option<String>,
-    ve_aterra_contract: Option<String>,
+    vterra_contract: Option<String>,
     max_pos_change: Option<Decimal256>,
     max_neg_change: Option<Decimal256>,
     max_rate: Option<Decimal256>,
@@ -221,8 +221,8 @@ pub fn update_config(
     if let Some(addr) = aterra_contract {
         config.aterra_contract = deps.api.addr_canonicalize(&addr)?;
     }
-    if let Some(addr) = ve_aterra_contract {
-        config.ve_aterra_contract = deps.api.addr_canonicalize(&addr)?;
+    if let Some(addr) = vterra_contract {
+        config.vterra_contract = deps.api.addr_canonicalize(&addr)?;
     }
     if let Some(max_pos_change) = max_pos_change {
         config.max_pos_change = max_pos_change;

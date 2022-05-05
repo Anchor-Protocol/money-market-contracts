@@ -9,7 +9,7 @@ pub struct InstantiateMsg {
     /// Owner address for config update
     pub owner_addr: String,
     /// Anchor ve token code ID used to instantiate
-    pub ve_aterra_code_id: u64,
+    pub vterra_code_id: u64,
     /// Address of market contract
     pub market_addr: String,
     /// Address of overseer contract
@@ -42,7 +42,7 @@ pub enum ExecuteMsg {
         owner_addr: Option<String>,
         market_addr: Option<String>,
         aterra_contract: Option<String>,
-        ve_aterra_contract: Option<String>,
+        vterra_contract: Option<String>,
 
         max_pos_change: Option<Decimal256>,
         max_neg_change: Option<Decimal256>,
@@ -62,7 +62,7 @@ pub enum ExecuteMsg {
     /// User operations
     ////////////////////
 
-    /// Rebond `amount` of locked aterra back into ve aterra without having to wait full 30 days
+    /// Rebond `amount` of locked aterra back into vterra without having to wait full 30 days
     RebondLockedATerra {
         amount: Option<Uint256>,
     },
@@ -76,10 +76,10 @@ pub enum ExecuteMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Cw20HookMsg {
-    /// Bond aterra and release ve_aterra
+    /// Bond aterra and release vterra
     BondATerra {},
 
-    /// Burn ve_aterra and entitle sender to claim corresponding aterra after 30 day waiting period
+    /// Burn vterra and entitle sender to claim corresponding aterra after 30 day waiting period
     UnbondVeATerra {},
 }
 
@@ -98,7 +98,7 @@ pub struct ConfigResponse {
     pub market_addr: String,
     pub overseer_addr: String,
     pub aterra_contract: String,
-    pub ve_aterra_contract: String,
+    pub vterra_contract: String,
 
     pub max_pos_change: Decimal256,
     pub max_neg_change: Decimal256,
@@ -112,22 +112,22 @@ pub struct ConfigResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct StateResponse {
-    /// Cached ve_aterra supply.
+    /// Cached vterra supply.
     /// This is kept locally to not require expensive queries to CW20 contract
-    pub ve_aterra_supply: Uint256,
-    /// Exchange rate between ve aterra and aterra calculated during last ExecuteEpochOperations
-    pub prev_epoch_ve_aterra_exchange_rate: Decimal256,
-    /// Target share of deposits in ve aterra. o
+    pub vterra_supply: Uint256,
+    /// Exchange rate between vterra and aterra calculated during last ExecuteEpochOperations
+    pub prev_epoch_vterra_exchange_rate: Decimal256,
+    /// Target share of deposits in vterra. o
     /// Premium rate adjusts to bring current share towards target share
     pub target_share: Decimal256,
-    /// Current premium rate of ve aterra over aterra measured in blocks
+    /// Current premium rate of vterra over aterra measured in blocks
     /// ex. 2% yearly premium => 1.02 / num_blocks_per_year
     pub premium_rate: Decimal256, // in blocks
     /// Block height ExecuteEpochOperations was last executed on
     pub last_updated: u64,
 }
 
-/// Exchange rate of aterra / ve aterra
+/// Exchange rate of aterra / vterra
 /// ex: 1 ve * ER => ER aterra
 pub fn compute_ve_exchange_rate(
     previous_er: Decimal256,

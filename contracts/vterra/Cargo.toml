@@ -1,9 +1,9 @@
 [package]
-name = "ve-aterra"
+name = "vterra"
 version = "0.0.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
-description = "Handles veaUST"
+description = "Handles vUST"
 license = "MIT"
 
 exclude = [

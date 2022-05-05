@@ -6,10 +6,10 @@ use cosmwasm_std::{to_binary, Addr, Api, CosmosMsg, SubMsg, Uint128, WasmMsg};
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use moneymarket::market::Diff;
-use moneymarket::ve_aterra::{Cw20HookMsg, ExecuteMsg, InstantiateMsg};
+use moneymarket::vterra::{Cw20HookMsg, ExecuteMsg, InstantiateMsg};
 
 use crate::bonding::UNBOND_DURATION_SECS;
-use crate::contract::{execute, instantiate, register_ve_aterra};
+use crate::contract::{execute, instantiate, register_vterra};
 use crate::error::ContractError;
 use crate::state::{
     read_config, read_state, read_user_receipts, store_config, store_state, store_user_receipts,
@@ -21,12 +21,12 @@ mod mock_querier;
 
 const MOCK_USER: &str = "addr0000";
 const ATERRA_CONTRACT: &str = "AT-usd";
-const VE_ATERRA_CONTRACT: &str = "ve-AT-usd";
+const vterra_CONTRACT: &str = "ve-AT-usd";
 
 fn mock_instantiate_msg() -> InstantiateMsg {
     InstantiateMsg {
         owner_addr: "owner".to_string(),
-        ve_aterra_code_id: 456,
+        vterra_code_id: 456,
         market_addr: "market".to_string(),
         overseer_addr: "overseer".to_string(),
         aterra_contract: ATERRA_CONTRACT.to_string(),
@@ -48,10 +48,10 @@ fn bond_simple() {
     let info = mock_info(MOCK_USER, &[]);
     let env = mock_env();
     instantiate(deps.as_mut(), env.clone(), info, mock_instantiate_msg()).unwrap();
-    register_ve_aterra(deps.as_mut(), Addr::unchecked(VE_ATERRA_CONTRACT)).unwrap();
+    register_vterra(deps.as_mut(), Addr::unchecked(vterra_CONTRACT)).unwrap();
     {
         let mut state = read_state(deps.as_mut().storage).unwrap();
-        state.prev_epoch_ve_aterra_exchange_rate = Decimal256::from_str("1.50").unwrap();
+        state.prev_epoch_vterra_exchange_rate = Decimal256::from_str("1.50").unwrap();
         store_state(deps.as_mut().storage, &state).unwrap();
     }
 
@@ -75,7 +75,7 @@ fn bond_simple() {
                 .unwrap()
             })),
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: VE_ATERRA_CONTRACT.to_string(),
+                contract_addr: vterra_CONTRACT.to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Mint {
                     recipient: MOCK_USER.to_string(),
                     amount: Uint128::from(6_666u64),
@@ -86,7 +86,7 @@ fn bond_simple() {
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "market".to_string(),
                 msg: to_binary(&moneymarket::market::ExecuteMsg::UpdateFromVeActions {
-                    ve_aterra_supply: Uint256::from(6_666u64),
+                    vterra_supply: Uint256::from(6_666u64),
                     aterra_diff: Diff::Neg(Uint256::from(10_000u64)),
                     ve_exchange_rate: Decimal256::from_str("1.50").unwrap(),
                 })
@@ -103,13 +103,13 @@ fn unbond_simple() {
     let info = mock_info(MOCK_USER, &[]);
     let env = mock_env();
     instantiate(deps.as_mut(), env.clone(), info, mock_instantiate_msg()).unwrap();
-    register_ve_aterra(deps.as_mut(), Addr::unchecked(VE_ATERRA_CONTRACT)).unwrap();
+    register_vterra(deps.as_mut(), Addr::unchecked(vterra_CONTRACT)).unwrap();
 
-    // set state so there is 10_000 ve aterra
+    // set state so there is 10_000 vterra
     {
         let mut state = read_state(deps.as_ref().storage).unwrap();
-        state.ve_aterra_supply = Uint256::from(10_000u64);
-        state.prev_epoch_ve_aterra_exchange_rate = Decimal256::from_str("1.50").unwrap();
+        state.vterra_supply = Uint256::from(10_000u64);
+        state.prev_epoch_vterra_exchange_rate = Decimal256::from_str("1.50").unwrap();
         store_state(deps.as_mut().storage, &state).unwrap();
     }
 
@@ -118,14 +118,14 @@ fn unbond_simple() {
         amount: Uint128::from(10_000u64),
         msg: to_binary(&Cw20HookMsg::UnbondVeATerra {}).unwrap(),
     });
-    let info = mock_info(VE_ATERRA_CONTRACT, &[]);
+    let info = mock_info(vterra_CONTRACT, &[]);
     let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     assert_eq!(
         res.messages,
         vec![
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: VE_ATERRA_CONTRACT.to_string(),
+                contract_addr: vterra_CONTRACT.to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Burn {
                     amount: Uint128::from(10_000u64),
                 })
@@ -149,7 +149,7 @@ fn unbond_simple() {
                 contract_addr: "market".to_string(),
                 msg: to_binary(&moneymarket::market::ExecuteMsg::UpdateFromVeActions {
                     aterra_diff: Diff::Pos(Uint256::from(15_000u64)),
-                    ve_aterra_supply: Uint256::from(0u64),
+                    vterra_supply: Uint256::from(0u64),
                     ve_exchange_rate: Decimal256::from_str("1.50").unwrap(),
                 })
                 .unwrap(),
@@ -174,7 +174,7 @@ fn claim_simple() {
     let info = mock_info(MOCK_USER, &[]);
     let env = mock_env();
     instantiate(deps.as_mut(), env.clone(), info, mock_instantiate_msg()).unwrap();
-    register_ve_aterra(deps.as_mut(), Addr::unchecked(VE_ATERRA_CONTRACT)).unwrap();
+    register_vterra(deps.as_mut(), Addr::unchecked(vterra_CONTRACT)).unwrap();
 
     // create 2 receipts
     {
@@ -279,12 +279,12 @@ fn rebond_simple() {
     let info = mock_info(MOCK_USER, &[]);
     let env = mock_env();
     instantiate(deps.as_mut(), env.clone(), info, mock_instantiate_msg()).unwrap();
-    register_ve_aterra(deps.as_mut(), Addr::unchecked(VE_ATERRA_CONTRACT)).unwrap();
+    register_vterra(deps.as_mut(), Addr::unchecked(vterra_CONTRACT)).unwrap();
 
-    // set state so there is 10_000 ve aterra
+    // set state so there is 10_000 vterra
     {
         let mut state = read_state(deps.as_mut().storage).unwrap();
-        state.prev_epoch_ve_aterra_exchange_rate = Decimal256::from_str("2.0").unwrap();
+        state.prev_epoch_vterra_exchange_rate = Decimal256::from_str("2.0").unwrap();
         store_state(deps.as_mut().storage, &state).unwrap();
 
         let mut receipts = read_user_receipts(deps.as_ref().storage, &Addr::unchecked(MOCK_USER));
@@ -337,7 +337,7 @@ fn rebond_simple() {
                 .unwrap()
             })),
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: VE_ATERRA_CONTRACT.to_string(),
+                contract_addr: vterra_CONTRACT.to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Mint {
                     recipient: MOCK_USER.to_string(),
                     amount: Uint128::from(2_500u64),
@@ -348,7 +348,7 @@ fn rebond_simple() {
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "market".to_string(),
                 msg: to_binary(&moneymarket::market::ExecuteMsg::UpdateFromVeActions {
-                    ve_aterra_supply: Uint256::from(2_500u64),
+                    vterra_supply: Uint256::from(2_500u64),
                     aterra_diff: Diff::Neg(Uint256::from(5_000u64)),
                     ve_exchange_rate: Decimal256::from_str("2.0").unwrap(),
                 })
@@ -391,7 +391,7 @@ fn rebond_simple() {
                 .unwrap()
             })),
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: VE_ATERRA_CONTRACT.to_string(),
+                contract_addr: vterra_CONTRACT.to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Mint {
                     recipient: MOCK_USER.to_string(),
                     amount: Uint128::from(8_500u64),
@@ -402,7 +402,7 @@ fn rebond_simple() {
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "market".to_string(),
                 msg: to_binary(&moneymarket::market::ExecuteMsg::UpdateFromVeActions {
-                    ve_aterra_supply: Uint256::from(11_000u64),
+                    vterra_supply: Uint256::from(11_000u64),
                     aterra_diff: Diff::Neg(Uint256::from(17_000u64)),
                     ve_exchange_rate: Decimal256::from_str("2.0").unwrap(),
                 })
@@ -421,7 +421,7 @@ fn execute_epoch_operations_simple() {
     let info = mock_info(MOCK_USER, &[]);
     let mut env = mock_env();
     instantiate(deps.as_mut(), env.clone(), info, mock_instantiate_msg()).unwrap();
-    register_ve_aterra(deps.as_mut(), Addr::unchecked(VE_ATERRA_CONTRACT)).unwrap();
+    register_vterra(deps.as_mut(), Addr::unchecked(vterra_CONTRACT)).unwrap();
 
     // set initial config
     let mut config = read_config(deps.as_ref().storage).unwrap();
@@ -437,7 +437,7 @@ fn execute_epoch_operations_simple() {
     store_config(deps.as_mut().storage, &config).unwrap();
 
     deps.querier.with_token_balances(&[
-        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 10u32)]),
+        (vterra_CONTRACT, &[(MOCK_USER, 10u32)]),
         (ATERRA_CONTRACT, &[(MOCK_USER, 50u32)]),
     ]);
 
@@ -448,7 +448,7 @@ fn execute_epoch_operations_simple() {
         state = State {
             premium_rate: initial_premium, // e.g. 0.1% per block
             target_share: Decimal256::percent(60),
-            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            prev_epoch_vterra_exchange_rate: Decimal256::one(),
             ..state
         };
         store_state(deps.as_mut().storage, &state).unwrap();
@@ -471,14 +471,14 @@ fn execute_epoch_operations_simple() {
         let mut state = read_state(deps.as_ref().storage).unwrap();
         state = State {
             premium_rate: initial_premium,
-            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            prev_epoch_vterra_exchange_rate: Decimal256::one(),
             ..state
         };
         store_state(deps.as_mut().storage, &state).unwrap();
     }
 
     deps.querier.with_token_balances(&[
-        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 100u32)]),
+        (vterra_CONTRACT, &[(MOCK_USER, 100u32)]),
         (ATERRA_CONTRACT, &[(MOCK_USER, 10u32)]),
     ]);
 
@@ -500,14 +500,14 @@ fn execute_epoch_operations_simple() {
         let mut state = read_state(deps.as_ref().storage).unwrap();
         state = State {
             premium_rate: initial_premium,
-            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            prev_epoch_vterra_exchange_rate: Decimal256::one(),
             ..state
         };
         store_state(deps.as_mut().storage, &state).unwrap();
     }
 
     deps.querier.with_token_balances(&[
-        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 60u32)]),
+        (vterra_CONTRACT, &[(MOCK_USER, 60u32)]),
         (ATERRA_CONTRACT, &[(MOCK_USER, 40u32)]),
     ]);
 
@@ -530,14 +530,14 @@ fn execute_epoch_operations_simple() {
         let mut state = read_state(deps.as_ref().storage).unwrap();
         state = State {
             premium_rate: initial_premium,
-            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            prev_epoch_vterra_exchange_rate: Decimal256::one(),
             ..state
         };
         store_state(deps.as_mut().storage, &state).unwrap();
     }
 
     deps.querier.with_token_balances(&[
-        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 55u32)]),
+        (vterra_CONTRACT, &[(MOCK_USER, 55u32)]),
         (ATERRA_CONTRACT, &[(MOCK_USER, 45u32)]),
     ]);
 
@@ -563,14 +563,14 @@ fn execute_epoch_operations_simple() {
         let mut state = read_state(deps.as_ref().storage).unwrap();
         state = State {
             premium_rate: initial_premium,
-            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            prev_epoch_vterra_exchange_rate: Decimal256::one(),
             ..state
         };
         store_state(deps.as_mut().storage, &state).unwrap();
     }
 
     deps.querier.with_token_balances(&[
-        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 15u32)]),
+        (vterra_CONTRACT, &[(MOCK_USER, 15u32)]),
         (ATERRA_CONTRACT, &[(MOCK_USER, 85u32)]),
     ]);
 
@@ -593,14 +593,14 @@ fn execute_epoch_operations_simple() {
         let mut state = read_state(deps.as_ref().storage).unwrap();
         state = State {
             premium_rate: initial_premium,
-            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            prev_epoch_vterra_exchange_rate: Decimal256::one(),
             ..state
         };
         store_state(deps.as_mut().storage, &state).unwrap();
     }
 
     deps.querier.with_token_balances(&[
-        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 629u32)]),
+        (vterra_CONTRACT, &[(MOCK_USER, 629u32)]),
         (ATERRA_CONTRACT, &[(MOCK_USER, 371u32)]),
     ]);
 
@@ -626,14 +626,14 @@ fn execute_epoch_operations_simple() {
         let mut state = read_state(deps.as_ref().storage).unwrap();
         state = State {
             premium_rate: initial_premium,
-            prev_epoch_ve_aterra_exchange_rate: Decimal256::one(),
+            prev_epoch_vterra_exchange_rate: Decimal256::one(),
             ..state
         };
         store_state(deps.as_mut().storage, &state).unwrap();
     }
 
     deps.querier.with_token_balances(&[
-        (VE_ATERRA_CONTRACT, &[(MOCK_USER, 629u32)]),
+        (vterra_CONTRACT, &[(MOCK_USER, 629u32)]),
         (ATERRA_CONTRACT, &[(MOCK_USER, 371u32)]),
     ]);
 

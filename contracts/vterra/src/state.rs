@@ -20,7 +20,7 @@ pub struct Config {
     /// CW20 contract
     pub aterra_contract: CanonicalAddr,
     /// CW20 contract
-    pub ve_aterra_contract: CanonicalAddr,
+    pub vterra_contract: CanonicalAddr,
 
     /// Maximum premium rate can increase per epoch
     pub max_pos_change: Decimal256,
@@ -38,15 +38,15 @@ pub struct Config {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
-    /// Cached ve_aterra supply.
+    /// Cached vterra supply.
     /// This is kept locally to not require expensive queries to CW20 contract
-    pub ve_aterra_supply: Uint256,
-    /// Exchange rate between ve aterra and aterra calculated during last ExecuteEpochOperations
-    pub prev_epoch_ve_aterra_exchange_rate: Decimal256,
-    /// Target share of deposits in ve aterra. o
+    pub vterra_supply: Uint256,
+    /// Exchange rate between vterra and aterra calculated during last ExecuteEpochOperations
+    pub prev_epoch_vterra_exchange_rate: Decimal256,
+    /// Target share of deposits in vterra. o
     /// Premium rate adjusts to bring current share towards target share
     pub target_share: Decimal256,
-    /// Current premium rate of ve aterra over aterra measured in blocks
+    /// Current premium rate of vterra over aterra measured in blocks
     /// ex. 2% yearly premium => 1.02 / num_blocks_per_year
     pub premium_rate: Decimal256, // in blocks
     /// Block height ExecuteEpochOperations was last executed on
@@ -57,7 +57,7 @@ pub struct State {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct UserReceipts(pub VecDeque<Receipt>);
 
-/// Receipt given after unbonding ve aterra
+/// Receipt given after unbonding vterra
 /// Can be redeemed for aterra after block time has passed unlock time
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Receipt {

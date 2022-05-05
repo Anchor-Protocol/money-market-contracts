@@ -21,7 +21,7 @@ pub struct Config {
     pub owner_addr: CanonicalAddr,
     pub oracle_contract: CanonicalAddr,
     pub market_contract: CanonicalAddr,
-    pub ve_aterra_contract: CanonicalAddr,
+    pub vterra_contract: CanonicalAddr,
     pub liquidation_contract: CanonicalAddr,
     pub collector_contract: CanonicalAddr,
     pub stable_denom: String,

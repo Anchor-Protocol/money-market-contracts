@@ -14,7 +14,7 @@ use moneymarket::overseer::{
     InstantiateMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
 use moneymarket::querier::deduct_tax;
-use moneymarket::ve_aterra::ExecuteMsg as VeAterraExecuteMsg;
+use moneymarket::vterra::ExecuteMsg as VeAterraExecuteMsg;
 
 use crate::contract::{execute, instantiate, query};
 use crate::error::ContractError;
@@ -32,7 +32,7 @@ fn proper_initialization() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
-        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+        vterra_contract: "vterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -62,7 +62,7 @@ fn proper_initialization() {
             owner_addr: "owner".to_string(),
             oracle_contract: "oracle".to_string(),
             market_contract: "market".to_string(),
-            ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+            vterra_contract: "vterra_anchor_contract".to_string(),
             liquidation_contract: "liquidation".to_string(),
             collector_contract: "collector".to_string(),
             stable_denom: "uusd".to_string(),
@@ -103,7 +103,7 @@ fn update_config() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
-        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+        vterra_contract: "vterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -229,7 +229,7 @@ fn whitelist() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
-        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+        vterra_contract: "vterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -381,7 +381,7 @@ fn execute_epoch_operations() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
-        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+        vterra_contract: "vterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -611,7 +611,7 @@ fn update_epoch_state() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
-        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+        vterra_contract: "vterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -678,7 +678,7 @@ fn update_epoch_state() {
         res.messages,
         vec![
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "ve_aterra_anchor_contract".to_string(),
+                contract_addr: "vterra_anchor_contract".to_string(),
                 funds: vec![],
                 msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
             })),
@@ -718,7 +718,7 @@ fn update_epoch_state() {
         res.messages,
         vec![
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "ve_aterra_anchor_contract".to_string(),
+                contract_addr: "vterra_anchor_contract".to_string(),
                 funds: vec![],
                 msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
             })),
@@ -778,7 +778,7 @@ fn lock_collateral() {
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
         liquidation_contract: "liquidation".to_string(),
-        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+        vterra_contract: "vterra_anchor_contract".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
         epoch_period: 86400u64,
@@ -937,7 +937,7 @@ fn unlock_collateral() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
-        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+        vterra_contract: "vterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -1153,7 +1153,7 @@ fn liquidate_collateral() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
-        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+        vterra_contract: "vterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -1326,7 +1326,7 @@ fn dynamic_rate_model() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
-        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+        vterra_contract: "vterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),
@@ -1393,7 +1393,7 @@ fn dynamic_rate_model() {
         res.messages,
         vec![
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "ve_aterra_anchor_contract".to_string(),
+                contract_addr: "vterra_anchor_contract".to_string(),
                 funds: vec![],
                 msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
             })),
@@ -1434,7 +1434,7 @@ fn dynamic_rate_model() {
         res.messages,
         vec![
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "ve_aterra_anchor_contract".to_string(),
+                contract_addr: "vterra_anchor_contract".to_string(),
                 funds: vec![],
                 msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
             })),
@@ -1578,7 +1578,7 @@ fn validate_deposit_rates(deps: DepsMut, rate: Decimal256) {
             owner_addr: "owner".to_string(),
             oracle_contract: "oracle".to_string(),
             market_contract: "market".to_string(),
-            ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+            vterra_contract: "vterra_anchor_contract".to_string(),
             liquidation_contract: "liquidation".to_string(),
             collector_contract: "collector".to_string(),
             stable_denom: "uusd".to_string(),

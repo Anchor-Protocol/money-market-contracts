@@ -9,7 +9,7 @@ pub mod oracle;
 pub mod overseer;
 pub mod querier;
 pub mod tokens;
-pub mod ve_aterra;
+pub mod vterra;
 
 #[cfg(test)]
 mod mock_querier;

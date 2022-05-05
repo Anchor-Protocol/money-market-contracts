@@ -21,7 +21,7 @@ fn proper_compute_borrow_limit() {
         owner_addr: "owner".to_string(),
         oracle_contract: "oracle".to_string(),
         market_contract: "market".to_string(),
-        ve_aterra_contract: "ve_aterra_anchor_contract".to_string(),
+        vterra_contract: "vterra_anchor_contract".to_string(),
         liquidation_contract: "liquidation".to_string(),
         collector_contract: "collector".to_string(),
         stable_denom: "uusd".to_string(),

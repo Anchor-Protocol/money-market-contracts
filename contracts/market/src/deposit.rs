@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use cw20::Cw20ExecuteMsg;
 
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
-use moneymarket::ve_aterra::compute_ve_exchange_rate;
+use moneymarket::vterra::compute_ve_exchange_rate;
 
 use crate::borrow::{compute_interest, compute_reward};
 use crate::error::ContractError;
@@ -153,9 +153,9 @@ pub(crate) fn compute_exchange_rate(
     deposit_amount: Option<Uint256>,
 ) -> StdResult<Decimal256> {
     let aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.aterra_contract)?)?;
-    let ve_aterra_supply = query_supply(
+    let vterra_supply = query_supply(
         deps,
-        deps.api.addr_humanize(&config.ve_aterra_cw20_contract)?,
+        deps.api.addr_humanize(&config.vterra_cw20_contract)?,
     )?;
     let contract_balance = query_balance(
         deps,
@@ -167,7 +167,7 @@ pub(crate) fn compute_exchange_rate(
         state,
         block_height,
         aterra_supply,
-        ve_aterra_supply,
+        vterra_supply,
         contract_balance,
     ))
 }
@@ -176,7 +176,7 @@ pub fn compute_exchange_rate_raw(
     state: &State,
     block_height: u64,
     aterra_supply: Uint256,
-    ve_aterra_supply: Uint256,
+    vterra_supply: Uint256,
     contract_balance: Uint256,
 ) -> Decimal256 {
     if aterra_supply.is_zero() {
@@ -184,16 +184,16 @@ pub fn compute_exchange_rate_raw(
     }
 
     let ve_er = compute_ve_exchange_rate(
-        state.prev_ve_aterra_exchange_rate,
+        state.prev_vterra_exchange_rate,
         state.prev_ve_premium_rate,
-        state.ve_aterra_exchange_rate_last_updated,
+        state.vterra_exchange_rate_last_updated,
         block_height,
     );
-    let converted_ve = Decimal256::from_uint256(ve_aterra_supply) * ve_er;
-    let effective_aterra_supply = Decimal256::from_uint256(aterra_supply) + converted_ve;
+    let converted_ve = Decimal256::from_uint256(vterra_supply) * ve_er;
+    let effectivterra_supply = Decimal256::from_uint256(aterra_supply) + converted_ve;
 
     // (aterra / stable_denom)
     // exchange_rate = (balance + total_liabilities - total_reserves) / aterra_supply
     (Decimal256::from_uint256(contract_balance) + state.total_liabilities - state.total_reserves)
-        / effective_aterra_supply
+        / effectivterra_supply
 }

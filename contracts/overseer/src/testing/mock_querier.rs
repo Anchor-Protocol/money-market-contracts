@@ -252,9 +252,9 @@ impl WasmMockQuerier {
                                     anc_emission_rate: Decimal256::zero(),
                                     prev_aterra_supply: Uint256::zero(),
                                     prev_aterra_exchange_rate: Decimal256::zero(),
-                                    prev_ve_aterra_supply: Uint256::zero(),
-                                    prev_ve_aterra_exchange_rate: Decimal256::one(),
-                                    ve_aterra_exchange_rate_last_updated: 0,
+                                    prev_vterra_supply: Uint256::zero(),
+                                    prev_vterra_exchange_rate: Decimal256::one(),
+                                    vterra_exchange_rate_last_updated: 0,
                                     prev_ve_premium_rate: Decimal256::one(),
                                 })))
                             }

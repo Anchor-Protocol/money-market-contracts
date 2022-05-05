@@ -12,7 +12,7 @@ use crate::state::{
     State,
 };
 
-/// Bond aterra for ve aterra that earns premium rate
+/// Bond aterra for vterra that earns premium rate
 pub fn bond(
     deps: DepsMut,
     env: Env,
@@ -24,9 +24,9 @@ pub fn bond(
 
     let exchange_rate = compute_ve_exchange_rate(&state, env.block.height);
 
-    let ve_aterra_amount = bond_amount / exchange_rate;
+    let vterra_amount = bond_amount / exchange_rate;
 
-    state.ve_aterra_supply += ve_aterra_amount;
+    state.vterra_supply += vterra_amount;
     store_state(deps.storage, &state)?;
 
     Ok(Response::new()
@@ -39,13 +39,13 @@ pub fn bond(
                     amount: bond_amount.into(),
                 })?,
             }),
-            // mint ve aterra to bonder
+            // mint vterra to bonder
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.addr_humanize(&config.ve_aterra_contract)?.into(),
+                contract_addr: deps.api.addr_humanize(&config.vterra_contract)?.into(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Mint {
                     recipient: sender.to_string(),
-                    amount: ve_aterra_amount.into(),
+                    amount: vterra_amount.into(),
                 })?,
             }),
             // subtract bond amount from aterra supply stored in market contract
@@ -53,7 +53,7 @@ pub fn bond(
                 contract_addr: deps.api.addr_humanize(&config.market_addr)?.into(),
                 funds: vec![],
                 msg: to_binary(&ExecuteMsg::UpdateFromVeActions {
-                    ve_aterra_supply: state.ve_aterra_supply,
+                    vterra_supply: state.vterra_supply,
                     aterra_diff: moneymarket::market::Diff::Neg(bond_amount),
                     ve_exchange_rate: exchange_rate,
                 })?,
@@ -63,13 +63,13 @@ pub fn bond(
             attr("action", "bond_aterra"),
             attr("depositor", sender),
             attr("bond_amount", bond_amount),
-            attr("mint_amount", ve_aterra_amount),
+            attr("mint_amount", vterra_amount),
         ]))
 }
 
 pub const UNBOND_DURATION_SECS: u64 = 60 * 60 * 24 * 30;
 
-// Unbond ve aterra for aterra.
+// Unbond vterra for aterra.
 // Aterra can be claimed 30 days after unbonding
 pub fn unbond(
     deps: DepsMut,
@@ -80,7 +80,7 @@ pub fn unbond(
     let config: Config = read_config(deps.storage)?;
     let mut state: State = read_state(deps.storage)?;
 
-    state.ve_aterra_supply = state.ve_aterra_supply - unbond_amount;
+    state.vterra_supply = state.vterra_supply - unbond_amount;
     store_state(deps.storage, &state)?;
 
     let exchange_rate = compute_ve_exchange_rate(&state, env.block.height);
@@ -97,9 +97,9 @@ pub fn unbond(
 
     Ok(Response::new()
         .add_messages([
-            // Burn ve aterra
+            // Burn vterra
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.addr_humanize(&config.ve_aterra_contract)?.into(),
+                contract_addr: deps.api.addr_humanize(&config.vterra_contract)?.into(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Burn {
                     amount: unbond_amount.into(),
@@ -119,14 +119,14 @@ pub fn unbond(
                 contract_addr: deps.api.addr_humanize(&config.market_addr)?.into(),
                 funds: vec![],
                 msg: to_binary(&ExecuteMsg::UpdateFromVeActions {
-                    ve_aterra_supply: state.ve_aterra_supply,
+                    vterra_supply: state.vterra_supply,
                     aterra_diff: moneymarket::market::Diff::Pos(aterra_mint_amount),
                     ve_exchange_rate: exchange_rate,
                 })?,
             }),
         ])
         .add_attributes([
-            attr("action", "unbond_ve_aterra"),
+            attr("action", "unbond_vterra"),
             attr("depositor", sender.to_string()),
             attr("unbond_amount", unbond_amount),
             attr("mint_amount", aterra_mint_amount),
@@ -135,7 +135,7 @@ pub fn unbond(
 }
 
 /// Rebond reverts unbonding.
-/// This allows the user to decide to convert the receipts for aterra back into ve aterra and
+/// This allows the user to decide to convert the receipts for aterra back into vterra and
 /// earn the premium rate again before the receipt unlocks.
 /// Rebond takes an optional amount or rebonds all receipts if not provided.
 /// The receipts that have the most time remaining before they can be claimed are rebonded first.
@@ -190,7 +190,7 @@ pub fn rebond(
     Ok(response)
 }
 
-/// Claim aterra having waited for lock_period (30 days) after unbonding ve aterra
+/// Claim aterra having waited for lock_period (30 days) after unbonding vterra
 /// If amount is specified, claim receipts in order of ascending unlock time until amount is reached
 /// If amount is not specified, claim all unlocked aterra
 /// A receipt is unlocked when the current block time is >= receipt.unlock_time
@@ -250,11 +250,11 @@ pub fn claim_unlocked_aterra(
         ]))
 }
 
-/// Exchange rate of aterra / ve aterra
+/// Exchange rate of aterra / vterra
 /// ex: 1 ve * ER => ER aterra
 pub(crate) fn compute_ve_exchange_rate(state: &State, block_height: u64) -> Decimal256 {
-    moneymarket::ve_aterra::compute_ve_exchange_rate(
-        state.prev_epoch_ve_aterra_exchange_rate,
+    moneymarket::vterra::compute_ve_exchange_rate(
+        state.prev_epoch_vterra_exchange_rate,
         state.premium_rate,
         state.last_updated,
         block_height,
