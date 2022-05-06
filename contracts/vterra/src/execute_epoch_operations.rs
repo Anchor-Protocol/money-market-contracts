@@ -10,6 +10,7 @@ pub fn execute_epoch_operations(
     deps: DepsMut,
     env: Env,
     _info: MessageInfo,
+    target_aterra_deposit_rate: Decimal256,
 ) -> Result<Response, ContractError> {
     let mut state = read_state(deps.storage)?;
     let config = read_config(deps.storage)?;
@@ -36,7 +37,7 @@ pub fn execute_epoch_operations(
         deps.api.addr_humanize(&config.aterra_contract)?,
     )?;
     // let base_rate = config.overseer_addr
-    update_vterra_premium_rate(&mut state, config, aterra_supply);
+    update_vterra_premium_rate(&mut state, config, aterra_supply, target_aterra_deposit_rate);
 
     state.last_updated = env.block.height;
 
@@ -44,7 +45,7 @@ pub fn execute_epoch_operations(
     Ok(Response::new())
 }
 
-pub fn update_vterra_premium_rate(state: &mut State, config: Config, aterra_supply: Uint256) {
+pub fn update_vterra_premium_rate(state: &mut State, config: Config, aterra_supply: Uint256, target_aterra_deposit_rate: Decimal256) {
     let current_share = current_ve_share(state, aterra_supply);
 
     // update target_share every overseer epoch
@@ -58,6 +59,12 @@ pub fn update_vterra_premium_rate(state: &mut State, config: Config, aterra_supp
         state.premium_rate - delta
     };
     state.premium_rate = raw_rate.max(config.min_rate).min(config.max_rate);
+
+    // ensure premium rate + base aterra rate is at least min_gross_rate
+    // note: target_aterra_deposit_rate is of the form 0.xx per block
+    if target_aterra_deposit_rate + state.premium_rate < config.min_gross_rate {
+        state.premium_rate = config.min_gross_rate - target_aterra_deposit_rate;
+    }
 }
 
 pub fn current_ve_share(state: &State, aterra_supply: Uint256) -> Decimal256 {

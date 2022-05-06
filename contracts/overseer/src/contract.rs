@@ -647,7 +647,9 @@ pub fn update_epoch_state(
     )?;
 
     // Also update vterra contract
-    let vterra_response_message = to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {})?;
+    let vterra_response_message = to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {
+        target_aterra_deposit_rate: config.target_deposit_rate,
+    })?;
 
     // use unchanged rates to build msg
     let market_response_msg = to_binary(&MarketExecuteMsg::ExecuteEpochOperations {

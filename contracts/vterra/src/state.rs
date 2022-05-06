@@ -27,6 +27,7 @@ pub struct Config {
     /// Maximum premium rate can decrease per epoch
     pub max_neg_change: Decimal256,
     /// Maximum premium rate
+    /// Note: rates are 1.xx and measured per block
     pub max_rate: Decimal256,
     /// Minimum premium rate
     pub min_rate: Decimal256,
@@ -34,6 +35,9 @@ pub struct Config {
     pub diff_multiplier: Decimal256,
     /// Number of blocks between updating premium rate
     pub premium_rate_epoch: u64,
+    /// Minimum gross rate for vterra
+    /// Equal to premium rate + aterra base rate
+    pub min_gross_rate: Decimal256
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

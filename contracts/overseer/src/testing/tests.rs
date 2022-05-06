@@ -14,7 +14,7 @@ use moneymarket::overseer::{
     InstantiateMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
 use moneymarket::querier::deduct_tax;
-use moneymarket::vterra::ExecuteMsg as VeAterraExecuteMsg;
+use moneymarket::vterra::ExecuteMsg as VterraExecuteMsg;
 
 use crate::contract::{execute, instantiate, query};
 use crate::error::ContractError;
@@ -680,7 +680,10 @@ fn update_epoch_state() {
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "vterra_anchor_contract".to_string(),
                 funds: vec![],
-                msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
+                msg: to_binary(&VterraExecuteMsg::ExecuteEpochOperations {
+                    target_aterra_deposit_rate: Decimal256::permille(5)
+                })
+                .unwrap(),
             })),
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "market".to_string(),
@@ -720,7 +723,10 @@ fn update_epoch_state() {
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "vterra_anchor_contract".to_string(),
                 funds: vec![],
-                msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
+                msg: to_binary(&VterraExecuteMsg::ExecuteEpochOperations {
+                    target_aterra_deposit_rate: Decimal256::from_str("0.000001006442178229").unwrap()
+                })
+                .unwrap()
             })),
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "market".to_string(),
@@ -1395,7 +1401,10 @@ fn dynamic_rate_model() {
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "vterra_anchor_contract".to_string(),
                 funds: vec![],
-                msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
+                msg: to_binary(&VterraExecuteMsg::ExecuteEpochOperations {
+                    target_aterra_deposit_rate: Decimal256::permille(5)
+                })
+                .unwrap()
             })),
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "market".to_string(),
@@ -1436,7 +1445,11 @@ fn dynamic_rate_model() {
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "vterra_anchor_contract".to_string(),
                 funds: vec![],
-                msg: to_binary(&VeAterraExecuteMsg::ExecuteEpochOperations {}).unwrap(),
+                msg: to_binary(&VterraExecuteMsg::ExecuteEpochOperations {
+                    target_aterra_deposit_rate: Decimal256::from_str("0.000001001073696371")
+                        .unwrap()
+                })
+                .unwrap()
             })),
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "market".to_string(),

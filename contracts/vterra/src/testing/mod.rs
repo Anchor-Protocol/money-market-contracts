@@ -39,6 +39,7 @@ fn mock_instantiate_msg() -> InstantiateMsg {
         diff_multiplier: Decimal256::percent(5),
         initial_premium_rate: Decimal256::percent(2),
         premium_rate_epoch: 10,
+        min_gross_rate: Decimal256::from_str("1.185").unwrap(),
     }
 }
 
@@ -431,6 +432,7 @@ fn execute_epoch_operations_simple() {
         premium_rate_epoch: 10,
         max_rate: Decimal256::from_str("1.02").unwrap(),
         min_rate: Decimal256::from_str("1.0000").unwrap(),
+        min_gross_rate: Decimal256::from_str("1.165").unwrap(),
         diff_multiplier: Decimal256::percent(2),
         ..config
     };
@@ -459,7 +461,9 @@ fn execute_epoch_operations_simple() {
         deps.as_mut(),
         env.clone(),
         mock_info("overseer", &[]),
-        ExecuteMsg::ExecuteEpochOperations {},
+        ExecuteMsg::ExecuteEpochOperations {
+            target_aterra_deposit_rate: Decimal256::from_str("0.175").unwrap(),
+        },
     )
     .unwrap();
     assert_eq!(res.messages, vec![]);
@@ -487,7 +491,9 @@ fn execute_epoch_operations_simple() {
         deps.as_mut(),
         env.clone(),
         mock_info("overseer", &[]),
-        ExecuteMsg::ExecuteEpochOperations {},
+        ExecuteMsg::ExecuteEpochOperations {
+            target_aterra_deposit_rate: Decimal256::from_str("0.175").unwrap(),
+        },
     )
     .unwrap();
     assert_eq!(res.messages, vec![]);
@@ -516,7 +522,9 @@ fn execute_epoch_operations_simple() {
         deps.as_mut(),
         env.clone(),
         mock_info("overseer", &[]),
-        ExecuteMsg::ExecuteEpochOperations {},
+        ExecuteMsg::ExecuteEpochOperations {
+            target_aterra_deposit_rate: Decimal256::from_str("0.175").unwrap(),
+        },
     )
     .unwrap();
     assert_eq!(res.messages, vec![]);
@@ -546,7 +554,9 @@ fn execute_epoch_operations_simple() {
         deps.as_mut(),
         env.clone(),
         mock_info("overseer", &[]),
-        ExecuteMsg::ExecuteEpochOperations {},
+        ExecuteMsg::ExecuteEpochOperations {
+            target_aterra_deposit_rate: Decimal256::from_str("0.175").unwrap(),
+        },
     )
     .unwrap();
     assert_eq!(res.messages, vec![]);
@@ -579,7 +589,9 @@ fn execute_epoch_operations_simple() {
         deps.as_mut(),
         env.clone(),
         mock_info("overseer", &[]),
-        ExecuteMsg::ExecuteEpochOperations {},
+        ExecuteMsg::ExecuteEpochOperations {
+            target_aterra_deposit_rate: Decimal256::from_str("0.175").unwrap(),
+        },
     )
     .unwrap();
     assert_eq!(res.messages, vec![]);
@@ -609,7 +621,9 @@ fn execute_epoch_operations_simple() {
         deps.as_mut(),
         env.clone(),
         mock_info("overseer", &[]),
-        ExecuteMsg::ExecuteEpochOperations {},
+        ExecuteMsg::ExecuteEpochOperations {
+            target_aterra_deposit_rate: Decimal256::from_str("0.175").unwrap(),
+        },
     )
     .unwrap();
     assert_eq!(res.messages, vec![]);
@@ -640,13 +654,51 @@ fn execute_epoch_operations_simple() {
     env.block.height += config.premium_rate_epoch;
     let res = execute(
         deps.as_mut(),
-        env,
+        env.clone(),
         mock_info("overseer", &[]),
-        ExecuteMsg::ExecuteEpochOperations {},
+        ExecuteMsg::ExecuteEpochOperations {
+            target_aterra_deposit_rate: Decimal256::from_str("0.175").unwrap(),
+        },
     )
     .unwrap();
     assert_eq!(res.messages, vec![]);
     let state = read_state(deps.as_ref().storage).unwrap();
 
     assert_eq!(state.premium_rate, initial_premium);
+
+    // CASE 7: hit min gross rate
+    let initial_premium = Decimal256::from_str("1.00").unwrap();
+    {
+        let mut state = read_state(deps.as_ref().storage).unwrap();
+        state = State {
+            premium_rate: initial_premium,
+            prev_epoch_vterra_exchange_rate: Decimal256::one(),
+            ..state
+        };
+        store_state(deps.as_mut().storage, &state).unwrap();
+
+        let mut config = read_config(deps.as_ref().storage).unwrap();
+        config.min_gross_rate = Decimal256::from_str("1.20").unwrap();
+        store_config(deps.as_mut().storage, &config).unwrap();
+    }
+
+    deps.querier.with_token_balances(&[
+        (VTERRA_CONTRACT, &[(MOCK_USER, 629u32)]),
+        (ATERRA_CONTRACT, &[(MOCK_USER, 371u32)]),
+    ]);
+
+    env.block.height += config.premium_rate_epoch;
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("overseer", &[]),
+        ExecuteMsg::ExecuteEpochOperations {
+            target_aterra_deposit_rate: Decimal256::from_str("0.175").unwrap(),
+        },
+    )
+    .unwrap();
+    assert_eq!(res.messages, vec![]);
+    let state = read_state(deps.as_ref().storage).unwrap();
+
+    assert_eq!(state.premium_rate, Decimal256::from_str("1.025").unwrap());
 }

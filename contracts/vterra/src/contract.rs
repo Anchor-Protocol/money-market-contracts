@@ -42,6 +42,7 @@ pub fn instantiate(
             min_rate: msg.min_rate,
             diff_multiplier: msg.diff_multiplier,
             premium_rate_epoch: msg.premium_rate_epoch,
+            min_gross_rate: msg.min_gross_rate,
         },
     )?;
 
@@ -121,7 +122,7 @@ pub fn execute(
             min_rate,
             diff_multiplier,
         ),
-        ExecuteMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env, info),
+        ExecuteMsg::ExecuteEpochOperations {target_aterra_deposit_rate} => execute_epoch_operations(deps, env, info, target_aterra_deposit_rate),
         ExecuteMsg::ClaimATerra { amount } => claim_unlocked_aterra(deps, env, info, amount),
         ExecuteMsg::RebondLockedATerra { amount } => rebond(deps, env, info, amount),
     }

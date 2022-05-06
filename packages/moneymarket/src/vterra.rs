@@ -26,6 +26,7 @@ pub struct InstantiateMsg {
     pub max_rate: Decimal256,
     pub min_rate: Decimal256,
     pub diff_multiplier: Decimal256,
+    pub min_gross_rate: Decimal256
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -56,7 +57,9 @@ pub enum ExecuteMsg {
     ////////////////////
 
     /// Update premium rate
-    ExecuteEpochOperations {},
+    ExecuteEpochOperations {
+        target_aterra_deposit_rate: Decimal256,
+    },
 
     ////////////////////
     /// User operations
