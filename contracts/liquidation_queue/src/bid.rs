@@ -382,16 +382,20 @@ pub fn execute_liquidation(
     let liquidator_fee = repay_amount * config.liquidator_fee;
     let repay_amount = repay_amount - bid_fee - liquidator_fee;
 
-    let mut messages: Vec<CosmosMsg> = vec![CosmosMsg::Bank(BankMsg::Send {
-        to_address: repay_address,
-        amount: vec![deduct_tax(
-            deps.as_ref(),
-            Coin {
-                denom: config.stable_denom.clone(),
-                amount: repay_amount.into(),
-            },
-        )?],
-    })];
+    let mut messages: Vec<CosmosMsg> = vec![];
+
+    if !repay_amount.is_zero() {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: repay_address,
+            amount: vec![deduct_tax(
+                deps.as_ref(),
+                Coin {
+                    denom: config.stable_denom.clone(),
+                    amount: repay_amount.into(),
+                },
+            )?],
+        }));
+    };
 
     if !bid_fee.is_zero() {
         messages.push(CosmosMsg::Bank(BankMsg::Send {

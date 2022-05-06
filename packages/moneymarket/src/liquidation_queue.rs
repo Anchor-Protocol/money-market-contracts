@@ -186,3 +186,7 @@ pub struct CollateralInfoResponse {
 pub struct BidPoolsResponse {
     pub bid_pools: Vec<BidPoolResponse>,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MigrateMsg {}
