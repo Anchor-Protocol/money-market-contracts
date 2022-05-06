@@ -8,7 +8,7 @@ use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
 use moneymarket::overseer::{CollateralsResponse, WhitelistResponseElem};
 use moneymarket::tokens::Tokens;
 
-const KEY_CONFIG: &[u8] = b"config";
+pub(crate) const KEY_CONFIG: &[u8] = b"config";
 const KEY_DYNRATE_CONFIG: &[u8] = b"dynrate_config";
 const KEY_EPOCH_STATE: &[u8] = b"epoch_state";
 const KEY_DYNRATE_STATE: &[u8] = b"dynrate_state";

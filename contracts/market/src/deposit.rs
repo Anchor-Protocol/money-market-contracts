@@ -153,10 +153,7 @@ pub(crate) fn compute_exchange_rate(
     deposit_amount: Option<Uint256>,
 ) -> StdResult<Decimal256> {
     let aterra_supply = query_supply(deps, deps.api.addr_humanize(&config.aterra_contract)?)?;
-    let vterra_supply = query_supply(
-        deps,
-        deps.api.addr_humanize(&config.vterra_cw20_contract)?,
-    )?;
+    let vterra_supply = query_supply(deps, deps.api.addr_humanize(&config.vterra_cw20_contract)?)?;
     let contract_balance = query_balance(
         deps,
         deps.api.addr_humanize(&config.contract_addr)?,

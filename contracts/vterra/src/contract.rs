@@ -18,7 +18,7 @@ use crate::querier::{query_config, query_state};
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_config, store_config, store_state, Config, State};
 
-const REGISTER_vterra_REPLY_ID: u64 = 1;
+const REGISTER_VTERRA_REPLY_ID: u64 = 1;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -84,7 +84,7 @@ pub fn instantiate(
                     }),
                 })?,
             }),
-            REGISTER_vterra_REPLY_ID,
+            REGISTER_VTERRA_REPLY_ID,
         ),
     ]))
 }
@@ -130,7 +130,7 @@ pub fn execute(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
-        REGISTER_vterra_REPLY_ID => {
+        REGISTER_VTERRA_REPLY_ID => {
             // get new vterra token's contract address
             let res: MsgInstantiateContractResponse = Message::parse_from_bytes(
                 msg.result.unwrap().data.unwrap().as_slice(),

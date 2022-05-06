@@ -126,9 +126,7 @@ pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> 
     config.target_deposit_rate = new_rate;
 
     // vterra migration
-    config.vterra_contract = deps.api.addr_canonicalize(&msg.vterra_contract_addr)?;
-
-    store_config(deps.storage, &config)?;
+    crate::migrations::migrate(deps, msg)?;
     Ok(Response::default())
 }
 
@@ -664,10 +662,7 @@ pub fn update_epoch_state(
 
     Ok(Response::new()
         .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps
-                .api
-                .addr_humanize(&config.vterra_contract)?
-                .to_string(),
+            contract_addr: deps.api.addr_humanize(&config.vterra_contract)?.to_string(),
             msg: vterra_response_message,
             funds: vec![],
         }))
@@ -751,10 +746,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         owner_addr: deps.api.addr_humanize(&config.owner_addr)?.to_string(),
         oracle_contract: deps.api.addr_humanize(&config.oracle_contract)?.to_string(),
         market_contract: deps.api.addr_humanize(&config.market_contract)?.to_string(),
-        vterra_contract: deps
-            .api
-            .addr_humanize(&config.vterra_contract)?
-            .to_string(),
+        vterra_contract: deps.api.addr_humanize(&config.vterra_contract)?.to_string(),
         liquidation_contract: deps
             .api
             .addr_humanize(&config.liquidation_contract)?

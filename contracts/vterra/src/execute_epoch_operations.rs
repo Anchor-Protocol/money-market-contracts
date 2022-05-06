@@ -35,7 +35,8 @@ pub fn execute_epoch_operations(
         deps.as_ref(),
         deps.api.addr_humanize(&config.aterra_contract)?,
     )?;
-    update_ve_premium_rate(&mut state, config, aterra_supply);
+    // let base_rate = config.overseer_addr
+    update_vterra_premium_rate(&mut state, config, aterra_supply);
 
     state.last_updated = env.block.height;
 
@@ -43,7 +44,7 @@ pub fn execute_epoch_operations(
     Ok(Response::new())
 }
 
-pub fn update_ve_premium_rate(state: &mut State, config: Config, aterra_supply: Uint256) {
+pub fn update_vterra_premium_rate(state: &mut State, config: Config, aterra_supply: Uint256) {
     let current_share = current_ve_share(state, aterra_supply);
 
     // update target_share every overseer epoch

@@ -12,10 +12,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         market_addr: deps.api.addr_humanize(&config.market_addr)?.to_string(),
         overseer_addr: deps.api.addr_humanize(&config.overseer_addr)?.to_string(),
         aterra_contract: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
-        vterra_contract: deps
-            .api
-            .addr_humanize(&config.vterra_contract)?
-            .to_string(),
+        vterra_contract: deps.api.addr_humanize(&config.vterra_contract)?.to_string(),
         max_pos_change: config.max_pos_change,
         max_neg_change: config.max_neg_change,
         max_rate: config.max_rate,

@@ -92,15 +92,15 @@ pub enum ExecuteMsg {
         to: Option<String>,
     },
 
-    /// After bonding or unbonding ve-aterra, aterra supply and vterra supply will change
+    /// After bonding or unbonding vterra, aterra supply and vterra supply will change
     /// Since these are used in aterra / stable_denom exchange rate calculations, these must be
     /// updated in market contract
-    /// ve_exchange_rate is also used in above ER calc, so we take the opportunity to get the ground
+    /// vterra_exchange_rate is also used in above ER calc, so we take the opportunity to get the ground
     /// truth
-    UpdateFromVeActions {
+    UpdateFromVTerraActions {
         aterra_diff: Diff,
         vterra_supply: Uint256,
-        ve_exchange_rate: Decimal256,
+        vterra_exchange_rate: Decimal256,
     },
 }
 

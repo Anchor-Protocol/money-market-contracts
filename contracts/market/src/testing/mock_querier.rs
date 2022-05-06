@@ -128,12 +128,6 @@ pub struct PremiumRateQuerier {
     premium_rate: Decimal256,
 }
 
-impl PremiumRateQuerier {
-    pub fn new(rate: Decimal256) -> Self {
-        Self { premium_rate: rate }
-    }
-}
-
 #[derive(Clone, Default)]
 pub struct BorrowRateQuerier {
     // this lets us iterate over all pairs that match the first string
@@ -399,10 +393,6 @@ impl WasmMockQuerier {
     // configure the tax mock querier
     pub fn with_tax(&mut self, rate: Decimal, caps: &[(&String, &Uint128)]) {
         self.tax_querier = TaxQuerier::new(rate, caps);
-    }
-
-    pub fn with_premium_rate(&mut self, rate: Decimal256) {
-        self.premium_rate_querier = PremiumRateQuerier::new(rate);
     }
 
     pub fn with_borrow_rate(&mut self, borrow_rate: &[(&String, &Decimal256)]) {

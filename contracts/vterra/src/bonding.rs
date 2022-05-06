@@ -52,10 +52,10 @@ pub fn bond(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.market_addr)?.into(),
                 funds: vec![],
-                msg: to_binary(&ExecuteMsg::UpdateFromVeActions {
+                msg: to_binary(&ExecuteMsg::UpdateFromVTerraActions {
                     vterra_supply: state.vterra_supply,
                     aterra_diff: moneymarket::market::Diff::Neg(bond_amount),
-                    ve_exchange_rate: exchange_rate,
+                    vterra_exchange_rate: exchange_rate,
                 })?,
             }),
         ])
@@ -118,10 +118,10 @@ pub fn unbond(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.addr_humanize(&config.market_addr)?.into(),
                 funds: vec![],
-                msg: to_binary(&ExecuteMsg::UpdateFromVeActions {
+                msg: to_binary(&ExecuteMsg::UpdateFromVTerraActions {
                     vterra_supply: state.vterra_supply,
                     aterra_diff: moneymarket::market::Diff::Pos(aterra_mint_amount),
-                    ve_exchange_rate: exchange_rate,
+                    vterra_exchange_rate: exchange_rate,
                 })?,
             }),
         ])
@@ -145,7 +145,6 @@ pub fn rebond(
     info: MessageInfo,
     amount: Option<Uint256>,
 ) -> Result<Response, ContractError> {
-    let config: Config = read_config(deps.storage)?;
     let mut receipts = read_user_receipts(deps.storage, &info.sender);
     let deque = &mut receipts.0;
 
