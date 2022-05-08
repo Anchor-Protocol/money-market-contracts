@@ -127,8 +127,14 @@ pub fn activate_bids(
             .collect::<Vec<Bid>>()
     };
 
+    let mut activated_bids: Vec<Uint128> = vec![];
     let mut total_activated_amount = Uint256::zero();
     for mut bid in bids.into_iter() {
+        if activated_bids.contains(&bid.idx) {
+            return Err(StdError::generic_err("duplicate bid_idx"))
+        }
+        activated_bids.push(bid.idx);
+
         if bid.bidder != sender_raw {
             return Err(StdError::generic_err("unauthorized"));
         }
@@ -454,8 +460,14 @@ pub fn claim_liquidations(
         read_bids_by_user(deps.storage, &collateral_token_raw, &sender_raw, None, None)?
     };
 
+    let mut claimed_bids: Vec<Uint128> = vec![];
     let mut claim_amount = Uint256::zero();
     for bid in bids.into_iter() {
+        if claimed_bids.contains(&bid.idx) {
+            return Err(StdError::generic_err("duplicate bid_idx"));
+        }
+        claimed_bids.push(bid.idx);
+
         if bid.bidder != sender_raw {
             return Err(StdError::generic_err("unauthorized"));
         }
