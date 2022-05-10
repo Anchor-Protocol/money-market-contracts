@@ -5,7 +5,7 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{CanonicalAddr, Deps, Order, StdResult, Storage};
 use cosmwasm_storage::{bucket, bucket_read, ReadonlyBucket, ReadonlySingleton, Singleton};
 
-use moneymarket::market::BorrowerInfoResponse;
+use moneymarket_old::market::BorrowerInfoResponse;
 
 pub const KEY_CONFIG: &[u8] = b"config";
 pub const KEY_STATE: &[u8] = b"state";

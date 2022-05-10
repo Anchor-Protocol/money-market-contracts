@@ -6,12 +6,12 @@ use crate::state::{
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{CanonicalAddr, Deps, StdResult, Uint128};
-use moneymarket::liquidation_queue::{
+use moneymarket_old::liquidation_queue::{
     BidPoolResponse, BidPoolsResponse, BidResponse, BidsResponse, CollateralInfoResponse,
     ConfigResponse, LiquidationAmountResponse,
 };
-use moneymarket::querier::query_tax_rate_and_cap;
-use moneymarket::tokens::TokensHuman;
+use moneymarket_old::querier::query_tax_rate_and_cap;
+use moneymarket_old::tokens::TokensHuman;
 
 pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config = read_config(deps.storage)?;

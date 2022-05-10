@@ -5,7 +5,7 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, mock_info};
 use cosmwasm_std::{attr, from_binary, to_binary, Coin, Decimal, StdError, Uint128};
 use cw20::Cw20ReceiveMsg;
-use moneymarket::liquidation_queue::{
+use moneymarket_old::liquidation_queue::{
     BidPoolResponse, BidResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 

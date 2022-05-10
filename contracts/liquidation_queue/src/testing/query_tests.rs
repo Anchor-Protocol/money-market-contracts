@@ -3,7 +3,7 @@ use crate::testing::mock_querier::mock_dependencies;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, mock_info};
 use cosmwasm_std::{from_binary, Coin, Decimal, Uint128};
-use moneymarket::liquidation_queue::{
+use moneymarket_old::liquidation_queue::{
     BidPoolResponse, BidPoolsResponse, BidResponse, BidsResponse, CollateralInfoResponse,
     ExecuteMsg, InstantiateMsg, LiquidationAmountResponse, QueryMsg,
 };

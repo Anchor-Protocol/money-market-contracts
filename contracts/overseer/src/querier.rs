@@ -1,11 +1,11 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{to_binary, Addr, Deps, QueryRequest, StdResult, WasmQuery};
 
-use moneymarket::liquidation::{LiquidationAmountResponse, QueryMsg as LiquidationQueryMsg};
-use moneymarket::market::{
+use moneymarket_old::liquidation::{LiquidationAmountResponse, QueryMsg as LiquidationQueryMsg};
+use moneymarket_old::market::{
     BorrowerInfoResponse, EpochStateResponse, QueryMsg as MarketQueryMsg, StateResponse,
 };
-use moneymarket::tokens::TokensHuman;
+use moneymarket_old::tokens::TokensHuman;
 
 pub fn query_market_state(
     deps: Deps,

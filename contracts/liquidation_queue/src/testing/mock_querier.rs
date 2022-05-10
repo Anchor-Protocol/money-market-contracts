@@ -1,4 +1,4 @@
-use moneymarket::overseer::{WhitelistResponse, WhitelistResponseElem};
+use moneymarket_old::overseer::{WhitelistResponse, WhitelistResponseElem};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +10,7 @@ use cosmwasm_std::{
 };
 use std::collections::HashMap;
 
-use moneymarket::oracle::PriceResponse;
+use moneymarket_old::oracle::PriceResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

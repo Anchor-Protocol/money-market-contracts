@@ -9,10 +9,10 @@ use cosmwasm_std::{
 };
 use std::collections::HashMap;
 
-use moneymarket::liquidation::LiquidationAmountResponse;
-use moneymarket::market::{BorrowerInfoResponse, EpochStateResponse, StateResponse};
-use moneymarket::oracle::PriceResponse;
-use moneymarket::tokens::TokensHuman;
+use moneymarket_old::liquidation::LiquidationAmountResponse;
+use moneymarket_old::market::{BorrowerInfoResponse, EpochStateResponse, StateResponse};
+use moneymarket_old::oracle::PriceResponse;
+use moneymarket_old::tokens::TokensHuman;
 
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 

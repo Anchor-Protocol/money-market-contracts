@@ -6,8 +6,8 @@ use crate::error::ContractError;
 use crate::state::{read_config, store_config, Config};
 
 use cosmwasm_bignumber::Decimal256;
-use moneymarket::common::optional_addr_validate;
-use moneymarket::distribution_model::{
+use moneymarket_old::common::optional_addr_validate;
+use moneymarket_old::distribution_model::{
     AncEmissionRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 

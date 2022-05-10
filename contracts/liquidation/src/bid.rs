@@ -10,9 +10,9 @@ use cosmwasm_std::{
     StdResult, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
-use moneymarket::liquidation::{BidResponse, BidsResponse};
-use moneymarket::oracle::PriceResponse;
-use moneymarket::querier::{deduct_tax, query_price, TimeConstraints};
+use moneymarket_old::liquidation::{BidResponse, BidsResponse};
+use moneymarket_old::oracle::PriceResponse;
+use moneymarket_old::querier::{deduct_tax, query_price, TimeConstraints};
 
 pub fn submit_bid(
     deps: DepsMut,

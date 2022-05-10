@@ -9,7 +9,7 @@ use crate::error::ContractError;
 use crate::external::handle::{RewardContractExecuteMsg, RewardContractQueryMsg};
 use crate::state::{read_config, BETHAccruedRewardsResponse, Config};
 
-use moneymarket::querier::{deduct_tax, query_all_balances, query_balance};
+use moneymarket_old::querier::{deduct_tax, query_all_balances, query_balance};
 use terra_cosmwasm::{create_swap_msg, TerraMsgWrapper};
 
 // REWARD_THRESHOLD

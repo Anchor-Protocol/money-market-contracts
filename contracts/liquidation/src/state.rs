@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{CanonicalAddr, Deps, Order, StdError, StdResult, Storage};
 use cosmwasm_storage::{singleton, singleton_read, Bucket, ReadonlyBucket};
-use moneymarket::liquidation::BidResponse;
+use moneymarket_old::liquidation::BidResponse;
 
 static KEY_CONFIG: &[u8] = b"config";
 

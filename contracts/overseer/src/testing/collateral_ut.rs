@@ -6,8 +6,8 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, mock_info};
 use cosmwasm_std::Api;
 
-use moneymarket::overseer::{ExecuteMsg, InstantiateMsg};
-use moneymarket::tokens::{Token, Tokens};
+use moneymarket_old::overseer::{ExecuteMsg, InstantiateMsg};
+use moneymarket_old::tokens::{Token, Tokens};
 
 use std::str::FromStr;
 

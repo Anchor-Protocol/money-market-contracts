@@ -8,7 +8,7 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi};
 use cosmwasm_std::{from_binary, to_binary, Coin, Decimal, MemoryStorage, OwnedDeps, Uint128};
 use cw20::Cw20ReceiveMsg;
-use moneymarket::liquidation_queue::{
+use moneymarket_old::liquidation_queue::{
     BidsResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 

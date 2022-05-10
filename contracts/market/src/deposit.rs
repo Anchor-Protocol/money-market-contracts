@@ -9,7 +9,7 @@ use crate::error::ContractError;
 use crate::state::{read_config, read_state, store_state, Config, State};
 
 use cw20::Cw20ExecuteMsg;
-use moneymarket::querier::{deduct_tax, query_balance, query_supply};
+use moneymarket_old::querier::{deduct_tax, query_balance, query_supply};
 
 pub fn deposit_stable(
     deps: DepsMut,

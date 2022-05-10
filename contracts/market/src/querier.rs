@@ -1,9 +1,9 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{to_binary, Addr, Deps, QueryRequest, StdResult, WasmQuery};
 
-use moneymarket::distribution_model::{AncEmissionRateResponse, QueryMsg as DistributionQueryMsg};
-use moneymarket::interest_model::{BorrowRateResponse, QueryMsg as InterestQueryMsg};
-use moneymarket::overseer::{BorrowLimitResponse, ConfigResponse, QueryMsg as OverseerQueryMsg};
+use moneymarket_old::distribution_model::{AncEmissionRateResponse, QueryMsg as DistributionQueryMsg};
+use moneymarket_old::interest_model::{BorrowRateResponse, QueryMsg as InterestQueryMsg};
+use moneymarket_old::overseer::{BorrowLimitResponse, ConfigResponse, QueryMsg as OverseerQueryMsg};
 
 pub fn query_borrow_rate(
     deps: Deps,

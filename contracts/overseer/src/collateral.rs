@@ -11,13 +11,13 @@ use crate::state::{
     Config, WhitelistElem,
 };
 
-use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
-use moneymarket::liquidation::LiquidationAmountResponse;
-use moneymarket::market::{BorrowerInfoResponse, ExecuteMsg as MarketExecuteMsg};
-use moneymarket::oracle::PriceResponse;
-use moneymarket::overseer::{AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse};
-use moneymarket::querier::{query_balance, query_price, TimeConstraints};
-use moneymarket::tokens::{Tokens, TokensHuman, TokensMath, TokensToHuman, TokensToRaw};
+use moneymarket_old::custody::ExecuteMsg as CustodyExecuteMsg;
+use moneymarket_old::liquidation::LiquidationAmountResponse;
+use moneymarket_old::market::{BorrowerInfoResponse, ExecuteMsg as MarketExecuteMsg};
+use moneymarket_old::oracle::PriceResponse;
+use moneymarket_old::overseer::{AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse};
+use moneymarket_old::querier::{query_balance, query_price, TimeConstraints};
+use moneymarket_old::tokens::{Tokens, TokensHuman, TokensMath, TokensToHuman, TokensToRaw};
 
 pub fn lock_collateral(
     deps: DepsMut,

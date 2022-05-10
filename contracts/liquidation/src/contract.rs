@@ -12,12 +12,12 @@ use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
 use cw20::Cw20ReceiveMsg;
-use moneymarket::common::optional_addr_validate;
-use moneymarket::liquidation::{
+use moneymarket_old::common::optional_addr_validate;
+use moneymarket_old::liquidation::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, LiquidationAmountResponse, QueryMsg,
 };
-use moneymarket::querier::query_tax_rate;
-use moneymarket::tokens::TokensHuman;
+use moneymarket_old::querier::query_tax_rate;
+use moneymarket_old::tokens::TokensHuman;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(

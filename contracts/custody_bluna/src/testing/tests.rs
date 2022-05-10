@@ -14,10 +14,10 @@ use crate::testing::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
-use moneymarket::custody::{
+use moneymarket_old::custody::{
     BAssetInfo, BorrowerResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
-use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
+use moneymarket_old::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
 use terra_cosmwasm::create_swap_msg;
 
 #[test]

@@ -6,8 +6,8 @@ use cosmwasm_std::entry_point;
 use cosmwasm_bignumber::Decimal256;
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
-use moneymarket::common::optional_addr_validate;
-use moneymarket::interest_model::{
+use moneymarket_old::common::optional_addr_validate;
+use moneymarket_old::interest_model::{
     BorrowRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 

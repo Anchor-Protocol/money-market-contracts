@@ -18,13 +18,13 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20Coin, Cw20ReceiveMsg, MinterResponse};
 
-use moneymarket::common::optional_addr_validate;
-use moneymarket::interest_model::BorrowRateResponse;
-use moneymarket::market::{
+use moneymarket_old::common::optional_addr_validate;
+use moneymarket_old::interest_model::BorrowRateResponse;
+use moneymarket_old::market::{
     ConfigResponse, Cw20HookMsg, EpochStateResponse, ExecuteMsg, InstantiateMsg, MigrateMsg,
     QueryMsg, StateResponse,
 };
-use moneymarket::querier::{deduct_tax, query_balance, query_supply};
+use moneymarket_old::querier::{deduct_tax, query_balance, query_supply};
 use protobuf::Message;
 use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 

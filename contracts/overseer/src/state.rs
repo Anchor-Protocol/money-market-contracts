@@ -5,8 +5,8 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{CanonicalAddr, Deps, Order, StdError, StdResult, Storage};
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
 
-use moneymarket::overseer::{CollateralsResponse, WhitelistResponseElem};
-use moneymarket::tokens::Tokens;
+use moneymarket_old::overseer::{CollateralsResponse, WhitelistResponseElem};
+use moneymarket_old::tokens::Tokens;
 
 const KEY_CONFIG: &[u8] = b"config";
 const KEY_DYNRATE_CONFIG: &[u8] = b"dynrate_config";

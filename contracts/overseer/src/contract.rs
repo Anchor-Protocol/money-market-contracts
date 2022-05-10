@@ -21,15 +21,15 @@ use crate::state::{
 };
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use moneymarket::common::optional_addr_validate;
-use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
-use moneymarket::market::EpochStateResponse;
-use moneymarket::market::ExecuteMsg as MarketExecuteMsg;
-use moneymarket::overseer::{
+use moneymarket_old::common::optional_addr_validate;
+use moneymarket_old::custody::ExecuteMsg as CustodyExecuteMsg;
+use moneymarket_old::market::EpochStateResponse;
+use moneymarket_old::market::ExecuteMsg as MarketExecuteMsg;
+use moneymarket_old::overseer::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, WhitelistResponse,
     WhitelistResponseElem,
 };
-use moneymarket::querier::{deduct_tax, query_balance};
+use moneymarket_old::querier::{deduct_tax, query_balance};
 
 pub const BLOCKS_PER_YEAR: u128 = 4656810;
 

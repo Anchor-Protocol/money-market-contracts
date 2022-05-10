@@ -4,10 +4,10 @@ use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
     StdResult, WasmMsg,
 };
-use moneymarket::interest_model::BorrowRateResponse;
-use moneymarket::market::{BorrowerInfoResponse, BorrowerInfosResponse};
-use moneymarket::overseer::BorrowLimitResponse;
-use moneymarket::querier::{deduct_tax, query_balance, query_supply};
+use moneymarket_old::interest_model::BorrowRateResponse;
+use moneymarket_old::market::{BorrowerInfoResponse, BorrowerInfosResponse};
+use moneymarket_old::overseer::BorrowLimitResponse;
+use moneymarket_old::querier::{deduct_tax, query_balance, query_supply};
 
 use crate::deposit::compute_exchange_rate_raw;
 use crate::error::ContractError;

@@ -12,13 +12,13 @@ use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Decimal,
     DepsMut, SubMsg, Uint128, WasmMsg,
 };
-use moneymarket::custody::ExecuteMsg as CustodyExecuteMsg;
-use moneymarket::market::ExecuteMsg as MarketExecuteMsg;
-use moneymarket::overseer::{
+use moneymarket_old::custody::ExecuteMsg as CustodyExecuteMsg;
+use moneymarket_old::market::ExecuteMsg as MarketExecuteMsg;
+use moneymarket_old::overseer::{
     AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse, ConfigResponse, ExecuteMsg,
     InstantiateMsg, QueryMsg, WhitelistResponse, WhitelistResponseElem,
 };
-use moneymarket::querier::deduct_tax;
+use moneymarket_old::querier::deduct_tax;
 
 use std::str::FromStr;
 

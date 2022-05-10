@@ -3,7 +3,7 @@ use crate::error::ContractError;
 use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::from_binary;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-use moneymarket::oracle::{
+use moneymarket_old::oracle::{
     ConfigResponse, ExecuteMsg, FeederResponse, InstantiateMsg, PriceResponse, PricesResponse,
     PricesResponseElem, QueryMsg,
 };

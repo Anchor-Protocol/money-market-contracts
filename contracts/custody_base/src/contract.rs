@@ -13,8 +13,8 @@ use crate::error::ContractError;
 use crate::state::{read_config, store_config, Config};
 
 use cw20::Cw20ReceiveMsg;
-use moneymarket::common::optional_addr_validate;
-use moneymarket::custody::{
+use moneymarket_old::common::optional_addr_validate;
+use moneymarket_old::custody::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 use terra_cosmwasm::TerraMsgWrapper;

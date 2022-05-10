@@ -11,9 +11,9 @@ use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
 
 use cw20::TokenInfoResponse;
-use moneymarket::distribution_model::AncEmissionRateResponse;
-use moneymarket::interest_model::BorrowRateResponse;
-use moneymarket::overseer::{BorrowLimitResponse, ConfigResponse};
+use moneymarket_old::distribution_model::AncEmissionRateResponse;
+use moneymarket_old::interest_model::BorrowRateResponse;
+use moneymarket_old::overseer::{BorrowLimitResponse, ConfigResponse};
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

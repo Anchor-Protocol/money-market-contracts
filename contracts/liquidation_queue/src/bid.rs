@@ -12,8 +12,8 @@ use cosmwasm_std::{
     StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
-use moneymarket::oracle::PriceResponse;
-use moneymarket::querier::{deduct_tax, query_price, TimeConstraints};
+use moneymarket_old::oracle::PriceResponse;
+use moneymarket_old::querier::{deduct_tax, query_price, TimeConstraints};
 
 /// Stable asset is submitted to create a bid record. If available bids for the collateral is under
 /// the threshold, the bid is activated. Bids are not used for liquidations until activated

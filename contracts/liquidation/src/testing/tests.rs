@@ -8,7 +8,7 @@ use cosmwasm_std::{
     from_binary, to_binary, BankMsg, Coin, CosmosMsg, Decimal, SubMsg, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
-use moneymarket::liquidation::{
+use moneymarket_old::liquidation::{
     BidResponse, BidsResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg,
     LiquidationAmountResponse, QueryMsg,
 };

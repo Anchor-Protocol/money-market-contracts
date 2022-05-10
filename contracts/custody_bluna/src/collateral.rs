@@ -10,8 +10,8 @@ use cosmwasm_std::{
     StdResult, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
-use moneymarket::custody::{BorrowerResponse, BorrowersResponse};
-use moneymarket::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
+use moneymarket_old::custody::{BorrowerResponse, BorrowersResponse};
+use moneymarket_old::liquidation::Cw20HookMsg as LiquidationCw20HookMsg;
 use terra_cosmwasm::TerraMsgWrapper;
 
 /// Deposit new collateral

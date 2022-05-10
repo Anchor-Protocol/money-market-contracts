@@ -3,7 +3,7 @@ use crate::error::ContractError;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::from_binary;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-use moneymarket::interest_model::{
+use moneymarket_old::interest_model::{
     BorrowRateResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 
