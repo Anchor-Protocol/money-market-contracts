@@ -1,5 +1,5 @@
 [package]
-name = "moneymarket-oracle"
+name = "moneymarket-oracle-old"
 version = "0.0.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"

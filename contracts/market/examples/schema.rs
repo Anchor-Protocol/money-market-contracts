@@ -7,7 +7,7 @@ use moneymarket::market::{
     BorrowerInfoResponse, BorrowerInfosResponse, ConfigResponse, Cw20HookMsg, EpochStateResponse,
     ExecuteMsg, InstantiateMsg, QueryMsg,
 };
-use moneymarket_market::state::State;
+use moneymarket_market_old::state::State;
 
 fn main() {
     let mut out_dir = current_dir().unwrap();

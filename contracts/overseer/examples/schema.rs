@@ -7,7 +7,7 @@ use moneymarket::overseer::{
     AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse, ConfigResponse, ExecuteMsg,
     InstantiateMsg, QueryMsg, WhitelistResponse,
 };
-use moneymarket_overseer::state::EpochState;
+use moneymarket_overseer_old::state::EpochState;
 
 fn main() {
     let mut out_dir = current_dir().unwrap();

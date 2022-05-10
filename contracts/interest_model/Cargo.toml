@@ -1,5 +1,5 @@
 [package]
-name = "moneymarket-interest-model"
+name = "moneymarket-interest-model-old"
 version = "0.0.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"

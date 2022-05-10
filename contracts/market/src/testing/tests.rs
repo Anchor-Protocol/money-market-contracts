@@ -53,7 +53,7 @@ fn proper_initialization() {
                 admin: None,
                 code_id: 123u64,
                 funds: vec![],
-                label: "".to_string(),
+                label: "aterra".to_string(),
                 msg: to_binary(&TokenInstantiateMsg {
                     name: "Anchor Terra USD".to_string(),
                     symbol: "aUST".to_string(),

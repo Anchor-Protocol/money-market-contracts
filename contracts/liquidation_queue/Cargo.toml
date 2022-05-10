@@ -1,5 +1,5 @@
 [package]
-name = "moneymarket-liquidation-queue"
+name = "moneymarket-liquidation-queue-old"
 version = "0.0.0"
 authors = ["Terraform Labs, PTE."]
 edition = "2018"
