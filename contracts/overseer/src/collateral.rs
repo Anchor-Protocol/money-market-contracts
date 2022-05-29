@@ -221,15 +221,17 @@ pub fn repay_stable_from_yield_reserve(
     )?;
     let borrow_amount = borrow_amount_res.loan_amount;
 
-    let prev_balance: Uint256 = query_balance(deps.as_ref(), market.clone(), config.stable_denom)?;
-
-    let stable_denom = String::from("uusd");
+    let prev_balance: Uint256 = query_balance(
+        deps.as_ref(),
+        market.clone(),
+        config.stable_denom.to_owned(),
+    )?;
 
     let repay_messages = vec![
         CosmosMsg::Bank(BankMsg::Send {
             to_address: market.to_string(),
             amount: vec![Coin {
-                denom: stable_denom,
+                denom: config.stable_denom,
                 amount: borrow_amount.into(),
             }],
         }),
