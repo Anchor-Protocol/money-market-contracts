@@ -131,8 +131,8 @@ pub enum ExecuteMsg {
     FundReserve {},
 
     RepayStableFromYieldReserve {
-        borrower: String
-    }
+        borrower: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
