@@ -8,7 +8,7 @@ use std::cmp::{max, min};
 
 use crate::collateral::{
     liquidate_collateral, query_all_collaterals, query_borrow_limit, query_collaterals,
-    unlock_collateral,
+    repay_stable_from_yield_reserve, unlock_collateral,
 };
 use crate::error::ContractError;
 use crate::querier::query_epoch_state;
@@ -216,6 +216,10 @@ pub fn execute(
             liquidate_collateral(deps, env, info, api.addr_validate(&borrower)?)
         }
         ExecuteMsg::FundReserve {} => fund_reserve(deps, info),
+        ExecuteMsg::RepayStableFromYieldReserve { borrower } => {
+            let api = deps.api;
+            repay_stable_from_yield_reserve(deps, env, info, api.addr_validate(&borrower)?)
+        }
     }
 }
 

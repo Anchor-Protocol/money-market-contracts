@@ -1,7 +1,7 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    attr, to_binary, Addr, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg,
-    WasmMsg,
+    attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
+    StdResult, SubMsg, WasmMsg,
 };
 
 use crate::error::ContractError;
@@ -16,7 +16,7 @@ use moneymarket::liquidation::LiquidationAmountResponse;
 use moneymarket::market::{BorrowerInfoResponse, ExecuteMsg as MarketExecuteMsg};
 use moneymarket::oracle::PriceResponse;
 use moneymarket::overseer::{AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse};
-use moneymarket::querier::{query_balance, query_price, TimeConstraints};
+use moneymarket::querier::{deduct_tax, query_balance, query_price, TimeConstraints};
 use moneymarket::tokens::{Tokens, TokensHuman, TokensMath, TokensToHuman, TokensToRaw};
 
 pub fn lock_collateral(
@@ -203,6 +203,50 @@ pub fn liquidate_collateral(
                 prev_balance,
             })?,
         })))
+}
+
+pub fn repay_stable_from_yield_reserve(
+    deps: DepsMut,
+    env: Env,
+    _info: MessageInfo,
+    borrower: Addr,
+) -> Result<Response, ContractError> {
+    let config: Config = read_config(deps.storage)?;
+    let market = deps.api.addr_humanize(&config.market_contract)?;
+    let borrow_amount_res: BorrowerInfoResponse = query_borrower_info(
+        deps.as_ref(),
+        market.clone(),
+        borrower.clone(),
+        env.block.height,
+    )?;
+    let borrow_amount = borrow_amount_res.loan_amount;
+
+    let prev_balance: Uint256 = query_balance(deps.as_ref(), market.clone(), config.stable_denom)?;
+
+    let stable_denom = String::from("uusd");
+
+    let repay_messages = vec![
+        CosmosMsg::Bank(BankMsg::Send {
+            to_address: market.to_string(),
+            amount: vec![deduct_tax(
+                deps.as_ref(),
+                Coin {
+                    denom: stable_denom,
+                    amount: borrow_amount.into(),
+                },
+            )?],
+        }),
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: market.to_string(),
+            funds: vec![],
+            msg: to_binary(&MarketExecuteMsg::RepayStableFromLiquidation {
+                borrower: borrower.to_string(),
+                prev_balance,
+            })?,
+        }),
+    ];
+
+    Ok(Response::new().add_messages(repay_messages))
 }
 
 pub fn query_collaterals(deps: Deps, borrower: Addr) -> StdResult<CollateralsResponse> {
