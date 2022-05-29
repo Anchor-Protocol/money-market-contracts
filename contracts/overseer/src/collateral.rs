@@ -16,7 +16,7 @@ use moneymarket::liquidation::LiquidationAmountResponse;
 use moneymarket::market::{BorrowerInfoResponse, ExecuteMsg as MarketExecuteMsg};
 use moneymarket::oracle::PriceResponse;
 use moneymarket::overseer::{AllCollateralsResponse, BorrowLimitResponse, CollateralsResponse};
-use moneymarket::querier::{deduct_tax, query_balance, query_price, TimeConstraints};
+use moneymarket::querier::{query_balance, query_price, TimeConstraints};
 use moneymarket::tokens::{Tokens, TokensHuman, TokensMath, TokensToHuman, TokensToRaw};
 
 pub fn lock_collateral(
@@ -228,13 +228,10 @@ pub fn repay_stable_from_yield_reserve(
     let repay_messages = vec![
         CosmosMsg::Bank(BankMsg::Send {
             to_address: market.to_string(),
-            amount: vec![deduct_tax(
-                deps.as_ref(),
-                Coin {
-                    denom: stable_denom,
-                    amount: borrow_amount.into(),
-                },
-            )?],
+            amount: vec![Coin {
+                denom: stable_denom,
+                amount: borrow_amount.into(),
+            }],
         }),
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: market.to_string(),
