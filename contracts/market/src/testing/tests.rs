@@ -1,5 +1,5 @@
-use crate::borrow::borrow_stable as _borrow_stable;
 use crate::contract::{execute, instantiate, query, reply, INITIAL_DEPOSIT_AMOUNT};
+use crate::borrow::{borrow_stable as _borrow_stable};
 use crate::error::ContractError;
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{read_borrower_infos, read_state, store_state, State};
@@ -243,8 +243,7 @@ fn update_config() {
     }
 }
 
-#[test]
-#[ignore = "deprecated functionality"]
+#[test] #[ignore = "deprecated functionality"]
 fn deposit_stable_huge_amount() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -400,8 +399,7 @@ fn deposit_stable_huge_amount() {
     );
 }
 
-#[test]
-#[ignore = "deprecated functionality"]
+#[test] #[ignore = "deprecated functionality"]
 fn deposit_stable() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -850,8 +848,7 @@ fn redeem_stable() {
     );
 }
 
-#[test]
-#[ignore = "deprecated functionality"]
+#[test] #[ignore = "deprecated functionality"]
 fn borrow_stable() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -1096,8 +1093,7 @@ fn borrow_stable() {
     }
 }
 
-#[test]
-#[ignore = "deprecated functionality"]
+#[test] #[ignore = "deprecated functionality"]
 fn assert_max_borrow_factor() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -1207,8 +1203,7 @@ fn assert_max_borrow_factor() {
     }
 }
 
-#[test]
-#[ignore = "deprecated functionality"]
+#[test] #[ignore = "deprecated functionality"]
 fn repay_stable() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -1477,13 +1472,12 @@ fn repay_stable_from_liquidation() {
 
     // simulate borrow stable
     _borrow_stable(
-        deps.as_mut(),
-        env.clone(),
-        info.clone(),
-        Uint256::from(500000u64),
-        Some(Addr::unchecked("")),
-    )
-    .unwrap();
+        deps.as_mut(), 
+        env.clone(), 
+        info.clone(), 
+        Uint256::from(500000u64), 
+        Some(Addr::unchecked(""))
+    ).unwrap();
 
     // update balance to make repay
     deps.querier.update_balance(
@@ -1573,8 +1567,7 @@ fn repay_stable_from_liquidation() {
     );
 }
 
-#[test]
-#[ignore = "deprecated functionality"]
+#[test] #[ignore = "deprecated functionality"]
 fn claim_rewards() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -1705,8 +1698,7 @@ fn claim_rewards() {
     );
 }
 
-#[test]
-#[ignore = "deprecated functionality"]
+#[test] #[ignore = "deprecated functionality"]
 fn execute_epoch_operations() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
