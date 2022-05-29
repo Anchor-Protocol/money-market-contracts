@@ -2,10 +2,10 @@
 use cosmwasm_std::entry_point;
 
 use crate::borrow::{
-    borrow_stable, claim_rewards, compute_interest, compute_interest_raw, compute_reward,
-    query_borrower_info, query_borrower_infos, repay_stable, repay_stable_from_liquidation,
+    compute_interest, compute_interest_raw, compute_reward, query_borrower_info,
+    query_borrower_infos, repay_stable_from_liquidation,
 };
-use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
+use crate::deposit::{compute_exchange_rate_raw, redeem_stable};
 use crate::error::ContractError;
 use crate::querier::{query_borrow_rate, query_target_deposit_rate};
 use crate::response::MsgInstantiateContractResponse;
@@ -155,31 +155,17 @@ pub fn execute(
             )
         }
         ExecuteMsg::ExecuteEpochOperations {
-            deposit_rate,
-            target_deposit_rate,
-            threshold_deposit_rate,
-            distributed_interest,
-        } => execute_epoch_operations(
-            deps,
-            env,
-            info,
-            deposit_rate,
-            target_deposit_rate,
-            threshold_deposit_rate,
-            distributed_interest,
-        ),
-        ExecuteMsg::DepositStable {} => deposit_stable(deps, env, info),
-        ExecuteMsg::BorrowStable { borrow_amount, to } => {
-            let api = deps.api;
-            borrow_stable(
-                deps,
-                env,
-                info,
-                borrow_amount,
-                optional_addr_validate(api, to)?,
-            )
-        }
-        ExecuteMsg::RepayStable {} => repay_stable(deps, env, info),
+            deposit_rate: _,
+            target_deposit_rate: _,
+            threshold_deposit_rate: _,
+            distributed_interest: _,
+        } => Ok(Response::new()),
+        ExecuteMsg::DepositStable {} => Ok(Response::new()),
+        ExecuteMsg::BorrowStable {
+            borrow_amount: _,
+            to: _,
+        } => Ok(Response::new()),
+        ExecuteMsg::RepayStable {} => Ok(Response::new()),
         ExecuteMsg::RepayStableFromLiquidation {
             borrower,
             prev_balance,
@@ -193,10 +179,7 @@ pub fn execute(
                 prev_balance,
             )
         }
-        ExecuteMsg::ClaimRewards { to } => {
-            let api = deps.api;
-            claim_rewards(deps, env, info, optional_addr_validate(api, to)?)
-        }
+        ExecuteMsg::ClaimRewards { to: _ } => Ok(Response::new()),
     }
 }
 

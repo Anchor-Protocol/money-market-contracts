@@ -1,3 +1,4 @@
+use crate::borrow::borrow_stable as _borrow_stable;
 use crate::contract::{execute, instantiate, query, reply, INITIAL_DEPOSIT_AMOUNT};
 use crate::error::ContractError;
 use crate::response::MsgInstantiateContractResponse;
@@ -243,6 +244,7 @@ fn update_config() {
 }
 
 #[test]
+#[ignore = "deprecated functionality"]
 fn deposit_stable_huge_amount() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -399,6 +401,7 @@ fn deposit_stable_huge_amount() {
 }
 
 #[test]
+#[ignore = "deprecated functionality"]
 fn deposit_stable() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -714,7 +717,25 @@ fn redeem_stable() {
         }],
     );
 
+    // deposit stable is no-ops
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    // set prev_aterra_supply to `deposit amount` i.e: simulate deposit stable
+    store_state(
+        deps.as_mut().storage,
+        &State {
+            total_liabilities: Decimal256::zero(),
+            total_reserves: Decimal256::zero(),
+            last_interest_updated: mock_env().block.height,
+            last_reward_updated: mock_env().block.height,
+            global_interest_index: Decimal256::one(),
+            global_reward_index: Decimal256::zero(),
+            anc_emission_rate: Decimal256::one(),
+            prev_aterra_supply: Uint256::from(Uint128::from(1000000u128)),
+            prev_exchange_rate: Decimal256::one(),
+        },
+    )
+    .unwrap();
 
     deps.querier.with_token_balances(&[(
         &"at-uusd".to_string(),
@@ -830,6 +851,7 @@ fn redeem_stable() {
 }
 
 #[test]
+#[ignore = "deprecated functionality"]
 fn borrow_stable() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -1075,6 +1097,7 @@ fn borrow_stable() {
 }
 
 #[test]
+#[ignore = "deprecated functionality"]
 fn assert_max_borrow_factor() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -1185,6 +1208,7 @@ fn assert_max_borrow_factor() {
 }
 
 #[test]
+#[ignore = "deprecated functionality"]
 fn repay_stable() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -1442,6 +1466,7 @@ fn repay_stable_from_liquidation() {
     )
     .unwrap();
 
+    // borrow stable is no-ops
     let msg = ExecuteMsg::BorrowStable {
         borrow_amount: Uint256::from(500000u64),
         to: None,
@@ -1449,6 +1474,16 @@ fn repay_stable_from_liquidation() {
 
     env.block.height += 100;
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    // simulate borrow stable
+    _borrow_stable(
+        deps.as_mut(),
+        env.clone(),
+        info.clone(),
+        Uint256::from(500000u64),
+        Some(Addr::unchecked("")),
+    )
+    .unwrap();
 
     // update balance to make repay
     deps.querier.update_balance(
@@ -1539,6 +1574,7 @@ fn repay_stable_from_liquidation() {
 }
 
 #[test]
+#[ignore = "deprecated functionality"]
 fn claim_rewards() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -1670,6 +1706,7 @@ fn claim_rewards() {
 }
 
 #[test]
+#[ignore = "deprecated functionality"]
 fn execute_epoch_operations() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
