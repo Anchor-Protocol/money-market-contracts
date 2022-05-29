@@ -88,7 +88,7 @@ pub fn instantiate(
                 admin: None,
                 code_id: msg.aterra_code_id,
                 funds: vec![],
-                label: "".to_string(),
+                label: "aterra".to_string(),
                 msg: to_binary(&TokenInstantiateMsg {
                     name: format!("Anchor Terra {}", msg.stable_denom[1..].to_uppercase()),
                     symbol: format!(

@@ -48,17 +48,7 @@ pub struct InstantiateMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct MigrateMsg {
-    /// Period of time in blocks when rate is evaluated/changed
-    pub dyn_rate_epoch: u64,
-    /// Maximum allowed rate change per epoch
-    pub dyn_rate_maxchange: Decimal256,
-    /// Margin to define expectation of rate increase
-    pub dyn_rate_yr_increase_expectation: Decimal256,
-    pub dyn_rate_current: Decimal256,
-    pub dyn_rate_min: Decimal256,
-    pub dyn_rate_max: Decimal256,
-}
+pub struct MigrateMsg {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
