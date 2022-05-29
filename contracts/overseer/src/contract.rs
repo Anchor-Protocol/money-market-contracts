@@ -7,8 +7,8 @@ use cosmwasm_std::{
 use std::cmp::{max, min};
 
 use crate::collateral::{
-    liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
-    query_collaterals, unlock_collateral,
+    liquidate_collateral, query_all_collaterals, query_borrow_limit, query_collaterals,
+    unlock_collateral,
 };
 use crate::error::ContractError;
 use crate::querier::query_epoch_state;
@@ -202,12 +202,12 @@ pub fn execute(
                 max_ltv,
             )
         }
-        ExecuteMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
+        ExecuteMsg::ExecuteEpochOperations {} => Ok(Response::new()),
         ExecuteMsg::UpdateEpochState {
             interest_buffer,
             distributed_interest,
         } => update_epoch_state(deps, env, info, interest_buffer, distributed_interest),
-        ExecuteMsg::LockCollateral { collaterals } => lock_collateral(deps, info, collaterals),
+        ExecuteMsg::LockCollateral { collaterals: _ } => Ok(Response::new()),
         ExecuteMsg::UnlockCollateral { collaterals } => {
             unlock_collateral(deps, env, info, collaterals)
         }

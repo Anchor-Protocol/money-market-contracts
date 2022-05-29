@@ -1,3 +1,4 @@
+use crate::collateral::lock_collateral as _lock_collateral;
 use crate::contract::{execute, instantiate, query};
 use crate::error::ContractError;
 use crate::querier::query_epoch_state;
@@ -363,6 +364,7 @@ fn whitelist() {
 }
 
 #[test]
+#[ignore = "deprecated functionality"]
 fn execute_epoch_operations() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -747,6 +749,7 @@ fn update_epoch_state() {
 }
 
 #[test]
+#[ignore = "deprecated functionality"]
 fn lock_collateral() {
     let mut deps = mock_dependencies(&[]);
 
@@ -954,14 +957,20 @@ fn unlock_collateral() {
 
     let _res = execute(deps.as_mut(), env.clone(), info, msg);
 
+    let collaterals = vec![
+        ("bluna".to_string(), Uint256::from(1000000u64)),
+        ("batom".to_string(), Uint256::from(10000000u64)),
+    ];
+
+    // lock collateral is no-ops
     let msg = ExecuteMsg::LockCollateral {
-        collaterals: vec![
-            ("bluna".to_string(), Uint256::from(1000000u64)),
-            ("batom".to_string(), Uint256::from(10000000u64)),
-        ],
+        collaterals: collaterals.clone(),
     };
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    // simulate lock collateral
+    _lock_collateral(deps.as_mut(), info.clone(), collaterals).unwrap();
 
     // Failed to unlock more than locked amount
     let msg = ExecuteMsg::UnlockCollateral {
@@ -1187,14 +1196,20 @@ fn liquidate_collateral() {
 
     let _res = execute(deps.as_mut(), env.clone(), info, msg);
 
+    let collaterals = vec![
+        (bluna_collat_token.clone(), Uint256::from(1000000u64)),
+        (batom_collat_token.clone(), Uint256::from(10000000u64)),
+    ];
+
+    // lock collateral is no-ops
     let msg = ExecuteMsg::LockCollateral {
-        collaterals: vec![
-            (bluna_collat_token.clone(), Uint256::from(1000000u64)),
-            (batom_collat_token.clone(), Uint256::from(10000000u64)),
-        ],
+        collaterals: collaterals.clone(),
     };
     let info = mock_info("addr0000", &[]);
-    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    // simulate lock collateral
+    _lock_collateral(deps.as_mut(), info, collaterals).unwrap();
 
     deps.querier.with_oracle_price(&[
         (
