@@ -6,6 +6,7 @@ use cosmwasm_std::testing::{mock_env, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{Api, Coin, Uint128};
 
 #[test]
+#[ignore = "deprecated functionality"]
 fn proper_compute_exchange_rate() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
