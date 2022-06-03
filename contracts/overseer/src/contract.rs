@@ -172,12 +172,12 @@ pub fn execute(
                 max_ltv,
             )
         }
-        ExecuteMsg::ExecuteEpochOperations {} => Ok(Response::new()),
+        ExecuteMsg::ExecuteEpochOperations {} => Err(ContractError::Deprecated {}),
         ExecuteMsg::UpdateEpochState {
             interest_buffer,
             distributed_interest,
         } => update_epoch_state(deps, env, info, interest_buffer, distributed_interest),
-        ExecuteMsg::LockCollateral { collaterals: _ } => Ok(Response::new()),
+        ExecuteMsg::LockCollateral { collaterals: _ } => Err(ContractError::Deprecated {}),
         ExecuteMsg::UnlockCollateral { collaterals } => {
             unlock_collateral(deps, env, info, collaterals)
         }

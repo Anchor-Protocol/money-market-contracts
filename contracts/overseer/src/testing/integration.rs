@@ -438,15 +438,6 @@ fn test_successfully_repay_stable_from_yield_reserve() {
 
     migrate_contracts(&mut app, &market_addr, &overseer_addr);
 
-    // borrow stable is not working now
-    let msg = MarketExecuteMsg::BorrowStable {
-        borrow_amount: Uint256::from(847_426_363_233u64),
-        to: None,
-    };
-
-    app.execute_contract(user.clone(), market_addr.clone(), &msg, &[])
-        .unwrap();
-
     // repay stable from yield reserve
     let msg = OverseerExecuteMsg::RepayStableFromYieldReserve {
         borrower: user.to_string(),

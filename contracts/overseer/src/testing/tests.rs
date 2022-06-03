@@ -962,12 +962,7 @@ fn unlock_collateral() {
         ("batom".to_string(), Uint256::from(10000000u64)),
     ];
 
-    // lock collateral is no-ops
-    let msg = ExecuteMsg::LockCollateral {
-        collaterals: collaterals.clone(),
-    };
     let info = mock_info("addr0000", &[]);
-    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     // simulate lock collateral
     _lock_collateral(deps.as_mut(), info.clone(), collaterals).unwrap();
@@ -1201,12 +1196,7 @@ fn liquidate_collateral() {
         (batom_collat_token.clone(), Uint256::from(10000000u64)),
     ];
 
-    // lock collateral is no-ops
-    let msg = ExecuteMsg::LockCollateral {
-        collaterals: collaterals.clone(),
-    };
     let info = mock_info("addr0000", &[]);
-    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     // simulate lock collateral
     _lock_collateral(deps.as_mut(), info, collaterals).unwrap();

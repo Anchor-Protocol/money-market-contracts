@@ -159,13 +159,13 @@ pub fn execute(
             target_deposit_rate: _,
             threshold_deposit_rate: _,
             distributed_interest: _,
-        } => Ok(Response::new()),
-        ExecuteMsg::DepositStable {} => Ok(Response::new()),
+        } => Err(ContractError::Deprecated {}),
+        ExecuteMsg::DepositStable {} => Err(ContractError::Deprecated {}),
         ExecuteMsg::BorrowStable {
             borrow_amount: _,
             to: _,
-        } => Ok(Response::new()),
-        ExecuteMsg::RepayStable {} => Ok(Response::new()),
+        } => Err(ContractError::Deprecated {}),
+        ExecuteMsg::RepayStable {} => Err(ContractError::Deprecated {}),
         ExecuteMsg::RepayStableFromLiquidation {
             borrower,
             prev_balance,
@@ -179,7 +179,7 @@ pub fn execute(
                 prev_balance,
             )
         }
-        ExecuteMsg::ClaimRewards { to: _ } => Ok(Response::new()),
+        ExecuteMsg::ClaimRewards { to: _ } => Err(ContractError::Deprecated {}),
     }
 }
 

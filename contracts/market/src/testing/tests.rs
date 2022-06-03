@@ -693,16 +693,6 @@ fn redeem_stable() {
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    // Deposit 1000000
-    let msg = ExecuteMsg::DepositStable {};
-    let info = mock_info(
-        "addr0000",
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128::from(1000000u128),
-        }],
-    );
-
     deps.querier
         .with_borrow_rate(&[(&"interest".to_string(), &Decimal256::percent(1))]);
     deps.querier.with_token_balances(&[(
@@ -716,9 +706,6 @@ fn redeem_stable() {
             amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 1000000u128),
         }],
     );
-
-    // deposit stable is no-ops
-    let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // set prev_aterra_supply to `deposit amount` i.e: simulate deposit stable
     store_state(
@@ -1441,7 +1428,7 @@ fn repay_stable_from_liquidation() {
         collector_contract: "collector".to_string(),
         distributor_contract: "distributor".to_string(),
     };
-    let mut env = mock_env();
+    let env = mock_env();
     let info = mock_info("addr0000", &[]);
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
@@ -1465,15 +1452,6 @@ fn repay_stable_from_liquidation() {
         },
     )
     .unwrap();
-
-    // borrow stable is no-ops
-    let msg = ExecuteMsg::BorrowStable {
-        borrow_amount: Uint256::from(500000u64),
-        to: None,
-    };
-
-    env.block.height += 100;
-    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
     // simulate borrow stable
     _borrow_stable(
