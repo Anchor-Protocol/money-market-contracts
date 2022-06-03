@@ -46,16 +46,6 @@ thiserror = "1.0.2"
 cosmwasm-schema = "0.16.0"
 cw20 = "0.8.0"
 terra-cosmwasm = "2.2.0"
-terra-multi-test = { git = "https://github.com/astroport-fi/terra-plus.git", tag = "v0.9.1-terra" }
-cw20-base = { version = "0.8", features = ["library"] }
-moneymarket-market-old = { git = "https://github.com/Anchor-Protocol/money-market-contracts.git", branch = "dev/vUST" }
-moneymarket-overseer-old = { git = "https://github.com/Anchor-Protocol/money-market-contracts.git", branch = "dev/vUST" }
-moneymarket-market = { path = "../market" }
-moneymarket-overseer = { path = "../overseer" }
-moneymarket-oracle = { path = "../oracle" }
-moneymarket-interest-model = { path = "../interest_model" }
-moneymarket-distribution-model = { path = "../distribution_model" }
-astroport = "0.3.1"
 
 [profile.dev]
 overflow-checks = true
