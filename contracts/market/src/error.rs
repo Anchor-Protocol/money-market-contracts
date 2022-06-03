@@ -35,7 +35,4 @@ pub enum ContractError {
 
     #[error("Repay amount must be greater than 0 {0}")]
     ZeroRepay(String),
-
-    #[error("Functionality deprecated")]
-    Deprecated {},
 }

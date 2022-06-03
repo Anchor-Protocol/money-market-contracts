@@ -349,26 +349,6 @@
         }
       },
       "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "repay_stable_from_yield_reserve"
-      ],
-      "properties": {
-        "repay_stable_from_yield_reserve": {
-          "type": "object",
-          "required": [
-            "borrower"
-          ],
-          "properties": {
-            "borrower": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
     }
   ],
   "definitions": {
