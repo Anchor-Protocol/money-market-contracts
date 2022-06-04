@@ -7,8 +7,8 @@ use cosmwasm_std::{
 use std::cmp::{max, min};
 
 use crate::collateral::{
-    liquidate_collateral, lock_collateral, query_all_collaterals, query_borrow_limit,
-    query_collaterals, unlock_collateral,
+    liquidate_collateral, query_all_collaterals, query_borrow_limit, query_collaterals,
+    repay_stable_from_yield_reserve, unlock_collateral,
 };
 use crate::error::ContractError;
 use crate::querier::query_epoch_state;
@@ -92,37 +92,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> StdResult<Response> {
-    store_dynrate_config(
-        deps.storage,
-        &DynrateConfig {
-            dyn_rate_epoch: msg.dyn_rate_epoch,
-            dyn_rate_maxchange: msg.dyn_rate_maxchange,
-            dyn_rate_yr_increase_expectation: msg.dyn_rate_yr_increase_expectation,
-            dyn_rate_min: msg.dyn_rate_min,
-            dyn_rate_max: msg.dyn_rate_max,
-        },
-    )?;
-    let mut config = read_config(deps.storage)?;
-    let prev_yield_reserve = query_balance(
-        deps.as_ref(),
-        env.contract.address.clone(),
-        config.stable_denom.clone(),
-    )?;
-    store_dynrate_state(
-        deps.storage,
-        &DynrateState {
-            last_executed_height: env.block.height,
-            prev_yield_reserve: Decimal256::from_ratio(prev_yield_reserve, 1),
-        },
-    )?;
-    let new_rate = max(
-        min(config.threshold_deposit_rate, msg.dyn_rate_current),
-        msg.dyn_rate_min,
-    );
-    config.threshold_deposit_rate = new_rate;
-    config.target_deposit_rate = new_rate;
-    store_config(deps.storage, &config)?;
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     Ok(Response::default())
 }
 
@@ -202,12 +172,12 @@ pub fn execute(
                 max_ltv,
             )
         }
-        ExecuteMsg::ExecuteEpochOperations {} => execute_epoch_operations(deps, env),
+        ExecuteMsg::ExecuteEpochOperations {} => Err(ContractError::Deprecated {}),
         ExecuteMsg::UpdateEpochState {
             interest_buffer,
             distributed_interest,
         } => update_epoch_state(deps, env, info, interest_buffer, distributed_interest),
-        ExecuteMsg::LockCollateral { collaterals } => lock_collateral(deps, info, collaterals),
+        ExecuteMsg::LockCollateral { collaterals: _ } => Err(ContractError::Deprecated {}),
         ExecuteMsg::UnlockCollateral { collaterals } => {
             unlock_collateral(deps, env, info, collaterals)
         }
@@ -216,6 +186,10 @@ pub fn execute(
             liquidate_collateral(deps, env, info, api.addr_validate(&borrower)?)
         }
         ExecuteMsg::FundReserve {} => fund_reserve(deps, info),
+        ExecuteMsg::RepayStableFromYieldReserve { borrower } => {
+            let api = deps.api;
+            repay_stable_from_yield_reserve(deps, env, info, api.addr_validate(&borrower)?)
+        }
     }
 }
 
