@@ -26,4 +26,7 @@ pub enum ContractError {
 
     #[error("Unlock amount too high; Loan liability becomes greater than borrow limit: {0}")]
     UnlockTooLarge(u128),
+
+    #[error("Functionality deprecated")]
+    Deprecated {},
 }
