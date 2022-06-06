@@ -5,7 +5,7 @@ use crate::borrow::{
     compute_interest, compute_interest_raw, compute_reward, query_borrower_info,
     query_borrower_infos, repay_stable_from_liquidation,
 };
-use crate::deposit::{compute_exchange_rate_raw, redeem_stable};
+use crate::deposit::{compute_exchange_rate_raw, deposit_stable, redeem_stable};
 use crate::error::ContractError;
 use crate::querier::{query_borrow_rate, query_target_deposit_rate};
 use crate::response::MsgInstantiateContractResponse;
@@ -160,7 +160,7 @@ pub fn execute(
             threshold_deposit_rate: _,
             distributed_interest: _,
         } => Err(ContractError::Deprecated {}),
-        ExecuteMsg::DepositStable {} => Err(ContractError::Deprecated {}),
+        ExecuteMsg::DepositStable {} => deposit_stable(deps, env, info),
         ExecuteMsg::BorrowStable {
             borrow_amount: _,
             to: _,

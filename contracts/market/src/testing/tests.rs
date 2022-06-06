@@ -244,7 +244,6 @@ fn update_config() {
 }
 
 #[test]
-#[ignore = "deprecated functionality"]
 fn deposit_stable_huge_amount() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -401,7 +400,6 @@ fn deposit_stable_huge_amount() {
 }
 
 #[test]
-#[ignore = "deprecated functionality"]
 fn deposit_stable() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
