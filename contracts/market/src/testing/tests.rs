@@ -18,9 +18,9 @@ use moneymarket::market::{
     StateResponse,
 };
 use moneymarket::querier::deduct_tax;
+use moneymarket::terraswap::InstantiateMsg as TokenInstantiateMsg;
 use protobuf::Message;
 use std::str::FromStr;
-use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 
 #[test]
 fn proper_initialization() {
@@ -244,7 +244,6 @@ fn update_config() {
 }
 
 #[test]
-#[ignore = "deprecated functionality"]
 fn deposit_stable_huge_amount() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -401,7 +400,6 @@ fn deposit_stable_huge_amount() {
 }
 
 #[test]
-#[ignore = "deprecated functionality"]
 fn deposit_stable() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
