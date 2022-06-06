@@ -8,8 +8,8 @@ pub mod market;
 pub mod oracle;
 pub mod overseer;
 pub mod querier;
-pub mod tokens;
 pub mod terraswap;
+pub mod tokens;
 
 #[cfg(test)]
 mod mock_querier;
