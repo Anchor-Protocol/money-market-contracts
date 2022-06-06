@@ -18,9 +18,9 @@ use moneymarket::market::{
     StateResponse,
 };
 use moneymarket::querier::deduct_tax;
+use moneymarket::terraswap::InstantiateMsg as TokenInstantiateMsg;
 use protobuf::Message;
 use std::str::FromStr;
-use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 
 #[test]
 fn proper_initialization() {
