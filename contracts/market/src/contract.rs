@@ -25,8 +25,8 @@ use moneymarket::market::{
     QueryMsg, StateResponse,
 };
 use moneymarket::querier::{deduct_tax, query_balance, query_supply};
+use moneymarket::terraswap::{InstantiateMsg as TokenInstantiateMsg};
 use protobuf::Message;
-use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 
 pub const INITIAL_DEPOSIT_AMOUNT: u128 = 1000000;
 
