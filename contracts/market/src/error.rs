@@ -15,7 +15,7 @@ pub enum ContractError {
     #[error("Borrow amount too high; Loan liability becomes greater than borrow limit: {0}")]
     BorrowExceedsLimit(u128),
 
-    #[error("Must deposit initial funds {0}{0}")]
+    #[error("Must deposit initial funds {0}{1}")]
     InitialFundsNotDeposited(u128, String),
 
     #[error("Invalid reply ID")]
